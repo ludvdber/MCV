@@ -1,0 +1,54 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.0.1'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.mars'
+version = '0.0.1-SNAPSHOT'
+description = 'Mars Atmospheric Data Visualizer'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+	// Repository UCAR pour NetCDF-Java
+	maven {
+		url 'https://artifacts.unidata.ucar.edu/repository/unidata-all/'
+	}
+}
+
+dependencies {
+	// Spring Boot starters
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	
+	// NetCDF library (UCAR) - VERSION CORRECTE
+	// NetCDF-Java 5.x utilise ces coordonnées
+	implementation 'edu.ucar:cdm-core:5.6.0'
+	
+	// Lombok
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	
+	// DevTools (rechargement automatique)
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	
+	// Tests
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
