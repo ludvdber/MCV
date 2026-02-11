@@ -13,6 +13,7 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 
 import com.mars.visualizer.config.DataPathConfig;
+import com.mars.visualizer.exception.NetCDFException;
 
 import lombok.extern.slf4j.Slf4j;
 import ucar.nc2.NetcdfFile;
@@ -216,10 +217,10 @@ public class NetCDFReaderService {
 	 * @param timeIndex     index temporel
 	 * @param altitudeIndex index altitude
 	 * @return Map contenant data, latitudes, longitudes
-	 * @throws IOException si erreur lecture
+	 * @throws NetCDFException si erreur lecture
 	 */
 	public Map<String, Object> extractSlice2DWithCoords(String filename, String variableName, int timeIndex,
-			int altitudeIndex) throws IOException {
+			int altitudeIndex) {
 
 		log.info("Extraction slice 2D avec coordonnées : fichier={}, variable={}, time={}, altitude={}", filename,
 				variableName, timeIndex, altitudeIndex);
@@ -229,9 +230,7 @@ public class NetCDFReaderService {
 			// Récupérer la variable
 			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
 			if (variable == null) {
-				String errorMsg = "Variable introuvable : " + variableName;
-				log.error(errorMsg);
-				throw new IOException(errorMsg);
+				throw new NetCDFException("Variable introuvable : " + variableName);
 			}
 
 			// Lire les données
@@ -265,12 +264,181 @@ public class NetCDFReaderService {
 			log.info("Slice 2D extraite avec coordonnées : {}x{}", nLat, nLon);
 
 			return result;
+
+		} catch (NetCDFException e) {
+			throw e;
+		} catch (IOException e) {
+			throw new NetCDFException("Erreur lecture slice 2D dans '" + filename + "'", e);
+		}
+	}
+
+	// =========================================================================
+	// Méthodes ajoutées
+	// =========================================================================
+
+	/**
+	 * Extrait une série temporelle (48 valeurs) en un point géographique.
+	 * Utilisé pour UC3 (analyse série temporelle).
+	 * <p>
+	 * Algorithme :
+	 * <ol>
+	 *   <li>Ouvre le fichier NetCDF</li>
+	 *   <li>Lit les coordonnées lat/lon du fichier</li>
+	 *   <li>Trouve les indices lat/lon les plus proches du point demandé</li>
+	 *   <li>Extrait les 48 valeurs (tous les timesteps) à
+	 *       [time=0..47, alt=altitudeIndex, lat=idx, lon=idx]</li>
+	 * </ol>
+	 *
+	 * @param filename      nom du fichier MEAN
+	 * @param variableName  variable à extraire (ex: TT)
+	 * @param latitude      latitude du point (-90 à 90)
+	 * @param longitude     longitude du point (-180 à 180)
+	 * @param altitudeIndex index d'altitude (0-102)
+	 * @return liste de 48 valeurs (une par timestep)
+	 * @throws NetCDFException si erreur lecture NetCDF
+	 * @author Ludo
+	 * @version 1.0
+	 */
+	public List<Float> extractTimeSeries(String filename, String variableName, double latitude, double longitude,
+			int altitudeIndex) {
+
+		log.info("Extraction série temporelle : fichier={}, variable={}, lat={}, lon={}, altitude={}", filename,
+				variableName, latitude, longitude, altitudeIndex);
+
+		try (NetcdfFile ncfile = openMeanFile(filename)) {
+
+			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
+			if (variable == null) {
+				throw new NetCDFException("Variable introuvable : " + variableName);
+			}
+
+			// Lire les coordonnées pour trouver les indices les plus proches
+			double[] latitudes  = extractCoordinates(ncfile, "lat");
+			double[] longitudes = extractCoordinates(ncfile, "lon");
+
+			int latIdx = findNearestIndex(latitudes,  latitude);
+			int lonIdx = findNearestIndex(longitudes, longitude);
+
+			log.debug("Indices les plus proches : latIdx={}, lonIdx={}", latIdx, lonIdx);
+
+			// Lire les données complètes [time, altitude, lat, lon]
+			ucar.ma2.Array data  = variable.read();
+			int[]          shape = data.getShape();
+			int            nTime = shape[0];
+
+			ucar.ma2.Index index  = data.getIndex();
+			List<Float>    series = new ArrayList<>(nTime);
+
+			for (int t = 0; t < nTime; t++) {
+				index.set(t, altitudeIndex, latIdx, lonIdx);
+				series.add(data.getFloat(index));
+			}
+
+			log.debug("Série temporelle extraite : {} valeurs", series.size());
+
+			return series;
+
+		} catch (NetCDFException e) {
+			throw e;
+		} catch (IOException e) {
+			throw new NetCDFException("Erreur lecture série temporelle dans '" + filename + "'", e);
 		}
 	}
 
 	/**
+	 * Extrait 48 frames pour animation diurne (UC5).
+	 * Chaque frame est une slice 2D [lat][lon] à un timestep différent.
+	 * <p>
+	 * Utilisé pour visualiser le cycle jour/nuit complet sur Mars.
+	 *
+	 * @param filename      nom du fichier MEAN
+	 * @param variableName  variable à extraire
+	 * @param altitudeIndex index d'altitude
+	 * @return liste de 48 frames ({@code float[][]})
+	 * @throws NetCDFException si erreur lecture NetCDF
+	 * @author Ludo
+	 * @version 1.0
+	 */
+	public List<float[][]> extractAnimationFrames(String filename, String variableName, int altitudeIndex) {
+
+		log.info("Extraction frames animation : fichier={}, variable={}, altitude={}", filename, variableName,
+				altitudeIndex);
+
+		try (NetcdfFile ncfile = openMeanFile(filename)) {
+
+			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
+			if (variable == null) {
+				throw new NetCDFException("Variable introuvable : " + variableName);
+			}
+
+			ucar.ma2.Array data  = variable.read();
+			int[]          shape = data.getShape();
+			int            nTime = shape[0];
+			int            nLat  = shape[2];
+			int            nLon  = shape[3];
+
+			ucar.ma2.Index  index  = data.getIndex();
+			List<float[][]> frames = new ArrayList<>(nTime);
+
+			for (int t = 0; t < nTime; t++) {
+				float[][] frame = new float[nLat][nLon];
+				for (int lat = 0; lat < nLat; lat++) {
+					for (int lon = 0; lon < nLon; lon++) {
+						index.set(t, altitudeIndex, lat, lon);
+						frame[lat][lon] = data.getFloat(index);
+					}
+				}
+				frames.add(frame);
+			}
+
+			log.debug("Frames animation extraites : {} frames de {}x{}", nTime, nLat, nLon);
+
+			return frames;
+
+		} catch (NetCDFException e) {
+			throw e;
+		} catch (IOException e) {
+			throw new NetCDFException("Erreur lecture frames animation dans '" + filename + "'", e);
+		}
+	}
+
+	// =========================================================================
+	// Méthodes privées
+	// =========================================================================
+
+	/**
+	 * Trouve l'index du tableau de coordonnées dont la valeur est la plus proche
+	 * de la coordonnée cible.
+	 *
+	 * @param coords coordonnées extraites du fichier NetCDF (lat ou lon)
+	 * @param target valeur cible (latitude ou longitude demandée)
+	 * @return index le plus proche dans le tableau
+	 * @throws NetCDFException si le tableau de coordonnées est null ou vide
+	 */
+	private int findNearestIndex(double[] coords, double target) {
+		if (coords == null || coords.length == 0) {
+			throw new NetCDFException("Coordonnées introuvables dans le fichier NetCDF.");
+		}
+
+		int    bestIdx  = 0;
+		double bestDist = Math.abs(coords[0] - target);
+
+		for (int i = 1; i < coords.length; i++) {
+			double dist = Math.abs(coords[i] - target);
+			if (dist < bestDist) {
+				bestDist = dist;
+				bestIdx  = i;
+			}
+		}
+
+		log.debug("findNearestIndex : target={}, idx={}, valeur={}", target, bestIdx, coords[bestIdx]);
+
+		return bestIdx;
+	}
+
+	/**
 	 * Extrait les valeurs d'une coordonnée (lat ou lon).
-	 * 
+	 *
 	 * @param ncfile    fichier NetCDF ouvert
 	 * @param coordName nom de la coordonnée (lat ou lon)
 	 * @return tableau des valeurs de coordonnées

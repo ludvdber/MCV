@@ -1,55 +1,73 @@
 package com.mars.visualizer.controller;
-
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
+import com.mars.visualizer.dto.response.AnimationResponse;
+import com.mars.visualizer.dto.response.DatasetMetadata;
+import com.mars.visualizer.dto.response.SliceResponse;
+import com.mars.visualizer.dto.response.StatsResult;
+import com.mars.visualizer.dto.response.TimeSeriesResponse;
+import com.mars.visualizer.exception.ValidationException;
+import com.mars.visualizer.service.CatalogService;
 import com.mars.visualizer.service.NetCDFReaderService;
-
+import com.mars.visualizer.service.ValidationService;
+import com.mars.visualizer.util.StatsCalculator;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Controller REST pour l'accès aux fichiers NetCDF. Expose les endpoints de
- * l'API pour lister et consulter les fichiers.
+ * Controller REST principal.
+ * Expose les endpoints de consultation du catalogue et d'extraction des données
+ * depuis les fichiers NetCDF MEAN.
+ * 
+ * Les exceptions métier ({@link ValidationException},
+ * {@link com.mars.visualizer.exception.NetCDFException}) sont déléguées au
+ * {@link com.mars.visualizer.exception.GlobalExceptionHandler}.
+ *
+ * @author Ludo
+ * @version 1.0
  */
 @RestController
-@RequestMapping("/api/files")
+@RequestMapping("/api")
 @CrossOrigin(origins = "*")
 @Slf4j
 public class FileController {
 
 	private final NetCDFReaderService netcdfService;
+	private final CatalogService      catalogService;
+	private final ValidationService   validationService;
 
 	/**
 	 * Constructeur avec injection de dépendances.
-	 * 
-	 * @param netcdfService service de lecture NetCDF
+	 *
+	 * @param netcdfService     service de lecture NetCDF
+	 * @param catalogService    service de gestion du catalogue
+	 * @param validationService service de validation des paramètres
 	 */
-	public FileController(NetCDFReaderService netcdfService) {
-		this.netcdfService = netcdfService;
+	public FileController(NetCDFReaderService netcdfService,
+						  CatalogService catalogService,
+						  ValidationService validationService) {
+		this.netcdfService     = netcdfService;
+		this.catalogService    = catalogService;
+		this.validationService = validationService;
 		log.info("FileController initialisé");
 	}
 
 	/**
 	 * Endpoint de test pour vérifier que l'API fonctionne.
 	 * 
-	 * GET /api/files/health
-	 * 
-	 * @return message de statut
+	 * GET /api/health
+	 *
+	 * @return message de statut avec nom et version du service
 	 */
 	@GetMapping("/health")
 	public ResponseEntity<Map<String, String>> health() {
-		log.debug("Appel endpoint /api/files/health");
+		log.debug("Appel endpoint /api/health");
 
 		Map<String, String> response = new HashMap<>();
 		response.put("status", "OK");
@@ -60,212 +78,223 @@ public class FileController {
 	}
 
 	/**
-	 * Liste tous les fichiers MEAN disponibles.
+	 * Retourne le catalogue complet des datasets disponibles.
+	 * Endpoint principal pour UC1 (Explorer catalogue).
 	 * 
-	 * GET /api/files/mean
-	 * 
-	 * @return liste des noms de fichiers MEAN
+	 * GET /api/catalog
+	 *
+	 * @return liste des métadonnées de tous les datasets MEAN
 	 */
-	@GetMapping("/mean")
-	public ResponseEntity<?> listMeanFiles() {
-		log.info("Requête GET /api/files/mean");
+	@GetMapping("/catalog")
+	public ResponseEntity<List<DatasetMetadata>> getCatalog() {
+		log.info("GET /api/catalog");
 
-		try {
-			List<String> files = netcdfService.listMeanFiles();
+		List<DatasetMetadata> catalog = catalogService.getCatalog();
 
-			Map<String, Object> response = new HashMap<>();
-			response.put("count", files.size());
-			response.put("files", files);
+		log.info("Catalogue retourné : {} datasets", catalog.size());
 
-			log.info("Fichiers MEAN retournés : {} fichiers", files.size());
-
-			return ResponseEntity.ok(response);
-
-		} catch (IOException e) {
-			log.error("Erreur lecture répertoire MEAN", e);
-
-			Map<String, String> error = new HashMap<>();
-			error.put("error", "Erreur lecture répertoire MEAN");
-			error.put("message", e.getMessage());
-
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
-		}
+		return ResponseEntity.ok(catalog);
 	}
 
 	/**
-	 * Récupère les métadonnées d'un fichier MEAN spécifique.
+	 * Extrait une slice 2D pour visualisation carte (UC2).
 	 * 
-	 * GET /api/files/mean/{filename}
-	 * 
-	 * @param filename nom du fichier MEAN
-	 * @return métadonnées du fichier
+	 * GET /api/data/slice?dataset=...&amp;variable=TT&amp;time=0&amp;altitude=0
+	 *
+	 * @param dataset  identifiant du dataset
+	 * @param variable nom de la variable
+	 * @param time     index temporel (0-47)
+	 * @param altitude index d'altitude (0-102)
+	 * @return {@link SliceResponse} avec données 2D + coordonnées + stats
 	 */
-	@GetMapping("/mean/{filename}")
-	public ResponseEntity<?> getMeanFileInfo(@PathVariable("filename") String filename) {
-		log.info("Requête GET /api/files/mean/{}", filename);
+	@GetMapping("/data/slice")
+	public ResponseEntity<SliceResponse> getSlice2D(
+			@RequestParam String dataset,
+			@RequestParam(defaultValue = "TT") String variable,
+			@RequestParam(defaultValue = "0") int time,
+			@RequestParam(defaultValue = "0") int altitude) {
 
-		// Vérifier que le fichier existe
-		if (!netcdfService.meanFileExists(filename)) {
-			log.warn("Fichier MEAN introuvable : {}", filename);
+		log.info("GET /api/data/slice : dataset={}, variable={}, time={}, altitude={}",
+				dataset, variable, time, altitude);
 
-			Map<String, String> error = new HashMap<>();
-			error.put("error", "Fichier introuvable");
-			error.put("filename", filename);
+		String filename = resolveFilename(dataset);
+		validationService.validateTimestep(time);
+		validationService.validateAltitude(altitude);
 
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
-		}
+		Map<String, Object> sliceData = netcdfService.extractSlice2DWithCoords(
+				filename, variable, time, altitude);
 
-		try {
-			String info = netcdfService.getMeanFileInfo(filename);
+		float[][]  data       = (float[][]) sliceData.get("data");
+		double[]   latitudes  = (double[]) sliceData.get("latitudes");
+		double[]   longitudes = (double[]) sliceData.get("longitudes");
+		StatsResult stats     = toStatsResult(StatsCalculator.calculateStats(data));
 
-			Map<String, Object> response = new HashMap<>();
-			response.put("filename", filename);
-			response.put("info", info);
+		SliceResponse response = SliceResponse.builder()
+				.dataset(dataset)
+				.variable(variable)
+				.timeIndex(time)
+				.altitudeIndex(altitude)
+				.dimensions(Map.of("lat", data.length, "lon", data[0].length))
+				.data(data)
+				.latitudes(latitudes)
+				.longitudes(longitudes)
+				.stats(stats)
+				.build();
 
-			log.info("Métadonnées retournées pour : {}", filename);
+		log.info("Slice 2D retournée : {}x{}", data.length, data[0].length);
 
-			return ResponseEntity.ok(response);
-
-		} catch (IOException e) {
-			log.error("Erreur lecture fichier MEAN : {}", filename, e);
-
-			Map<String, String> error = new HashMap<>();
-			error.put("error", "Erreur lecture fichier");
-			error.put("filename", filename);
-			error.put("message", e.getMessage());
-
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
-		}
+		return ResponseEntity.ok(response);
 	}
 
 	/**
-	 * Compte le nombre de fichiers MEAN disponibles.
+	 * Extrait une série temporelle en un point (UC3).
+	 * Retourne 48 valeurs (cycle diurne complet).
 	 * 
-	 * GET /api/files/mean/count
-	 * 
-	 * @return nombre de fichiers
+	 * GET /api/data/timeseries?dataset=...&amp;variable=TT&amp;latitude=0&amp;longitude=0&amp;altitude=0
+	 *
+	 * @param dataset   identifiant du dataset
+	 * @param variable  nom de la variable
+	 * @param latitude  latitude du point (-90 à 90)
+	 * @param longitude longitude du point (-180 à 180)
+	 * @param altitude  index d'altitude (0-102)
+	 * @return {@link TimeSeriesResponse} avec 48 valeurs + stats
 	 */
-	@GetMapping("/mean/count")
-	public ResponseEntity<?> countMeanFiles() {
-		log.info("Requête GET /api/files/mean/count");
+	@GetMapping("/data/timeseries")
+	public ResponseEntity<TimeSeriesResponse> getTimeSeries(
+			@RequestParam String dataset,
+			@RequestParam(defaultValue = "TT") String variable,
+			@RequestParam double latitude,
+			@RequestParam double longitude,
+			@RequestParam(defaultValue = "0") int altitude) {
 
-		try {
-			int count = netcdfService.listMeanFiles().size();
+		log.info("GET /api/data/timeseries : dataset={}, variable={}, lat={}, lon={}, altitude={}",
+				dataset, variable, latitude, longitude, altitude);
 
-			Map<String, Integer> response = new HashMap<>();
-			response.put("count", count);
+		String filename = resolveFilename(dataset);
+		validationService.validateLatitude(latitude);
+		validationService.validateLongitude(longitude);
+		validationService.validateAltitude(altitude);
 
-			log.info("Nombre de fichiers MEAN : {}", count);
+		List<Float> values = netcdfService.extractTimeSeries(
+				filename, variable, latitude, longitude, altitude);
 
-			return ResponseEntity.ok(response);
+		StatsResult stats = toStatsResult(StatsCalculator.calculateStats(toFloatMatrix(values)));
 
-		} catch (IOException e) {
-			log.error("Erreur comptage fichiers MEAN", e);
+		TimeSeriesResponse response = TimeSeriesResponse.builder()
+				.dataset(dataset)
+				.variable(variable)
+				.latitude(latitude)
+				.longitude(longitude)
+				.altitudeIndex(altitude)
+				.values(values)
+				.stats(stats)
+				.build();
 
-			Map<String, String> error = new HashMap<>();
-			error.put("error", "Erreur comptage fichiers");
-			error.put("message", e.getMessage());
+		log.info("Série temporelle retournée : {} valeurs", values.size());
 
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+		return ResponseEntity.ok(response);
+	}
+
+
+	/**
+	 * Extrait 48 frames pour animation diurne (UC5).
+	 * Chaque frame est une slice 2D [lat][lon].
+	 * 
+	 * GET /api/data/animation?dataset=...&amp;variable=TT&amp;altitude=0
+	 *
+	 * @param dataset  identifiant du dataset
+	 * @param variable nom de la variable
+	 * @param altitude index d'altitude (0-102)
+	 * @return {@link AnimationResponse} avec 48 frames + coordonnées + stats
+	 */
+	@GetMapping("/data/animation")
+	public ResponseEntity<AnimationResponse> getAnimation(
+			@RequestParam String dataset,
+			@RequestParam(defaultValue = "TT") String variable,
+			@RequestParam(defaultValue = "0") int altitude) {
+
+		log.info("GET /api/data/animation : dataset={}, variable={}, altitude={}",
+				dataset, variable, altitude);
+
+		String filename = resolveFilename(dataset);
+		validationService.validateAltitude(altitude);
+
+		List<float[][]> frames = netcdfService.extractAnimationFrames(
+				filename, variable, altitude);
+
+		// Récupérer lat/lon depuis la frame 0 via extractSlice2DWithCoords
+		Map<String, Object> frame0Data = netcdfService.extractSlice2DWithCoords(
+				filename, variable, 0, altitude);
+
+		double[]    latitudes  = (double[]) frame0Data.get("latitudes");
+		double[]    longitudes = (double[]) frame0Data.get("longitudes");
+		StatsResult stats      = toStatsResult(StatsCalculator.calculateStats(frames.get(0)));
+
+		AnimationResponse response = AnimationResponse.builder()
+				.dataset(dataset)
+				.variable(variable)
+				.altitudeIndex(altitude)
+				.frameCount(frames.size())
+				.frames(frames)
+				.latitudes(latitudes)
+				.longitudes(longitudes)
+				.stats(stats)
+				.build();
+
+		log.info("Animation retournée : {} frames", frames.size());
+
+		return ResponseEntity.ok(response);
+	}
+
+	// Méthodes utilitaires
+	
+	/**
+	 * Vérifie qu'un dataset existe et retourne son nom de fichier complet.
+	 * Combine la vérification d'existence et la résolution du filename en une seule étape.
+	 *
+	 * @param dataset identifiant du dataset (sans extension)
+	 * @return nom de fichier avec extension {@code .nc}
+	 * @throws ValidationException si le dataset est introuvable dans le catalogue
+	 */
+	private String resolveFilename(String dataset) {
+		if (!catalogService.datasetExists(dataset)) {
+			throw new ValidationException("Dataset introuvable : '" + dataset + "'");
 		}
+		String filename = catalogService.getFilenameById(dataset);
+		if (filename == null) {
+			throw new ValidationException("Impossible de trouver le fichier pour dataset : '" + dataset + "'");
+		}
+		return filename;
 	}
 
 	/**
-	 * Liste les variables disponibles dans un fichier MEAN.
-	 * 
-	 * GET /api/files/mean/{filename}/variables
-	 * 
-	 * @param filename nom du fichier MEAN
-	 * @return liste des variables
+	 * Convertit la map de statistiques brutes en {@link StatsResult} DTO.
+	 *
+	 * @param statsMap map issue de {@link NetCDFReaderService#calculateStats(float[][])}
+	 * @return DTO de statistiques
 	 */
-	@GetMapping("/mean/{filename}/variables")
-	public ResponseEntity<?> listVariables(@PathVariable("filename") String filename) {
-		log.info("Requête GET /api/files/mean/{}/variables", filename);
-
-		if (!netcdfService.meanFileExists(filename)) {
-			Map<String, String> error = new HashMap<>();
-			error.put("error", "Fichier introuvable");
-			error.put("filename", filename);
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
-		}
-
-		try {
-			List<String> variables = netcdfService.listVariables(filename);
-
-			Map<String, Object> response = new HashMap<>();
-			response.put("filename", filename);
-			response.put("count", variables.size());
-			response.put("variables", variables);
-
-			return ResponseEntity.ok(response);
-
-		} catch (IOException e) {
-			log.error("Erreur liste variables : {}", filename, e);
-
-			Map<String, String> error = new HashMap<>();
-			error.put("error", "Erreur lecture variables");
-			error.put("message", e.getMessage());
-
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
-		}
+	private StatsResult toStatsResult(Map<String, Double> statsMap) {
+		return StatsResult.builder()
+				.min(statsMap.get("min"))
+				.max(statsMap.get("max"))
+				.mean(statsMap.get("mean"))
+				.stddev(statsMap.get("stddev"))
+				.build();
 	}
 
 	/**
-	 * Extrait une slice 2D d'une variable pour visualisation.
-	 * 
-	 * GET /api/files/mean/{filename}/slice?variable=TT&time=0&altitude=0
-	 * 
-	 * @param filename      nom du fichier MEAN
-	 * @param variable      nom de la variable (ex: TT)
-	 * @param timeIndex     index temporel (0-47)
-	 * @param altitudeIndex index altitude (0-102)
-	 * @return données 2D en JSON
+	 * Convertit une liste de flottants en matrice {@code float[1][n]}
+	 * pour être compatible avec {@link NetCDFReaderService#calculateStats(float[][])}.
+	 *
+	 * @param values liste de valeurs
+	 * @return matrice ligne contenant les mêmes valeurs
 	 */
-	@GetMapping("/mean/{filename}/slice")
-	public ResponseEntity<?> getSlice2D(@PathVariable("filename") String filename,
-			@RequestParam(name = "variable", defaultValue = "TT") String variable,
-			@RequestParam(name = "time", defaultValue = "0") int timeIndex,
-			@RequestParam(name = "altitude", defaultValue = "0") int altitudeIndex) {
-
-		log.info("Requête GET /api/files/mean/{}/slice?variable={}&time={}&altitude={}", filename, variable, timeIndex,
-				altitudeIndex);
-
-		if (!netcdfService.meanFileExists(filename)) {
-			Map<String, String> error = new HashMap<>();
-			error.put("error", "Fichier introuvable");
-			error.put("filename", filename);
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+	private float[][] toFloatMatrix(List<Float> values) {
+		float[][] matrix = new float[1][values.size()];
+		for (int i = 0; i < values.size(); i++) {
+			Float v = values.get(i);
+			matrix[0][i] = (v != null) ? v : Float.NaN;
 		}
-
-		try {
-			// Utiliser la version avec coordonnées
-			Map<String, Object> sliceData = netcdfService.extractSlice2DWithCoords(filename, variable, timeIndex,
-					altitudeIndex);
-
-			float[][] data = (float[][]) sliceData.get("data");
-
-			Map<String, Object> response = new HashMap<>();
-			response.put("filename", filename);
-			response.put("variable", variable);
-			response.put("timeIndex", timeIndex);
-			response.put("altitudeIndex", altitudeIndex);
-			response.put("dimensions", Map.of("lat", data.length, "lon", data[0].length));
-			response.put("data", data);
-			response.put("latitudes", sliceData.get("latitudes"));
-			response.put("longitudes", sliceData.get("longitudes"));
-
-			log.info("Slice 2D retournée : {}x{}", data.length, data[0].length);
-
-			return ResponseEntity.ok(response);
-
-		} catch (IOException e) {
-			log.error("Erreur extraction slice 2D : {}", filename, e);
-
-			Map<String, String> error = new HashMap<>();
-			error.put("error", "Erreur extraction données");
-			error.put("message", e.getMessage());
-
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
-		}
+		return matrix;
 	}
 }
