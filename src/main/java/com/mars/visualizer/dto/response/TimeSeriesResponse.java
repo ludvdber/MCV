@@ -28,6 +28,9 @@ public class TimeSeriesResponse {
     private Double longitude;
     private Integer altitudeIndex;
 
+    /** Altitude réelle en km (lue depuis la coordonnée NetCDF), null pour les variables de surface. */
+    private Double altitudeValue;
+
     /**
      * Valeurs de la variable aux 48 pas de temps.
      * L'index correspond au pas de temps (0 = début du cycle diurne martien).

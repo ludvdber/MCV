@@ -1,0 +1,15 @@
+/**
+ * Point d'entree de l'application React.
+ * Monte le composant <App /> dans l'element #root du DOM (index.html).
+ * StrictMode active des verifications supplementaires en developpement.
+ */
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.jsx'
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)

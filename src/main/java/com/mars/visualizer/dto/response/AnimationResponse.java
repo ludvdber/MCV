@@ -28,6 +28,9 @@ public class AnimationResponse {
     /** Index d'altitude commun à toutes les frames (0-102). */
     private Integer altitudeIndex;
 
+    /** Altitude réelle en km (lue depuis la coordonnée NetCDF), null pour les variables de surface. */
+    private Double altitudeValue;
+
     /**
      * Nombre de frames dans l'animation.
      * Correspond au nombre de pas de temps du dataset (typiquement 48).

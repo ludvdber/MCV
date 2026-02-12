@@ -161,25 +161,30 @@ public class NetCDFReaderService {
 
 			log.debug("Variable trouvée : {} (dimensions: {})", variableName, variable.getDimensions());
 
-			// Lire les données (format: [time, altitude, lat, lon])
+			// Lire les données
 			ucar.ma2.Array data = variable.read();
 
-			// Extraire la slice 2D à (timeIndex, altitudeIndex, :, :)
-			int[] shape = data.getShape();
-			int nLat = shape[2];
-			int nLon = shape[3];
+			// Variables de surface (3D : time, lat, lon) vs atmosphériques (4D : time, alt, lat, lon)
+			int[]   shape     = data.getShape();
+			boolean isSurface = (shape.length == 3);
+			int     nLat      = isSurface ? shape[1] : shape[2];
+			int     nLon      = isSurface ? shape[2] : shape[3];
 
 			float[][] slice = new float[nLat][nLon];
 
 			ucar.ma2.Index index = data.getIndex();
 			for (int lat = 0; lat < nLat; lat++) {
 				for (int lon = 0; lon < nLon; lon++) {
-					index.set(timeIndex, altitudeIndex, lat, lon);
+					if (isSurface) {
+						index.set(timeIndex, lat, lon);
+					} else {
+						index.set(timeIndex, altitudeIndex, lat, lon);
+					}
 					slice[lat][lon] = data.getFloat(index);
 				}
 			}
 
-			log.info("Slice 2D extraite : {}x{} valeurs", nLat, nLon);
+			log.info("Slice 2D extraite : {}x{} valeurs (surface={})", nLat, nLon, isSurface);
 
 			return slice;
 		}
@@ -236,17 +241,22 @@ public class NetCDFReaderService {
 			// Lire les données
 			ucar.ma2.Array data = variable.read();
 
-			// Extraire la slice 2D
-			int[] shape = data.getShape();
-			int nLat = shape[2];
-			int nLon = shape[3];
+			// Variables de surface (3D : time, lat, lon) vs atmosphériques (4D : time, alt, lat, lon)
+			int[]   shape     = data.getShape();
+			boolean isSurface = (shape.length == 3);
+			int     nLat      = isSurface ? shape[1] : shape[2];
+			int     nLon      = isSurface ? shape[2] : shape[3];
 
 			float[][] slice = new float[nLat][nLon];
 
 			ucar.ma2.Index index = data.getIndex();
 			for (int lat = 0; lat < nLat; lat++) {
 				for (int lon = 0; lon < nLon; lon++) {
-					index.set(timeIndex, altitudeIndex, lat, lon);
+					if (isSurface) {
+						index.set(timeIndex, lat, lon);
+					} else {
+						index.set(timeIndex, altitudeIndex, lat, lon);
+					}
 					slice[lat][lon] = data.getFloat(index);
 				}
 			}
@@ -261,7 +271,7 @@ public class NetCDFReaderService {
 			result.put("latitudes", latitudes);
 			result.put("longitudes", longitudes);
 
-			log.info("Slice 2D extraite avec coordonnées : {}x{}", nLat, nLon);
+			log.info("Slice 2D extraite avec coordonnées : {}x{} (surface={})", nLat, nLon, isSurface);
 
 			return result;
 
@@ -321,20 +331,25 @@ public class NetCDFReaderService {
 
 			log.debug("Indices les plus proches : latIdx={}, lonIdx={}", latIdx, lonIdx);
 
-			// Lire les données complètes [time, altitude, lat, lon]
+			// Lire les données
 			ucar.ma2.Array data  = variable.read();
 			int[]          shape = data.getShape();
+			boolean     isSurface = (shape.length == 3);
 			int            nTime = shape[0];
 
 			ucar.ma2.Index index  = data.getIndex();
 			List<Float>    series = new ArrayList<>(nTime);
 
 			for (int t = 0; t < nTime; t++) {
-				index.set(t, altitudeIndex, latIdx, lonIdx);
+				if (isSurface) {
+					index.set(t, latIdx, lonIdx);
+				} else {
+					index.set(t, altitudeIndex, latIdx, lonIdx);
+				}
 				series.add(data.getFloat(index));
 			}
 
-			log.debug("Série temporelle extraite : {} valeurs", series.size());
+			log.debug("Série temporelle extraite : {} valeurs (surface={})", series.size(), isSurface);
 
 			return series;
 
@@ -373,9 +388,13 @@ public class NetCDFReaderService {
 
 			ucar.ma2.Array data  = variable.read();
 			int[]          shape = data.getShape();
+			int            nDims = shape.length;
 			int            nTime = shape[0];
-			int            nLat  = shape[2];
-			int            nLon  = shape[3];
+
+			// Variables de surface (3D : time, lat, lon) vs atmosphériques (4D : time, alt, lat, lon)
+			boolean isSurface = (nDims == 3);
+			int     nLat      = isSurface ? shape[1] : shape[2];
+			int     nLon      = isSurface ? shape[2] : shape[3];
 
 			ucar.ma2.Index  index  = data.getIndex();
 			List<float[][]> frames = new ArrayList<>(nTime);
@@ -384,14 +403,18 @@ public class NetCDFReaderService {
 				float[][] frame = new float[nLat][nLon];
 				for (int lat = 0; lat < nLat; lat++) {
 					for (int lon = 0; lon < nLon; lon++) {
-						index.set(t, altitudeIndex, lat, lon);
+						if (isSurface) {
+							index.set(t, lat, lon);
+						} else {
+							index.set(t, altitudeIndex, lat, lon);
+						}
 						frame[lat][lon] = data.getFloat(index);
 					}
 				}
 				frames.add(frame);
 			}
 
-			log.debug("Frames animation extraites : {} frames de {}x{}", nTime, nLat, nLon);
+			log.debug("Frames animation extraites : {} frames de {}x{} (surface={})", nTime, nLat, nLon, isSurface);
 
 			return frames;
 
@@ -437,10 +460,60 @@ public class NetCDFReaderService {
 	}
 
 	/**
-	 * Extrait les valeurs d'une coordonnée (lat ou lon).
+	 * Extrait la valeur réelle de l'altitude à un index donné pour une variable.
+	 * <p>
+	 * Détermine automatiquement la variable de coordonnée d'altitude (altitudeT
+	 * ou altitudeM) en inspectant la 2ème dimension de la variable de données.
+	 * Retourne {@code null} pour les variables de surface (3D).
+	 *
+	 * @param filename      nom du fichier MEAN
+	 * @param variableName  variable de données (ex: TT, UU)
+	 * @param altitudeIndex index d'altitude (0-102)
+	 * @return altitude réelle en km, ou {@code null} si variable de surface
+	 * @throws NetCDFException si erreur lecture
+	 */
+	public Double extractAltitudeValue(String filename, String variableName, int altitudeIndex) {
+		log.debug("Extraction altitude réelle : fichier={}, variable={}, index={}",
+				filename, variableName, altitudeIndex);
+
+		try (NetcdfFile ncfile = openMeanFile(filename)) {
+			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
+			if (variable == null) {
+				throw new NetCDFException("Variable '" + variableName + "' introuvable dans " + filename);
+			}
+
+			int[] shape = variable.getShape();
+			if (shape.length == 3) {
+				log.debug("Variable de surface, pas d'altitude");
+				return null;
+			}
+
+			// La dimension d'altitude est la 2ème (index 1) pour les variables 4D
+			String altDimName = variable.getDimension(1).getShortName();
+			log.debug("Dimension d'altitude détectée : {}", altDimName);
+
+			double[] altCoords = extractCoordinates(ncfile, altDimName);
+			if (altCoords == null || altitudeIndex >= altCoords.length) {
+				log.warn("Coordonnées d'altitude introuvables ou index hors bornes");
+				return null;
+			}
+
+			double value = altCoords[altitudeIndex];
+			log.debug("Altitude réelle : index {} → {} km", altitudeIndex, value);
+			return value;
+
+		} catch (NetCDFException e) {
+			throw e;
+		} catch (IOException e) {
+			throw new NetCDFException("Erreur lecture altitude dans '" + filename + "'", e);
+		}
+	}
+
+	/**
+	 * Extrait les valeurs d'une coordonnée (lat, lon, altitudeT, altitudeM…).
 	 *
 	 * @param ncfile    fichier NetCDF ouvert
-	 * @param coordName nom de la coordonnée (lat ou lon)
+	 * @param coordName nom de la coordonnée
 	 * @return tableau des valeurs de coordonnées
 	 * @throws IOException si erreur lecture
 	 */

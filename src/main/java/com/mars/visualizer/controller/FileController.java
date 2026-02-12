@@ -128,12 +128,14 @@ public class FileController {
 		double[]   latitudes  = (double[]) sliceData.get("latitudes");
 		double[]   longitudes = (double[]) sliceData.get("longitudes");
 		StatsResult stats     = toStatsResult(StatsCalculator.calculateStats(data));
+		Double altitudeValue  = netcdfService.extractAltitudeValue(filename, variable, altitude);
 
 		SliceResponse response = SliceResponse.builder()
 				.dataset(dataset)
 				.variable(variable)
 				.timeIndex(time)
 				.altitudeIndex(altitude)
+				.altitudeValue(altitudeValue)
 				.dimensions(Map.of("lat", data.length, "lon", data[0].length))
 				.data(data)
 				.latitudes(latitudes)
@@ -180,12 +182,15 @@ public class FileController {
 
 		StatsResult stats = toStatsResult(StatsCalculator.calculateStats(toFloatMatrix(values)));
 
+		Double altitudeValue = netcdfService.extractAltitudeValue(filename, variable, altitude);
+
 		TimeSeriesResponse response = TimeSeriesResponse.builder()
 				.dataset(dataset)
 				.variable(variable)
 				.latitude(latitude)
 				.longitude(longitude)
 				.altitudeIndex(altitude)
+				.altitudeValue(altitudeValue)
 				.values(values)
 				.stats(stats)
 				.build();
@@ -229,11 +234,13 @@ public class FileController {
 		double[]    latitudes  = (double[]) frame0Data.get("latitudes");
 		double[]    longitudes = (double[]) frame0Data.get("longitudes");
 		StatsResult stats      = toStatsResult(StatsCalculator.calculateStats(frames.get(0)));
+		Double altitudeValue   = netcdfService.extractAltitudeValue(filename, variable, altitude);
 
 		AnimationResponse response = AnimationResponse.builder()
 				.dataset(dataset)
 				.variable(variable)
 				.altitudeIndex(altitude)
+				.altitudeValue(altitudeValue)
 				.frameCount(frames.size())
 				.frames(frames)
 				.latitudes(latitudes)

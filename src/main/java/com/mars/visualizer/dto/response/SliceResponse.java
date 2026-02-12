@@ -30,6 +30,9 @@ public class SliceResponse {
     /** Index d'altitude utilisé pour l'extraction (0-102). */
     private Integer altitudeIndex;
 
+    /** Altitude réelle en km (lue depuis la coordonnée NetCDF), null pour les variables de surface. */
+    private Double altitudeValue;
+
     /**
      * Dimensions de la grille 2D retournée.
      * Clés : {@code lat} (nombre de lignes), {@code lon} (nombre de colonnes).
