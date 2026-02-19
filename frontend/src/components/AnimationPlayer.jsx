@@ -1,9 +1,14 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Plotly from 'plotly.js-dist-min';
 import { Paper, Box, Slider, IconButton, Typography, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import { PlayArrow, Pause } from '@mui/icons-material';
 import { formatTime } from './TimeSelector';
 import { VARIABLES } from './VariableSelector';
+import { buildLocationTrace } from '../data/marsLocations';
+import { computeHeatmapCustomData } from '../utils/heatmapAnalysis';
+import { RDBU_VARIABLES } from '../utils/colorscales';
+import { downloadAnimationCSV } from '../utils/exportUtils';
+import ExportMenu from './ExportMenu';
 
 /** Duree de base d'une frame en ms (vitesse 1x = ~3.3 fps) */
 const BASE_FRAME_MS = 300;
@@ -37,14 +42,21 @@ const scrubMarks = [0, 7, 15, 23, 31, 39, 47].map(t => ({
  *   { dataset, variable, altitudeIndex, frameCount, frames: number[][][],
  *     latitudes: number[], longitudes: number[], stats }
  * @param {string|null} variableCode - code variable pour le titre de la colorbar
+ * @param {boolean}     logScale     - afficher l'echelle en log10 (pour variables a faibles valeurs)
  */
-function AnimationPlayer({ animationData, variableCode, datasetLabel }) {
-  const plotRef = useRef(null);
+function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocations = false, showSurface = false, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip = false, noExportMenu = false, externalPlotRef = null, logScale = false }) {
+  const internalPlotRef = useRef(null);
+  const plotRef = externalPlotRef ?? internalPlotRef;
   const rafRef = useRef(null);
   const lastTimeRef = useRef(null);
+  const frameCountRef = useRef(48);
+  const customDataCacheRef = useRef(new Map());
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
+
+  /** Couleur de texte pour les graphiques Plotly en dark mode */
+  const fontColor = 'rgba(255,255,255,0.85)';
 
   /** Unite physique de la variable (ex: 'K', 'Pa', 'm/s') */
   const unit = VARIABLES.find(v => v.code === variableCode)?.unit || '';
@@ -72,6 +84,20 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel }) {
     lastTimeRef.current = null;
   }, []);
 
+  /**
+   * Calcule les ticks de la colorbar pour l'echelle log10.
+   * Utilise les stats globales de l'animation pour une colorbar coherente
+   * entre toutes les frames.
+   */
+  const computeLogTicks = useCallback((stats) => {
+    if (!stats || stats.min <= 0 || stats.max <= 0) return {};
+    const minLog = Math.floor(Math.log10(stats.min));
+    const maxLog = Math.ceil(Math.log10(stats.max));
+    const tickvals = [], ticktext = [];
+    for (let e = minLog; e <= maxLog; e++) { tickvals.push(e); ticktext.push(`10^${e}`); }
+    return { tickvals, ticktext };
+  }, []);
+
   /** Creation initiale du graphique quand animationData change */
   useEffect(() => {
     if (!plotRef.current || !animationData) return;
@@ -80,6 +106,11 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel }) {
     setIsPlaying(false);
     stopAnimation();
 
+    // Mettre a jour le nombre de frames pour la boucle d'animation
+    frameCountRef.current = animationData.frameCount ?? animationData.frames?.length ?? 48;
+    // Vider le cache customData (les frames ont change)
+    customDataCacheRef.current.clear();
+
     const { frames, latitudes, longitudes } = animationData;
 
     const lonMin = Math.min(...longitudes);
@@ -87,43 +118,106 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel }) {
     const latMin = Math.min(...latitudes);
     const latMax = Math.max(...latitudes);
 
-    Plotly.newPlot(plotRef.current, [{
+    const useRdBu = RDBU_VARIABLES.includes(variableCode);
+    const finalColorscale = colorscaleName || (useRdBu ? 'RdBu' : 'Viridis');
+    const finalReverse = reverseColorscale != null ? reverseColorscale : useRdBu;
+    const dataIs0to360 = longitudes.some(l => l > 180);
+
+    // ── Log scale transform (frame 0) ────────────────────────────────────
+    let initFrame = frames[0];
+    let logColorbarExtra = {};
+    let initCustomdata;
+    let hoverTemplate;
+
+    if (logScale) {
+      initFrame = frames[0].map(row => row.map(v => (v != null && v > 0) ? Math.log10(v) : null));
+      logColorbarExtra = computeLogTicks(animationData.stats);
+      initCustomdata = frames[0];
+      hoverTemplate = 'Lon: %{x}\u00b0<br>Lat: %{y}\u00b0<br>Valeur: %{customdata:.6g} ' + unit + '<extra></extra>';
+    } else if (showDetailedTooltip) {
+      if (!customDataCacheRef.current.has(0))
+        customDataCacheRef.current.set(0, computeHeatmapCustomData(frames[0], latitudes, longitudes));
+      initCustomdata = customDataCacheRef.current.get(0);
+      hoverTemplate = 'Lon: %{x}\u00b0  Lat: %{y}\u00b0<br><b>%{z:.6g} ' + unit + '</b><br>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500<br>' +
+        'Anom. zonale: %{customdata[0]:+.6g}<br>' +
+        '\u2202/\u2202lat: %{customdata[1]:.2e} /\u00b0<br>' +
+        '\u2202/\u2202lon: %{customdata[2]:.2e} /\u00b0<br>' +
+        'Percentile: %{customdata[3]:.0f}%<br>' +
+        'POI: %{customdata[4]} (%{customdata[5]} km)<extra></extra>';
+    } else {
+      hoverTemplate = 'Lon: %{x}\u00b0<br>Lat: %{y}\u00b0<br>Valeur: %{z:.6g} ' + unit + '<extra></extra>';
+    }
+
+    const initTraces = [{
       type: 'heatmap',
       x: longitudes,
       y: latitudes,
-      z: frames[0],
-      colorscale: 'RdBu',
-      reversescale: true,
+      z: initFrame,
+      colorscale: finalColorscale,
+      reversescale: finalReverse,
+      ...(customZMin != null ? { zmin: customZMin } : {}),
+      ...(customZMax != null ? { zmax: customZMax } : {}),
+      ...(initCustomdata ? { customdata: initCustomdata } : {}),
       zsmooth: 'best',
       connectgaps: true,
+      opacity: showSurface ? 0.55 : 1,
       colorbar: {
-        title: { text: `${variableLabel} (${unit})`, side: 'right' },
+        title: {
+          text: logScale ? `log\u2081\u2080(${variableLabel})` : `${variableLabel} (${unit})`,
+          side: 'right',
+          font: { color: fontColor },
+        },
         thickness: 15,
         len: 0.9,
         outlinewidth: 0,
-        tickfont: { size: 11 }
+        tickfont: { size: 11, color: fontColor },
+        ...logColorbarExtra,
       },
-      hovertemplate: 'Lon: %{x}°<br>Lat: %{y}°<br>Valeur: %{z:.2f} ' + unit + '<extra></extra>'
-    }], {
-      title: plotTitle,
+      hovertemplate: hoverTemplate,
+    }];
+
+    if (showLocations) initTraces.push(buildLocationTrace(longitudes));
+
+    const layout = {
+      title: { ...plotTitle, font: { ...plotTitle.font, color: fontColor } },
+      font: { color: fontColor },
       xaxis: {
         title: 'Longitude (°)',
         range: [lonMin, lonMax],
         showgrid: false,
         zeroline: false,
-        autorange: false
+        autorange: false,
+        color: fontColor
       },
       yaxis: {
         title: 'Latitude (°)',
         range: [latMin, latMax],
         showgrid: false,
         zeroline: false,
-        autorange: false
+        autorange: false,
+        color: fontColor
       },
       margin: { t: 80, r: 120, b: 50, l: 70 },
       paper_bgcolor: 'rgba(0,0,0,0)',
       plot_bgcolor: 'rgba(0,0,0,0)'
-    }, {
+    };
+
+    if (showSurface) {
+      layout.images = [{
+        source: '/mars-surface.jpg',
+        xref: 'x',
+        yref: 'y',
+        x: dataIs0to360 ? 0 : -180,
+        y: 90,
+        sizex: 360,
+        sizey: 180,
+        sizing: 'stretch',
+        opacity: 0.9,
+        layer: 'below'
+      }];
+    }
+
+    Plotly.newPlot(plotRef.current, initTraces, layout, {
       responsive: true,
       displaylogo: false,
       modeBarButtonsToRemove: ['lasso2d', 'select2d']
@@ -131,7 +225,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel }) {
 
     return () => { if (plotRef.current) Plotly.purge(plotRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [animationData, variableCode, unit, stopAnimation]);
+  }, [animationData, variableCode, unit, stopAnimation, logScale]);
 
   /** Mise a jour du graphique quand la frame change (Plotly.react = update performant) */
   useEffect(() => {
@@ -144,45 +238,109 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel }) {
     const latMin = Math.min(...latitudes);
     const latMax = Math.max(...latitudes);
 
-    Plotly.react(plotRef.current, [{
+    const useRdBu = RDBU_VARIABLES.includes(variableCode);
+    const finalColorscale = colorscaleName || (useRdBu ? 'RdBu' : 'Viridis');
+    const finalReverse = reverseColorscale != null ? reverseColorscale : useRdBu;
+    const dataIs0to360 = longitudes.some(l => l > 180);
+
+    // ── Log scale transform (frame courante) ──────────────────────────────
+    let frameData = frames[currentFrame];
+    let logColorbarExtra = {};
+    let frameCustomdata;
+    let hoverTemplate;
+
+    if (logScale) {
+      frameData = frames[currentFrame].map(row => row.map(v => (v != null && v > 0) ? Math.log10(v) : null));
+      logColorbarExtra = computeLogTicks(animationData.stats);
+      frameCustomdata = frames[currentFrame];
+      hoverTemplate = 'Lon: %{x}\u00b0<br>Lat: %{y}\u00b0<br>Valeur: %{customdata:.6g} ' + unit + '<extra></extra>';
+    } else if (showDetailedTooltip) {
+      // Calcul du tooltip enrichi mis en cache par index de frame
+      if (!customDataCacheRef.current.has(currentFrame))
+        customDataCacheRef.current.set(currentFrame, computeHeatmapCustomData(frames[currentFrame], latitudes, longitudes));
+      frameCustomdata = customDataCacheRef.current.get(currentFrame);
+      hoverTemplate = 'Lon: %{x}\u00b0  Lat: %{y}\u00b0<br><b>%{z:.6g} ' + unit + '</b><br>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500<br>' +
+        'Anom. zonale: %{customdata[0]:+.6g}<br>' +
+        '\u2202/\u2202lat: %{customdata[1]:.2e} /\u00b0<br>' +
+        '\u2202/\u2202lon: %{customdata[2]:.2e} /\u00b0<br>' +
+        'Percentile: %{customdata[3]:.0f}%<br>' +
+        'POI: %{customdata[4]} (%{customdata[5]} km)<extra></extra>';
+    } else {
+      hoverTemplate = 'Lon: %{x}\u00b0<br>Lat: %{y}\u00b0<br>Valeur: %{z:.6g} ' + unit + '<extra></extra>';
+    }
+
+    const frameTraces = [{
       type: 'heatmap',
       x: longitudes,
       y: latitudes,
-      z: frames[currentFrame],
-      colorscale: 'RdBu',
-      reversescale: true,
+      z: frameData,
+      colorscale: finalColorscale,
+      reversescale: finalReverse,
+      ...(customZMin != null ? { zmin: customZMin } : {}),
+      ...(customZMax != null ? { zmax: customZMax } : {}),
+      ...(frameCustomdata ? { customdata: frameCustomdata } : {}),
       zsmooth: 'best',
       connectgaps: true,
+      opacity: showSurface ? 0.55 : 1,
       colorbar: {
-        title: { text: `${variableLabel} (${unit})`, side: 'right' },
+        title: {
+          text: logScale ? `log\u2081\u2080(${variableLabel})` : `${variableLabel} (${unit})`,
+          side: 'right',
+          font: { color: fontColor },
+        },
         thickness: 15,
         len: 0.9,
         outlinewidth: 0,
-        tickfont: { size: 11 }
+        tickfont: { size: 11, color: fontColor },
+        ...logColorbarExtra,
       },
-      hovertemplate: 'Lon: %{x}°<br>Lat: %{y}°<br>Valeur: %{z:.2f} ' + unit + '<extra></extra>'
-    }], {
-      title: plotTitle,
+      hovertemplate: hoverTemplate,
+    }];
+
+    if (showLocations) frameTraces.push(buildLocationTrace(longitudes));
+
+    const layout = {
+      title: { ...plotTitle, font: { ...plotTitle.font, color: fontColor } },
+      font: { color: fontColor },
       xaxis: {
         title: 'Longitude (°)',
         range: [lonMin, lonMax],
         showgrid: false,
         zeroline: false,
-        autorange: false
+        autorange: false,
+        color: fontColor
       },
       yaxis: {
         title: 'Latitude (°)',
         range: [latMin, latMax],
         showgrid: false,
         zeroline: false,
-        autorange: false
+        autorange: false,
+        color: fontColor
       },
       margin: { t: 80, r: 120, b: 50, l: 70 },
       paper_bgcolor: 'rgba(0,0,0,0)',
       plot_bgcolor: 'rgba(0,0,0,0)'
-    });
+    };
+
+    if (showSurface) {
+      layout.images = [{
+        source: '/mars-surface.jpg',
+        xref: 'x',
+        yref: 'y',
+        x: dataIs0to360 ? 0 : -180,
+        y: 90,
+        sizex: 360,
+        sizey: 180,
+        sizing: 'stretch',
+        opacity: 0.9,
+        layer: 'below'
+      }];
+    }
+
+    Plotly.react(plotRef.current, frameTraces, layout);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentFrame, animationData, variableCode, unit]);
+  }, [currentFrame, animationData, variableCode, unit, showLocations, showSurface, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip, logScale]);
 
   /** Duree effective d'une frame selon la vitesse choisie */
   const frameDuration = BASE_FRAME_MS / speed;
@@ -200,7 +358,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel }) {
       if (!lastTimeRef.current) lastTimeRef.current = timestamp;
       const elapsed = timestamp - lastTimeRef.current;
       if (elapsed >= effectiveDuration) {
-        setCurrentFrame(f => (f + 1) % 48);
+        setCurrentFrame(f => (f + 1) % frameCountRef.current);
         lastTimeRef.current = timestamp;
       }
       rafRef.current = requestAnimationFrame(animate);
@@ -209,6 +367,14 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel }) {
     rafRef.current = requestAnimationFrame(animate);
     return stopAnimation;
   }, [isPlaying, speed, stopAnimation]);
+
+  /** Styles du slider memoises pour eviter la recompilation CSS MUI a chaque render */
+  const sliderSx = useMemo(() => ({
+    mx: 2, flexGrow: 1,
+    '& .MuiSlider-thumb': {
+      transition: isPlaying ? `left ${Math.round(frameDuration)}ms linear` : 'none'
+    }
+  }), [isPlaying, frameDuration]);
 
   if (!animationData) {
     return (
@@ -221,10 +387,21 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel }) {
     );
   }
 
-  const { stats } = animationData;
+  const { stats, frames, altitudeIndex } = animationData;
+  const maxFrame = frames.length - 1;
+
+  /** Export CSV client-side via l'utilitaire partage (stats par frame) */
+  const handleExportCSV = () => downloadAnimationCSV(frames, variableCode, altitudeIndex);
+
+  const exportFilename = `mars_animation_${variableCode || 'plot'}`;
 
   return (
     <Box>
+      {!noExportMenu && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
+          <ExportMenu plotRef={plotRef} filename={exportFilename} onCSV={handleExportCSV} />
+        </Box>
+      )}
       <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <div ref={plotRef} style={{ width: '100%' }} />
       </Paper>
@@ -261,17 +438,12 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel }) {
 
           <Slider
             min={0}
-            max={47}
+            max={maxFrame}
             step={1}
             value={currentFrame}
             onChange={(_, v) => { setIsPlaying(false); setCurrentFrame(v); }}
             marks={scrubMarks}
-            sx={{
-              mx: 2, flexGrow: 1,
-              '& .MuiSlider-thumb': {
-                transition: isPlaying ? `left ${Math.round(frameDuration)}ms linear` : 'none'
-              }
-            }}
+            sx={sliderSx}
           />
         </Box>
       </Paper>
@@ -279,10 +451,10 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel }) {
       {/* Stats globales (sur l'ensemble des frames) */}
       {stats && (
         <Paper sx={{ p: 1.5, mt: 1, display: 'flex', justifyContent: 'center', gap: 3 }}>
-          <Typography variant="body2">Min : {stats.min?.toFixed(2) ?? '-'}</Typography>
-          <Typography variant="body2">Max : {stats.max?.toFixed(2) ?? '-'}</Typography>
-          <Typography variant="body2">Moyenne : {stats.mean?.toFixed(2) ?? '-'}</Typography>
-          <Typography variant="body2">Ecart-type : {stats.stddev?.toFixed(2) ?? '-'}</Typography>
+          <Typography variant="body2">Min : {stats.min?.toPrecision(4) ?? '-'}</Typography>
+          <Typography variant="body2">Max : {stats.max?.toPrecision(4) ?? '-'}</Typography>
+          <Typography variant="body2">Moyenne : {stats.mean?.toPrecision(4) ?? '-'}</Typography>
+          <Typography variant="body2">Ecart-type : {stats.stddev?.toPrecision(4) ?? '-'}</Typography>
         </Paper>
       )}
     </Box>

@@ -17,34 +17,73 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' }
 });
 
+// ==================== CACHE ====================
+
+/** Cache en memoire pour les endpoints de donnees (TTL 5 min). */
+const _cache = new Map();
+const CACHE_TTL = 5 * 60 * 1000;
+
+/**
+ * Cle de cache deterministe : trie les parametres par cle alphabetique pour
+ * eviter des cache misses sur des requetes identiques dont les cles
+ * seraient dans un ordre different ({a:1,b:2} ≡ {b:2,a:1}).
+ */
+function canonicalKey(endpoint, params) {
+  const sorted = Object.fromEntries(
+    Object.keys(params).sort().map(k => [k, params[k]])
+  );
+  return `${endpoint}:${JSON.stringify(sorted)}`;
+}
+
+/**
+ * GET avec mise en cache cote client.
+ * @param {string}       endpoint - chemin relatif (ex: '/data/slice')
+ * @param {Object}       params   - parametres de requete
+ * @param {AbortSignal}  [signal] - signal d'annulation optionnel (AbortController.signal)
+ */
+function cachedGet(endpoint, params, signal) {
+  const key = canonicalKey(endpoint, params);
+  const entry = _cache.get(key);
+  if (entry && Date.now() - entry.ts < CACHE_TTL) {
+    return Promise.resolve(entry.res);
+  }
+  return api.get(endpoint, { params, signal }).then(res => {
+    if (!signal?.aborted) _cache.set(key, { ts: Date.now(), res });
+    return res;
+  });
+}
+
 // ==================== ENDPOINTS ====================
 
 /** GET /api/health — verification que le backend est operationnel */
 export const healthCheck = () => api.get('/health');
 
-/** GET /api/catalog — liste des datasets NetCDF disponibles */
+/** GET /api/catalog — liste des datasets NetCDF MEAN disponibles */
 export const getCatalog = () => api.get('/catalog');
+
+/** GET /api/catalog/individual — catalogue des annees martiennes (fichiers individuels) */
+export const getIndividualCatalog = () => api.get('/catalog/individual');
 
 /**
  * GET /api/data/slice — coupe 2D latitude/longitude
  * @param {Object} params - { dataset, variable, time, altitude }
  * @returns {Promise} SliceResponse (data[][], latitudes, longitudes, stats)
  */
-export const getSlice = (params) => api.get('/data/slice', { params });
+export const getSlice = (params) => cachedGet('/data/slice', params);
 
 /**
  * GET /api/data/timeseries — serie temporelle en un point geographique
  * @param {Object} params - { dataset, variable, latitude, longitude, altitude }
  * @returns {Promise} TimeSeriesResponse (values[], stats)
  */
-export const getTimeSeries = (params) => api.get('/data/timeseries', { params });
+export const getTimeSeries = (params) => cachedGet('/data/timeseries', params);
 
 /**
  * GET /api/data/animation — ensemble de frames pour animation temporelle
  * @param {Object} params - { dataset, variable, altitude }
  * @returns {Promise} AnimationResponse (frames[], latitudes, longitudes, stats)
  */
-export const getAnimation = (params) => api.get('/data/animation', { params });
+export const getAnimation = (params) => cachedGet('/data/animation', params);
 
 /**
  * GET /api/export/csv/slice — export CSV d'une coupe 2D
@@ -59,5 +98,35 @@ export const exportSliceCSV = (params) =>
  */
 export const exportTimeSeriesCSV = (params) =>
   api.get('/export/csv/timeseries', { params, responseType: 'blob' });
+
+/**
+ * GET /api/data/profile — profil vertical en un point
+ * @param {Object} params - { dataset, variable, time, latitude, longitude }
+ * @returns {Promise} ProfileResponse (altitudes[], values[], stats)
+ */
+export const getProfile = (params) => cachedGet('/data/profile', params);
+
+/**
+ * GET /api/data/wind — champ de vent UU/VV subsample pour superposition sur slice
+ * @param {Object}       params   - { dataset, time, altitudeIndex }
+ * @param {AbortSignal}  [signal] - signal d'annulation optionnel
+ * @returns {Promise} { lats[], lons[], u[], v[] }
+ */
+export const getWind = (params, signal) => cachedGet('/data/wind', params, signal);
+
+/**
+ * GET /api/data/crosssection — coupe verticale meridionale ou zonale
+ * @param {Object} params - { dataset, variable, time, type, fixedCoordinate }
+ * @returns {Promise} CrossSectionResponse (data[][], altitudes[], horizontalCoords[], stats)
+ */
+export const getCrossSection = (params) => cachedGet('/data/crosssection', params);
+
+/** GET /api/export/csv/profile — export CSV d'un profil vertical */
+export const exportProfileCSV = (params) =>
+  api.get('/export/csv/profile', { params, responseType: 'blob' });
+
+/** GET /api/export/csv/crosssection — export CSV d'une coupe verticale */
+export const exportCrossSectionCSV = (params) =>
+  api.get('/export/csv/crosssection', { params, responseType: 'blob' });
 
 export default api;

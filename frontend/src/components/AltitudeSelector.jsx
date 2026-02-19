@@ -1,14 +1,14 @@
 import { Slider, Box, Typography } from '@mui/material';
 import { VARIABLES } from './VariableSelector';
 
-/** Reperes affiches sur le slider d'altitude */
+/** Reperes affiches sur le slider d'altitude (niveau 0 = sommet ~142 km, niveau max = surface) */
 const marks = [
-  { value: 0, label: 'Surface' },
+  { value: 0, label: 'Sommet' },
   { value: 20, label: '20' },
   { value: 40, label: '40' },
   { value: 60, label: '60' },
   { value: 80, label: '80' },
-  { value: 100, label: '100' },
+  { value: 100, label: 'Surface' },
 ];
 
 /**
@@ -46,6 +46,10 @@ function AltitudeSelector({ value, onChange, variableCode, disabled = false }) {
         valueLabelDisplay="auto"
         valueLabelFormat={(v) => `Niveau ${v}`}
         marks={marks}
+        sx={{
+          '& .MuiSlider-markLabel[data-index="0"]': { transform: 'translateX(0%)' },
+          '& .MuiSlider-markLabel[data-index="5"]': { transform: 'translateX(-100%)' },
+        }}
       />
       {isSurface && variableCode && (
         <Typography variant="caption" color="text.secondary">

@@ -33,6 +33,9 @@ public class SliceResponse {
     /** Altitude réelle en km (lue depuis la coordonnée NetCDF), null pour les variables de surface. */
     private Double altitudeValue;
 
+    /** Longitude solaire exacte (Ls) du fichier individuel utilisé. Null pour MEAN. */
+    private Double actualLs;
+
     /**
      * Dimensions de la grille 2D retournée.
      * Clés : {@code lat} (nombre de lignes), {@code lon} (nombre de colonnes).

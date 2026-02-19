@@ -1,45 +1,45 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Container, Paper, Typography, Button, CircularProgress,
-  Alert, Box, FormControl, InputLabel, Select, MenuItem, Chip
+  Alert, Box, FormControl, InputLabel, Select, MenuItem, TextField, Chip
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
-import { Place as PlaceIcon, Map as MapIcon, Link as LinkIcon, Functions as LogIcon } from '@mui/icons-material';
-import { getAnimation } from '../services/api';
+import { Link as LinkIcon, Functions as LogIcon } from '@mui/icons-material';
+import { getCrossSection, exportCrossSectionCSV } from '../services/api';
 import { VARIABLES } from '../components/VariableSelector';
-import { LOCATION_COLORS, LOCATION_TYPE_LABELS } from '../data/marsLocations';
 import DatasetSelector from '../components/DatasetSelector';
 import VariableSelector from '../components/VariableSelector';
-import AltitudeSelector from '../components/AltitudeSelector';
-import AnimationPlayer from '../components/AnimationPlayer';
+import TimeSelector from '../components/TimeSelector';
+import CrossSectionViewer from '../components/CrossSectionViewer';
 import ExportMenu from '../components/ExportMenu';
 import { useMars } from '../context/MarsContext';
 import { COLORSCALE_OPTIONS, RDBU_VARIABLES } from '../utils/colorscales';
-import { downloadAnimationCSV } from '../utils/exportUtils';
+import { triggerApiDownload } from '../utils/exportUtils';
 
 /**
- * Page d'animation (UC4).
- * Supporte les permaliens : ?ds=&var=&alt=&cs=
+ * Page coupe verticale (meridionale / zonale).
+ * Supporte les permaliens : ?ds=&var=&t=&type=&fixed=&cs=
  */
 
-function AnimationPage() {
+function CrossSectionPage() {
   const {
     datasets, catalogLoading,
     selectedDataset, setSelectedDataset,
     selectedVariable, handleVariableChange,
-    selectedAltitude, setSelectedAltitude,
+    selectedTime, setSelectedTime,
+    selectedLatitude, setSelectedLatitude,
+    selectedLongitude, setSelectedLongitude,
     dataset, datasetLabel,
   } = useMars();
 
-  const [animationData, setAnimationData] = useState(null);
+  const [csData, setCsData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [showLocations, setShowLocations] = useState(false);
-  const [showSurface, setShowSurface] = useState(false);
-  const [logScale, setLogScale] = useState(false);
+  const [csType, setCsType] = useState('meridional');
   const [linkCopied, setLinkCopied] = useState(false);
   const [colorscale, setColorscale] = useState('auto');
+  const [logScale, setLogScale] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
 
   const viewerContainerRef = useRef(null);
@@ -60,62 +60,78 @@ function AnimationPage() {
       setSelectedDataset(ds);
       const v = searchParams.get('var');
       if (v) handleVariableChange(v);
-      const alt = searchParams.get('alt');
-      if (alt != null) setSelectedAltitude(parseInt(alt, 10));
+      const t = searchParams.get('t');
+      if (t != null) setSelectedTime(parseInt(t, 10));
+      const type = searchParams.get('type');
+      if (type) setCsType(type);
+      const fixed = searchParams.get('fixed');
+      if (fixed != null) {
+        const val = parseFloat(fixed);
+        if ((type || 'meridional') === 'meridional') setSelectedLongitude(val);
+        else setSelectedLatitude(val);
+      }
       const cs = searchParams.get('cs');
       if (cs) setColorscale(cs);
       pendingAutoLaunch.current = true;
     }
   }
 
+  const isSurfaceVariable = useMemo(() => {
+    const v = VARIABLES.find(v => v.code === selectedVariable);
+    return v?.altitudeType === null;
+  }, [selectedVariable]);
+
   // Utilise la variable de la donnée affichée (pas du formulaire) pour éviter
   // que la palette change avant d'avoir cliqué sur "Analyser".
   const resolvedColorscale = useMemo(() => {
     if (colorscale === 'auto') {
-      const isTemp = RDBU_VARIABLES.includes(animationData?.variable ?? selectedVariable);
+      const isTemp = RDBU_VARIABLES.includes(csData?.variable ?? selectedVariable);
       return { name: isTemp ? 'RdBu' : 'Viridis', reverse: isTemp };
     }
     const opt = COLORSCALE_OPTIONS.find(o => o.value === colorscale);
     return { name: colorscale, reverse: opt?.reverse || false };
-  }, [colorscale, animationData?.variable, selectedVariable]);
+  }, [colorscale, csData?.variable, selectedVariable]);
 
-  const handleCharger = () => {
+  const fixedCoordinate = csType === 'meridional' ? selectedLongitude : selectedLatitude;
+
+  const handleVisualiser = () => {
     if (!selectedDataset || !selectedVariable) return;
     setLoading(true);
     setError(null);
     setIsDirty(false);
-    const variable = VARIABLES.find(v => v.code === selectedVariable);
-    const altitudeToSend = variable?.altitudeType === null ? 0 : selectedAltitude;
-    getAnimation({ dataset: selectedDataset, variable: selectedVariable, altitude: altitudeToSend })
-      .then(res => setAnimationData(res.data))
+    getCrossSection({ dataset: selectedDataset, variable: selectedVariable, time: selectedTime, type: csType, fixedCoordinate })
+      .then(res => setCsData(res.data))
       .catch(err => setError(err.response?.data?.message || err.message))
       .finally(() => setLoading(false));
   };
 
   if (pendingAutoLaunch.current && dataset && !loading) {
     pendingAutoLaunch.current = false;
-    setTimeout(handleCharger, 0);
+    setTimeout(handleVisualiser, 0);
   }
+
+  const handleExportCSV = () => {
+    triggerApiDownload(
+      exportCrossSectionCSV({ dataset: selectedDataset, variable: selectedVariable, time: selectedTime, type: csType, fixedCoordinate }),
+      `crosssection_${selectedVariable}_${csType}.csv`,
+    );
+  };
 
   const handleCopyLink = () => {
     const p = new URLSearchParams();
     if (selectedDataset) p.set('ds', selectedDataset);
     if (selectedVariable) p.set('var', selectedVariable);
-    p.set('alt', String(selectedAltitude));
+    p.set('t', String(selectedTime));
+    p.set('type', csType);
+    p.set('fixed', String(fixedCoordinate));
     if (colorscale !== 'auto') p.set('cs', colorscale);
-    navigator.clipboard.writeText(`${window.location.origin}/animation?${p.toString()}`).then(() => {
+    navigator.clipboard.writeText(`${window.location.origin}/crosssection?${p.toString()}`).then(() => {
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
     });
   };
 
-  /** Export CSV client-side : stats par frame (min/max/mean sur lat×lon) */
-  const handleExportCSV = () => {
-    if (!animationData) return;
-    downloadAnimationCSV(animationData.frames, selectedVariable, selectedAltitude);
-  };
-
-  const markDirty = () => { if (animationData) setIsDirty(true); };
+  const markDirty = () => { if (csData) setIsDirty(true); };
 
   if (catalogLoading) {
     return (
@@ -129,7 +145,7 @@ function AnimationPage() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
-      <Typography variant="h5" gutterBottom>Animation — Cycle diurne martien</Typography>
+      <Typography variant="h5" gutterBottom>Coupe verticale</Typography>
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2}>
@@ -142,10 +158,33 @@ function AnimationPage() {
               onChange={v => { handleVariableChange(v); markDirty(); }}
               availableVariables={dataset?.variables} />
           </Grid>
-          <Grid size={{ xs: 12, md: 8 }}>
-            <AltitudeSelector value={selectedAltitude}
-              onChange={v => { setSelectedAltitude(v); markDirty(); }}
-              variableCode={selectedVariable} />
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TimeSelector value={selectedTime}
+              onChange={v => { setSelectedTime(v); markDirty(); }} />
+          </Grid>
+          <Grid size={{ xs: 12, md: 3 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Type de coupe</InputLabel>
+              <Select value={csType} label="Type de coupe"
+                onChange={e => { setCsType(e.target.value); markDirty(); }}>
+                <MenuItem value="meridional">Meridionale (lon fixee)</MenuItem>
+                <MenuItem value="zonal">Zonale (lat fixee)</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid size={{ xs: 12, md: 3 }}>
+            <TextField size="small"
+              label={csType === 'meridional' ? 'Longitude fixee (°)' : 'Latitude fixee (°)'}
+              type="number"
+              value={csType === 'meridional' ? selectedLongitude : selectedLatitude}
+              onChange={e => {
+                const val = parseFloat(e.target.value) || 0;
+                if (csType === 'meridional') setSelectedLongitude(val);
+                else setSelectedLatitude(val);
+                markDirty();
+              }}
+              fullWidth
+            />
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
             <FormControl fullWidth size="small">
@@ -160,53 +199,31 @@ function AnimationPage() {
           </Grid>
         </Grid>
 
+        {isSurfaceVariable && (
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            Variable de surface — pas de dimension altitude. Choisissez une variable atmospherique.
+          </Alert>
+        )}
+
         <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          <Button variant="contained" onClick={handleCharger}
-            disabled={!selectedDataset || !selectedVariable || loading}>
-            {loading ? <CircularProgress size={20} color="inherit" /> : "Charger l'animation"}
+          <Button variant="contained" onClick={handleVisualiser}
+            disabled={!selectedDataset || !selectedVariable || loading || isSurfaceVariable}>
+            {loading ? <CircularProgress size={20} color="inherit" /> : 'Visualiser'}
           </Button>
-          {animationData && (
-            <>
-              <Button variant={showLocations ? 'contained' : 'outlined'} size="small"
-                onClick={() => setShowLocations(s => !s)} startIcon={<PlaceIcon />}
-                color={showLocations ? 'warning' : 'inherit'}>
-                Points d'interet
-              </Button>
-              <Button variant={showSurface ? 'contained' : 'outlined'} size="small"
-                onClick={() => setShowSurface(s => !s)} startIcon={<MapIcon />}
-                color={showSurface ? 'warning' : 'inherit'}>
-                Surface
-              </Button>
-              <Button variant={logScale ? 'contained' : 'outlined'} size="small"
-                onClick={() => setLogScale(s => !s)} startIcon={<LogIcon />}
-                color={logScale ? 'warning' : 'inherit'}
-                title="Echelle logarithmique (log10)">
-                Log\u2081\u2080
-              </Button>
-            </>
+          {csData && (
+            <Button variant={logScale ? 'contained' : 'outlined'} size="small"
+              onClick={() => setLogScale(s => !s)} startIcon={<LogIcon />}
+              color={logScale ? 'warning' : 'inherit'}
+              title="Echelle logarithmique (log10)">
+              Log\u2081\u2080
+            </Button>
           )}
           {isDirty && (
-            <Chip label="Parametres modifies — rechargez l'animation" color="warning" size="small" />
+            <Chip label="Parametres modifies — cliquez sur Visualiser" color="warning" size="small" />
           )}
         </Box>
 
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-          Charge 48 pas de temps consecutifs. Le chargement peut prendre plusieurs secondes selon votre connexion.
-        </Typography>
-
-        {showLocations && animationData && (
-          <Box sx={{ mt: 1.5, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Typography variant="caption" color="text.secondary">Legende :</Typography>
-            {Object.entries(LOCATION_TYPE_LABELS).map(([type, label]) => (
-              <Box key={type} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: LOCATION_COLORS[type] }} />
-                <Typography variant="caption">{label}</Typography>
-              </Box>
-            ))}
-          </Box>
-        )}
-
-        {animationData && (
+        {csData && (
           <Box sx={{ mt: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
             <Button variant="outlined" size="small" color={linkCopied ? 'success' : 'secondary'}
               onClick={handleCopyLink} startIcon={<LinkIcon />}>
@@ -214,7 +231,7 @@ function AnimationPage() {
             </Button>
             <ExportMenu
               plotRef={exportPlotRef}
-              filename={`mars_animation_${selectedVariable || 'plot'}`}
+              filename={`mars_crosssection_${selectedVariable || 'plot'}`}
               onCSV={handleExportCSV}
             />
           </Box>
@@ -224,12 +241,10 @@ function AnimationPage() {
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       <Box ref={viewerContainerRef}>
-        <AnimationPlayer
-          animationData={animationData}
+        <CrossSectionViewer
+          crossSectionData={csData}
           variableCode={selectedVariable}
           datasetLabel={datasetLabel}
-          showLocations={showLocations}
-          showSurface={showSurface}
           colorscaleName={resolvedColorscale.name}
           reverseColorscale={resolvedColorscale.reverse}
           logScale={logScale}
@@ -240,4 +255,4 @@ function AnimationPage() {
   );
 }
 
-export default AnimationPage;
+export default CrossSectionPage;

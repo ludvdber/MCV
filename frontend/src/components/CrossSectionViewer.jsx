@@ -1,0 +1,151 @@
+import { useRef, useEffect } from 'react';
+import Plotly from 'plotly.js-dist-min';
+import { Paper, Typography, Box } from '@mui/material';
+import { VARIABLES } from './VariableSelector';
+import { RDBU_VARIABLES } from '../utils/colorscales';
+import ExportMenu from './ExportMenu';
+
+/**
+ * Affiche un heatmap Plotly d'une coupe verticale (meridionale ou zonale).
+ * X = latitude ou longitude, Y = altitude en km (surface en bas).
+ *
+ * @param {Object|null} crossSectionData - reponse de GET /api/data/crosssection
+ *   { dataset, variable, timeIndex, type, fixedCoordinate, altitudes[], horizontalCoords[], data[][], stats }
+ * @param {string|null} variableCode - code variable pour la colorbar
+ * @param {boolean}     logScale     - afficher l'echelle en log10 (pour variables a faibles valeurs)
+ */
+function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colorscaleName, reverseColorscale, customZMin, customZMax, onExportCSV = null, noExportMenu = false, externalPlotRef = null, logScale = false }) {
+  const internalPlotRef = useRef(null);
+  const plotRef = externalPlotRef ?? internalPlotRef;
+
+  useEffect(() => {
+    if (!plotRef.current || !crossSectionData) return;
+
+    const { type, fixedCoordinate, altitudes, horizontalCoords, data } = crossSectionData;
+    const varInfo = VARIABLES.find(v => v.code === variableCode);
+    const variableLabel = varInfo?.label || variableCode;
+    const unit = varInfo?.unit || '';
+
+    const useRdBu = RDBU_VARIABLES.includes(variableCode);
+    const finalColorscale = colorscaleName || (useRdBu ? 'RdBu' : 'Viridis');
+    const finalReverse = reverseColorscale != null ? reverseColorscale : useRdBu;
+
+    const isMeridional = type === 'meridional';
+    const xLabel = isMeridional ? 'Latitude (°)' : 'Longitude (°)';
+    const fixedLabel = isMeridional
+      ? `Lon ${fixedCoordinate}°`
+      : `Lat ${fixedCoordinate}°`;
+
+    const fontColor = 'rgba(255,255,255,0.85)';
+
+    // ── Log scale transform ───────────────────────────────────────────────
+    let displayData = data;
+    let logColorbarExtra = {};
+    let hoverTemplate = `${isMeridional ? 'Lat' : 'Lon'}: %{x}°<br>Alt: %{y:.1f} km<br>Valeur: %{z:.6g} ${unit}<extra></extra>`;
+
+    if (logScale) {
+      displayData = data.map(row => row.map(v => (v != null && v > 0) ? Math.log10(v) : null));
+      const rawStats = crossSectionData.stats;
+      if (rawStats?.min > 0 && rawStats?.max > 0) {
+        const minLog = Math.floor(Math.log10(rawStats.min));
+        const maxLog = Math.ceil(Math.log10(rawStats.max));
+        const tickvals = [], ticktext = [];
+        for (let e = minLog; e <= maxLog; e++) { tickvals.push(e); ticktext.push(`10^${e}`); }
+        logColorbarExtra = { tickvals, ticktext };
+      }
+      hoverTemplate = `${isMeridional ? 'Lat' : 'Lon'}: %{x}°<br>Alt: %{y:.1f} km<br>log\u2081\u2080: %{z:.3f}<br>Valeur: %{customdata:.6g} ${unit}<extra></extra>`;
+    }
+
+    Plotly.newPlot(plotRef.current, [{
+      type: 'heatmap',
+      x: horizontalCoords,
+      y: altitudes,
+      z: displayData,
+      colorscale: finalColorscale,
+      reversescale: finalReverse,
+      ...(customZMin != null ? { zmin: customZMin } : {}),
+      ...(customZMax != null ? { zmax: customZMax } : {}),
+      ...(logScale ? { customdata: data } : {}),
+      zsmooth: 'best',
+      connectgaps: true,
+      colorbar: {
+        title: {
+          text: logScale ? `log\u2081\u2080(${variableLabel})` : `${variableLabel} (${unit})`,
+          side: 'right',
+          font: { color: fontColor },
+        },
+        thickness: 15,
+        len: 0.9,
+        outlinewidth: 0,
+        tickfont: { size: 11, color: fontColor },
+        ...logColorbarExtra,
+      },
+      hovertemplate: hoverTemplate,
+    }], {
+      title: {
+        text: `${datasetLabel || ''} — ${variableLabel} — ${fixedLabel}`,
+        font: { size: 16, color: fontColor }
+      },
+      font: { color: fontColor },
+      xaxis: {
+        title: xLabel,
+        color: fontColor,
+        showgrid: false,
+        zeroline: false
+      },
+      yaxis: {
+        title: 'Altitude (km)',
+        color: fontColor,
+        showgrid: false,
+        zeroline: false,
+        autorange: true
+      },
+      margin: { t: 80, r: 120, b: 50, l: 70 },
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)'
+    }, {
+      responsive: true,
+      displaylogo: false,
+      modeBarButtonsToRemove: ['lasso2d', 'select2d']
+    });
+
+    return () => { if (plotRef.current) Plotly.purge(plotRef.current); };
+  }, [crossSectionData, variableCode, colorscaleName, reverseColorscale, customZMin, customZMax, logScale]);
+
+  if (!crossSectionData) {
+    return (
+      <Paper sx={{ p: 4, textAlign: 'center' }}>
+        <Typography color="text.secondary">
+          Selectionnez un dataset, une variable, un type de coupe
+          et une coordonnee fixee, puis cliquez sur Lancer.
+        </Typography>
+      </Paper>
+    );
+  }
+
+  const { stats } = crossSectionData;
+  const exportFilename = `mars_crosssection_${variableCode || 'plot'}`;
+
+  return (
+    <Box>
+      {!noExportMenu && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
+          <ExportMenu plotRef={plotRef} filename={exportFilename} onCSV={onExportCSV} />
+        </Box>
+      )}
+      <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+        <div ref={plotRef} style={{ width: '100%' }} />
+      </Paper>
+      {stats && (
+        <Paper sx={{ p: 1.5, mt: 1, display: 'flex', justifyContent: 'center', gap: 3 }}>
+          <Typography variant="body2">Min : {stats.min?.toPrecision(4) ?? '-'}</Typography>
+          <Typography variant="body2">Max : {stats.max?.toPrecision(4) ?? '-'}</Typography>
+          <Typography variant="body2">Moyenne : {stats.mean?.toPrecision(4) ?? '-'}</Typography>
+          <Typography variant="body2">Ecart-type : {stats.stddev?.toPrecision(4) ?? '-'}</Typography>
+        </Paper>
+      )}
+    </Box>
+  );
+}
+
+export default CrossSectionViewer;

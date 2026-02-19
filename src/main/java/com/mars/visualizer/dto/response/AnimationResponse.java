@@ -31,6 +31,9 @@ public class AnimationResponse {
     /** Altitude réelle en km (lue depuis la coordonnée NetCDF), null pour les variables de surface. */
     private Double altitudeValue;
 
+    /** Longitude solaire exacte (Ls) du fichier individuel utilisé. Null pour MEAN. */
+    private Double actualLs;
+
     /**
      * Nombre de frames dans l'animation.
      * Correspond au nombre de pas de temps du dataset (typiquement 48).

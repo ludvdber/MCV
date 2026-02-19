@@ -3,32 +3,33 @@ import { useSearchParams } from 'react-router-dom';
 import { Container, Paper, Typography, Button, CircularProgress, Alert, Box, Chip } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import { Link as LinkIcon } from '@mui/icons-material';
-import { getTimeSeries, exportTimeSeriesCSV } from '../services/api';
+import { getProfile, exportProfileCSV } from '../services/api';
 import { VARIABLES } from '../components/VariableSelector';
 import DatasetSelector from '../components/DatasetSelector';
 import VariableSelector from '../components/VariableSelector';
-import AltitudeSelector from '../components/AltitudeSelector';
+import TimeSelector from '../components/TimeSelector';
 import LatLonSelector from '../components/LatLonSelector';
-import TimeSeriesChart from '../components/TimeSeriesChart';
+import ProfileViewer from '../components/ProfileViewer';
 import ExportMenu from '../components/ExportMenu';
 import { useMars } from '../context/MarsContext';
 
 /**
- * Page serie temporelle (UC3).
- * Supporte les permaliens : ?ds=&var=&lat=&lon=&alt=
+ * Page profil vertical (UC) — affiche la valeur d'une variable sur tous les niveaux
+ * d'altitude en un point geographique et un pas de temps donne.
+ * Supporte les permaliens : ?ds=&var=&t=&lat=&lon=
  */
-function TimeSeriesPage() {
+function ProfilePage() {
   const {
     datasets, catalogLoading,
     selectedDataset, setSelectedDataset,
     selectedVariable, handleVariableChange,
-    selectedAltitude, setSelectedAltitude,
+    selectedTime, setSelectedTime,
     selectedLatitude, setSelectedLatitude,
     selectedLongitude, setSelectedLongitude,
     dataset, datasetLabel,
   } = useMars();
 
-  const [timeSeriesData, setTimeSeriesData] = useState(null);
+  const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -39,6 +40,7 @@ function TimeSeriesPage() {
   const hasRestoredUrl = useRef(false);
   const pendingAutoLaunch = useRef(false);
 
+  /** Ref synthetique pointant vers le div Plotly dans la zone viewer */
   const exportPlotRef = useMemo(() => ({
     get current() {
       return viewerContainerRef.current?.querySelector('.js-plotly-plot') || null;
@@ -52,31 +54,35 @@ function TimeSeriesPage() {
       setSelectedDataset(ds);
       const v = searchParams.get('var');
       if (v) handleVariableChange(v);
+      const t = searchParams.get('t');
+      if (t != null) setSelectedTime(parseInt(t, 10));
       const lat = searchParams.get('lat');
       if (lat != null) setSelectedLatitude(parseFloat(lat));
       const lon = searchParams.get('lon');
       if (lon != null) setSelectedLongitude(parseFloat(lon));
-      const alt = searchParams.get('alt');
-      if (alt != null) setSelectedAltitude(parseInt(alt, 10));
       pendingAutoLaunch.current = true;
     }
   }
+
+  /** Detecte si la variable est de surface (pas de dimension altitude) */
+  const isSurfaceVariable = useMemo(() => {
+    const v = VARIABLES.find(v => v.code === selectedVariable);
+    return v?.altitudeType === null;
+  }, [selectedVariable]);
 
   const handleAnalyser = () => {
     if (!selectedDataset || !selectedVariable) return;
     setLoading(true);
     setError(null);
     setIsDirty(false);
-    const variable = VARIABLES.find(v => v.code === selectedVariable);
-    const altitudeToSend = variable?.altitudeType === null ? 0 : selectedAltitude;
-    getTimeSeries({
+    getProfile({
       dataset: selectedDataset,
       variable: selectedVariable,
+      time: selectedTime,
       latitude: selectedLatitude,
       longitude: selectedLongitude,
-      altitude: altitudeToSend,
     })
-      .then(res => setTimeSeriesData(res.data))
+      .then(res => setProfileData(res.data))
       .catch(err => setError(err.response?.data?.message || err.message))
       .finally(() => setLoading(false));
   };
@@ -87,19 +93,17 @@ function TimeSeriesPage() {
   }
 
   const handleExportCSV = () => {
-    const variable = VARIABLES.find(v => v.code === selectedVariable);
-    const altitudeToSend = variable?.altitudeType === null ? 0 : selectedAltitude;
-    exportTimeSeriesCSV({
+    exportProfileCSV({
       dataset: selectedDataset,
       variable: selectedVariable,
+      time: selectedTime,
       latitude: selectedLatitude,
       longitude: selectedLongitude,
-      altitude: altitudeToSend,
     }).then(res => {
       const url = URL.createObjectURL(res.data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `timeseries_${selectedVariable}_lat${selectedLatitude}_lon${selectedLongitude}.csv`;
+      a.download = `profile_${selectedVariable}_lat${selectedLatitude}_lon${selectedLongitude}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     });
@@ -109,16 +113,16 @@ function TimeSeriesPage() {
     const p = new URLSearchParams();
     if (selectedDataset) p.set('ds', selectedDataset);
     if (selectedVariable) p.set('var', selectedVariable);
+    p.set('t', String(selectedTime));
     p.set('lat', String(selectedLatitude));
     p.set('lon', String(selectedLongitude));
-    p.set('alt', String(selectedAltitude));
-    navigator.clipboard.writeText(`${window.location.origin}/timeseries?${p.toString()}`).then(() => {
+    navigator.clipboard.writeText(`${window.location.origin}/profile?${p.toString()}`).then(() => {
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
     });
   };
 
-  const markDirty = () => { if (timeSeriesData) setIsDirty(true); };
+  const markDirty = () => { if (profileData) setIsDirty(true); };
 
   if (catalogLoading) {
     return (
@@ -132,7 +136,7 @@ function TimeSeriesPage() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
-      <Typography variant="h5" gutterBottom>Serie temporelle — Cycle diurne martien</Typography>
+      <Typography variant="h5" gutterBottom>Profil vertical</Typography>
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2}>
@@ -145,6 +149,10 @@ function TimeSeriesPage() {
               onChange={v => { handleVariableChange(v); markDirty(); }}
               availableVariables={dataset?.variables} />
           </Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TimeSelector value={selectedTime}
+              onChange={v => { setSelectedTime(v); markDirty(); }} />
+          </Grid>
           <Grid size={{ xs: 12 }}>
             <LatLonSelector
               latitude={selectedLatitude}
@@ -153,16 +161,17 @@ function TimeSeriesPage() {
               onLonChange={v => { setSelectedLongitude(v); markDirty(); }}
             />
           </Grid>
-          <Grid size={{ xs: 12 }}>
-            <AltitudeSelector value={selectedAltitude}
-              onChange={v => { setSelectedAltitude(v); markDirty(); }}
-              variableCode={selectedVariable} />
-          </Grid>
         </Grid>
 
-        <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+        {isSurfaceVariable && (
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            Variable de surface — pas de dimension altitude. Choisissez une variable atmospherique.
+          </Alert>
+        )}
+
+        <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <Button variant="contained" onClick={handleAnalyser}
-            disabled={!selectedDataset || !selectedVariable || loading}>
+            disabled={!selectedDataset || !selectedVariable || loading || isSurfaceVariable}>
             {loading ? <CircularProgress size={20} color="inherit" /> : 'Analyser'}
           </Button>
           {isDirty && (
@@ -170,7 +179,7 @@ function TimeSeriesPage() {
           )}
         </Box>
 
-        {timeSeriesData && (
+        {profileData && (
           <Box sx={{ mt: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
             <Button variant="outlined" size="small" color={linkCopied ? 'success' : 'secondary'}
               onClick={handleCopyLink} startIcon={<LinkIcon />}>
@@ -178,7 +187,7 @@ function TimeSeriesPage() {
             </Button>
             <ExportMenu
               plotRef={exportPlotRef}
-              filename={`mars_timeseries_${selectedVariable || 'plot'}`}
+              filename={`mars_profile_${selectedVariable || 'plot'}`}
               onCSV={handleExportCSV}
             />
           </Box>
@@ -188,8 +197,8 @@ function TimeSeriesPage() {
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       <Box ref={viewerContainerRef}>
-        <TimeSeriesChart
-          timeSeriesData={timeSeriesData}
+        <ProfileViewer
+          profileData={profileData}
           variableCode={selectedVariable}
           datasetLabel={datasetLabel}
           noExportMenu
@@ -199,4 +208,4 @@ function TimeSeriesPage() {
   );
 }
 
-export default TimeSeriesPage;
+export default ProfilePage;

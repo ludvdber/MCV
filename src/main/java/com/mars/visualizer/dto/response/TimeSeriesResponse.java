@@ -31,6 +31,9 @@ public class TimeSeriesResponse {
     /** Altitude réelle en km (lue depuis la coordonnée NetCDF), null pour les variables de surface. */
     private Double altitudeValue;
 
+    /** Longitude solaire exacte (Ls) du fichier individuel utilisé. Null pour MEAN. */
+    private Double actualLs;
+
     /**
      * Valeurs de la variable aux 48 pas de temps.
      * L'index correspond au pas de temps (0 = début du cycle diurne martien).

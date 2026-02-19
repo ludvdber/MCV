@@ -1,4 +1,202 @@
-/* Police recommandee par MUI */
+/* =====================================================
+   Mars Climate Viewer — Design System
+   Theme : spatial futuriste glassmorphism
+   ===================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;400;500;600;700&display=swap');
+
+/* ---------- CSS Variables ---------- */
+:root {
+  /* Couleurs principales */
+  --mars-orange: #e05a2b;
+  --mars-deep: #bf3a0a;
+  --cyan-accent: #38bdf8;
+  --cyan-deep: #0ea5e9;
+
+  /* Fond spatial */
+  --bg-space: #020818;
+  --bg-surface: rgba(13, 27, 64, 0.6);
+  --bg-surface-hover: rgba(13, 27, 64, 0.8);
+
+  /* Glassmorphism */
+  --glass-blur: 16px;
+  --glass-border: rgba(56, 189, 248, 0.12);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+  /* Typographie */
+  --font-display: 'Orbitron', sans-serif;
+  --font-body: 'Rajdhani', 'Roboto', sans-serif;
+
+  /* Texte */
+  --text-primary: rgba(255, 255, 255, 0.95);
+  --text-secondary: rgba(255, 255, 255, 0.6);
+}
+
+/* ---------- Reset & Body ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body {
-  font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  margin: 0;
+  font-family: var(--font-body);
+  background: var(--bg-space);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  position: relative;
+}
+
+/* ---------- Utility Classes ---------- */
+.glass-panel {
+  background: var(--bg-surface);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: 16px;
+}
+
+.glass-hover {
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+.glass-hover:hover {
+  background: var(--bg-surface-hover);
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.text-mars {
+  color: var(--mars-orange);
+}
+
+.text-cyan {
+  color: var(--cyan-accent);
+}
+
+.glow-mars {
+  text-shadow: 0 0 20px rgba(224, 90, 43, 0.5);
+}
+
+.glow-cyan {
+  text-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
+}
+
+/* ---------- Section reveal animation ---------- */
+.section-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  animation: sectionFadeIn 0.6s ease-out forwards;
+}
+
+@keyframes sectionFadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- Custom Scrollbar ---------- */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(2, 8, 24, 0.8);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--mars-orange), var(--cyan-accent));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--mars-deep), var(--cyan-deep));
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--mars-orange) rgba(2, 8, 24, 0.8);
+}
+
+/* ---------- Logo pulse ---------- */
+@keyframes logoPulse {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(224, 90, 43, 0.6)); }
+  50%      { filter: drop-shadow(0 0 16px rgba(224, 90, 43, 0.9)); }
+}
+
+/* ---------- Plotly override ---------- */
+.js-plotly-plot .plotly .modebar {
+  background: rgba(13, 27, 64, 0.6) !important;
+  border-radius: 8px;
+}
+
+.js-plotly-plot .plotly .modebar-btn path {
+  fill: rgba(255, 255, 255, 0.6) !important;
+}
+
+.js-plotly-plot .plotly .modebar-btn:hover path {
+  fill: var(--cyan-accent) !important;
+}
+
+/* ---------- Text overflow helpers ---------- */
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Fix chips trop larges */
+.MuiChip-root {
+  max-width: 100%;
+}
+.MuiChip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Mobile responsive ---------- */
+@media (max-width: 600px) {
+  /* Titre h5 des pages plus compact */
+  .MuiTypography-h5 {
+    font-size: 1.1rem !important;
+  }
+
+  /* Eviter le debordement horizontal des Paper + Container */
+  .MuiContainer-root {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  /* Boutons plus compacts en mobile */
+  .MuiButton-root {
+    font-size: 0.8rem;
+  }
+}
+
+/* ---------- Scrollbar horizontale pour les Tabs ---------- */
+.MuiTabs-root .MuiTabs-scroller {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ---------- Stats bar responsive ---------- */
+@media (max-width: 500px) {
+  /* Stats min/max/mean/stddev : empilement vertical au lieu d'horizontal */
+  .stats-bar {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 4px !important;
+  }
 }
