@@ -1,0 +1,20 @@
+{
+  "properties": [
+    {
+      "name": "netcdf.mean.path",
+      "type": "java.lang.String",
+      "description": "Chemin vers le répertoire contenant les fichiers NetCDF MEAN (moyennes climatiques)."
+    },
+    {
+      "name": "netcdf.individual.path",
+      "type": "java.lang.String",
+      "description": "Chemin vers le répertoire contenant les fichiers NetCDF individuels (simulations)."
+    },
+    {
+      "name": "netcdf.individual.my_base",
+      "type": "java.lang.Integer",
+      "description": "Première année martienne (MY) dans le dossier individual/. Les années suivantes sont détectées automatiquement.",
+      "defaultValue": 34
+    }
+  ]
+}

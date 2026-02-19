@@ -3,6 +3,7 @@ package com.mars.visualizer.controller;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -14,9 +15,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mars.visualizer.exception.ValidationException;
-import com.mars.visualizer.service.CatalogService;
 import com.mars.visualizer.service.NetCDFReaderService;
 import com.mars.visualizer.service.ValidationService;
+import com.mars.visualizer.util.DatasetResolver;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,23 +34,16 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ExportController {
 
-    private final NetCDFReaderService netcdfService;
-    private final ValidationService   validationService;
-    private final CatalogService      catalogService;
+    private final NetCDFReaderService      netcdfService;
+    private final ValidationService        validationService;
+    private final DatasetResolver          datasetResolver;
 
-    /**
-     * Constructeur avec injection de dépendances.
-     *
-     * @param netcdfService     service de lecture NetCDF
-     * @param validationService service de validation des paramètres
-     * @param catalogService    service de gestion du catalogue
-     */
     public ExportController(NetCDFReaderService netcdfService,
                             ValidationService validationService,
-                            CatalogService catalogService) {
-        this.netcdfService     = netcdfService;
-        this.validationService = validationService;
-        this.catalogService    = catalogService;
+                            DatasetResolver datasetResolver) {
+        this.netcdfService             = netcdfService;
+        this.validationService         = validationService;
+        this.datasetResolver           = datasetResolver;
         log.info("ExportController initialisé");
     }
 
@@ -74,7 +68,8 @@ public class ExportController {
         log.info("GET /api/export/csv/slice : dataset={}, variable={}, time={}, altitude={}",
                 dataset, variable, time, altitude);
 
-        String ncFile = resolveFilename(dataset);
+        String ncFile = datasetResolver.resolveFilename(dataset);
+        if (datasetResolver.isIndividualDataset(dataset)) time = 0;
         validationService.validateTimestep(time);
         validationService.validateAltitude(altitude);
 
@@ -98,7 +93,7 @@ public class ExportController {
     /**
      * Exporte une série temporelle en format CSV.
      * Format : timestep, value
-     * 
+     *
      * GET /api/export/csv/timeseries?dataset=...&amp;variable=TT&amp;latitude=0&amp;longitude=0&amp;altitude=0
      *
      * @param dataset   identifiant du dataset
@@ -119,7 +114,12 @@ public class ExportController {
         log.info("GET /api/export/csv/timeseries : dataset={}, variable={}, lat={}, lon={}, altitude={}",
                 dataset, variable, latitude, longitude, altitude);
 
-        String ncFile = resolveFilename(dataset);
+        if (datasetResolver.isIndividualDataset(dataset)) {
+            throw new ValidationException(
+                    "L'export de serie temporelle n'est pas disponible pour les fichiers individuels (un seul pas de temps par fichier).");
+        }
+
+        String ncFile = datasetResolver.resolveFilename(dataset);
         validationService.validateLatitude(latitude);
         validationService.validateLongitude(longitude);
         validationService.validateAltitude(altitude);
@@ -131,8 +131,8 @@ public class ExportController {
 
         String filename = String.format("timeseries_%s_%s_lat%s_lon%s_alt%d.csv",
                 dataset, variable,
-                formatCoord(latitude),
-                formatCoord(longitude),
+                datasetResolver.formatCoord(latitude),
+                datasetResolver.formatCoord(longitude),
                 altitude);
 
         log.info("Export série temporelle CSV généré : {} valeurs, fichier={}", values.size(), filename);
@@ -180,6 +180,97 @@ public class ExportController {
         return sb.toString();
     }
 
+    /**
+     * Exporte un profil vertical en format CSV.
+     * Format : altitude_km,value
+     *
+     * GET /api/export/csv/profile?dataset=...&amp;variable=TT&amp;time=0&amp;latitude=0&amp;longitude=0
+     */
+    @GetMapping("/csv/profile")
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<String> exportProfileCSV(
+            @RequestParam String dataset,
+            @RequestParam(defaultValue = "TT") String variable,
+            @RequestParam(defaultValue = "0") int time,
+            @RequestParam double latitude,
+            @RequestParam double longitude) {
+
+        log.info("GET /api/export/csv/profile : dataset={}, variable={}, time={}, lat={}, lon={}",
+                dataset, variable, time, latitude, longitude);
+
+        String ncFile = datasetResolver.resolveFilename(dataset);
+        if (datasetResolver.isIndividualDataset(dataset)) time = 0;
+        validationService.validateTimestep(time);
+        validationService.validateLatitude(latitude);
+        validationService.validateLongitude(longitude);
+
+        Map<String, Object> profileData = netcdfService.extractVerticalProfile(
+                ncFile, variable, time, latitude, longitude);
+
+        List<Float> values    = (List<Float>) profileData.get("values");
+        double[]    altitudes = (double[]) profileData.get("altitudes");
+
+        StringBuilder sb = new StringBuilder("altitude_km,value\n");
+        for (int i = 0; i < values.size(); i++) {
+            double alt = (altitudes != null && i < altitudes.length) ? altitudes[i] : i;
+            sb.append(alt).append(',').append(values.get(i)).append('\n');
+        }
+
+        String filename = String.format("profile_%s_%s_t%d_lat%s_lon%s.csv",
+                dataset, variable, time, datasetResolver.formatCoord(latitude), datasetResolver.formatCoord(longitude));
+
+        log.info("Export profil CSV généré : {} niveaux, fichier={}", values.size(), filename);
+
+        return csvResponse(sb.toString(), filename);
+    }
+
+    /**
+     * Exporte une coupe verticale en format CSV.
+     * Format : altitude_km,horizontal_coord,value
+     *
+     * GET /api/export/csv/crosssection?dataset=...&amp;variable=TT&amp;time=0&amp;type=meridional&amp;fixedCoordinate=0
+     */
+    @GetMapping("/csv/crosssection")
+    public ResponseEntity<String> exportCrossSectionCSV(
+            @RequestParam String dataset,
+            @RequestParam(defaultValue = "TT") String variable,
+            @RequestParam(defaultValue = "0") int time,
+            @RequestParam String type,
+            @RequestParam double fixedCoordinate) {
+
+        log.info("GET /api/export/csv/crosssection : dataset={}, variable={}, time={}, type={}, fixed={}",
+                dataset, variable, time, type, fixedCoordinate);
+
+        String ncFile = datasetResolver.resolveFilename(dataset);
+        if (datasetResolver.isIndividualDataset(dataset)) time = 0;
+        validationService.validateTimestep(time);
+
+        Map<String, Object> csData = netcdfService.extractCrossSection(
+                ncFile, variable, time, type, fixedCoordinate);
+
+        float[][]  data         = (float[][]) csData.get("data");
+        double[]   altitudes    = (double[]) csData.get("altitudes");
+        double[]   horizCoords  = (double[]) csData.get("horizontalCoords");
+
+        String horizLabel = "meridional".equals(type) ? "latitude" : "longitude";
+        StringBuilder sb = new StringBuilder("altitude_km,").append(horizLabel).append(",value\n");
+
+        for (int a = 0; a < data.length; a++) {
+            double alt = (altitudes != null && a < altitudes.length) ? altitudes[a] : a;
+            for (int h = 0; h < data[a].length; h++) {
+                double coord = (horizCoords != null && h < horizCoords.length) ? horizCoords[h] : h;
+                sb.append(alt).append(',').append(coord).append(',').append(data[a][h]).append('\n');
+            }
+        }
+
+        String filename = String.format("crosssection_%s_%s_%s_t%d_fixed%s.csv",
+                dataset, variable, type, time, datasetResolver.formatCoord(fixedCoordinate));
+
+        log.info("Export coupe verticale CSV généré : {}x{}, fichier={}", data.length, data[0].length, filename);
+
+        return csvResponse(sb.toString(), filename);
+    }
+
     // Méthodes utilitaires
 
     /**
@@ -194,37 +285,7 @@ public class ExportController {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType("text/csv"));
         headers.setContentDispositionFormData("attachment", filename);
+        headers.setCacheControl(CacheControl.noStore().getHeaderValue());
         return new ResponseEntity<>(csvContent, headers, HttpStatus.OK);
-    }
-
-    /**
-     * Vérifie qu'un dataset existe et retourne son nom de fichier complet.
-     *
-     * @param dataset identifiant du dataset (sans extension)
-     * @return nom de fichier avec extension {@code .nc}
-     * @throws ValidationException si le dataset est introuvable dans le catalogue
-     */
-    private String resolveFilename(String dataset) {
-        if (!catalogService.datasetExists(dataset)) {
-            throw new ValidationException("Dataset introuvable : '" + dataset + "'");
-        }
-        String filename = catalogService.getFilenameById(dataset);
-        if (filename == null) {
-            throw new ValidationException("Impossible de trouver le fichier pour dataset : '" + dataset + "'");
-        }
-        return filename;
-    }
-
-    /**
-     * Formate une coordonnée décimale pour l'intégrer dans un nom de fichier.
-     * Remplace le point par une virgule et supprime le signe moins avec un préfixe.
-     * Exemple : {@code -45.5} → {@code m45.5}, {@code 12.0} → {@code 12.0}
-     *
-     * @param coord coordonnée à formater
-     * @return chaîne sûre pour un nom de fichier
-     */
-    private String formatCoord(double coord) {
-        String formatted = String.valueOf(coord).replace('.', 'p');
-        return coord < 0 ? "m" + formatted.substring(1) : formatted;
     }
 }

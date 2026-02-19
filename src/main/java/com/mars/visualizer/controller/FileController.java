@@ -1,36 +1,46 @@
 package com.mars.visualizer.controller;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
 import com.mars.visualizer.dto.response.AnimationResponse;
+import com.mars.visualizer.dto.response.CrossSectionResponse;
 import com.mars.visualizer.dto.response.DatasetMetadata;
+import com.mars.visualizer.dto.response.IndividualYearInfo;
+import com.mars.visualizer.dto.response.ProfileResponse;
 import com.mars.visualizer.dto.response.SliceResponse;
 import com.mars.visualizer.dto.response.StatsResult;
 import com.mars.visualizer.dto.response.TimeSeriesResponse;
 import com.mars.visualizer.exception.ValidationException;
 import com.mars.visualizer.service.CatalogService;
+import com.mars.visualizer.service.IndividualCatalogService;
 import com.mars.visualizer.service.NetCDFReaderService;
 import com.mars.visualizer.service.ValidationService;
+import com.mars.visualizer.util.DatasetResolver;
 import com.mars.visualizer.util.StatsCalculator;
+
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Controller REST principal.
- * Expose les endpoints de consultation du catalogue et d'extraction des données
- * depuis les fichiers NetCDF MEAN.
- * 
- * Les exceptions métier ({@link ValidationException},
- * {@link com.mars.visualizer.exception.NetCDFException}) sont déléguées au
- * {@link com.mars.visualizer.exception.GlobalExceptionHandler}.
+ * Expose les endpoints de consultation du catalogue et d'extraction des donnees
+ * depuis les fichiers NetCDF MEAN et INDIVIDUAL.
+ *
+ * Les datasets INDIVIDUAL sont identifies par le prefixe {@code IND_} dans
+ * l'identifiant (ex: {@code IND_MY34_LS5.50}).
  *
  * @author Ludo
- * @version 1.0
+ * @version 2.0
  */
 @RestController
 @RequestMapping("/api")
@@ -38,32 +48,34 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class FileController {
 
-	private final NetCDFReaderService netcdfService;
-	private final CatalogService      catalogService;
-	private final ValidationService   validationService;
+	private static final CacheControl DATA_CACHE = CacheControl.maxAge(30, TimeUnit.DAYS).cachePublic();
+	private static final CacheControl META_CACHE = CacheControl.maxAge(1,  TimeUnit.HOURS).cachePublic();
 
-	/**
-	 * Constructeur avec injection de dépendances.
-	 *
-	 * @param netcdfService     service de lecture NetCDF
-	 * @param catalogService    service de gestion du catalogue
-	 * @param validationService service de validation des paramètres
-	 */
+	private final NetCDFReaderService      netcdfService;
+	private final CatalogService           catalogService;
+	private final ValidationService        validationService;
+	private final IndividualCatalogService individualCatalogService;
+	private final DatasetResolver          datasetResolver;
+
 	public FileController(NetCDFReaderService netcdfService,
 						  CatalogService catalogService,
-						  ValidationService validationService) {
-		this.netcdfService     = netcdfService;
-		this.catalogService    = catalogService;
-		this.validationService = validationService;
-		log.info("FileController initialisé");
+						  ValidationService validationService,
+						  IndividualCatalogService individualCatalogService,
+						  DatasetResolver datasetResolver) {
+		this.netcdfService             = netcdfService;
+		this.catalogService            = catalogService;
+		this.validationService         = validationService;
+		this.individualCatalogService  = individualCatalogService;
+		this.datasetResolver           = datasetResolver;
+		log.info("FileController initialise");
 	}
 
+	// =========================================================================
+	// Endpoints catalogue
+	// =========================================================================
+
 	/**
-	 * Endpoint de test pour vérifier que l'API fonctionne.
-	 * 
 	 * GET /api/health
-	 *
-	 * @return message de statut avec nom et version du service
 	 */
 	@GetMapping("/health")
 	public ResponseEntity<Map<String, String>> health() {
@@ -72,40 +84,53 @@ public class FileController {
 		Map<String, String> response = new HashMap<>();
 		response.put("status", "OK");
 		response.put("service", "Mars Visualizer API");
-		response.put("version", "1.0");
+		response.put("version", "2.0");
 
 		return ResponseEntity.ok(response);
 	}
 
 	/**
-	 * Retourne le catalogue complet des datasets disponibles.
-	 * Endpoint principal pour UC1 (Explorer catalogue).
-	 * 
+	 * Retourne le catalogue des datasets MEAN.
 	 * GET /api/catalog
-	 *
-	 * @return liste des métadonnées de tous les datasets MEAN
 	 */
 	@GetMapping("/catalog")
 	public ResponseEntity<List<DatasetMetadata>> getCatalog() {
 		log.info("GET /api/catalog");
-
 		List<DatasetMetadata> catalog = catalogService.getCatalog();
-
-		log.info("Catalogue retourné : {} datasets", catalog.size());
-
-		return ResponseEntity.ok(catalog);
+		log.info("Catalogue retourne : {} datasets", catalog.size());
+		return ResponseEntity.ok().cacheControl(META_CACHE).body(catalog);
 	}
 
 	/**
-	 * Extrait une slice 2D pour visualisation carte (UC2).
-	 * 
-	 * GET /api/data/slice?dataset=...&amp;variable=TT&amp;time=0&amp;altitude=0
+	 * Retourne le catalogue des annees martiennes disponibles (fichiers individuels).
+	 * GET /api/catalog/individual
 	 *
-	 * @param dataset  identifiant du dataset
-	 * @param variable nom de la variable
-	 * @param time     index temporel (0-47)
-	 * @param altitude index d'altitude (0-102)
-	 * @return {@link SliceResponse} avec données 2D + coordonnées + stats
+	 * @return liste avec marsYear, lsMin, lsMax (sans les noms de repertoires)
+	 */
+	@GetMapping("/catalog/individual")
+	public ResponseEntity<List<Map<String, Object>>> getIndividualCatalog() {
+		log.info("GET /api/catalog/individual");
+
+		List<IndividualYearInfo> years = individualCatalogService.getAvailableYears();
+
+		List<Map<String, Object>> result = years.stream()
+				.map(y -> Map.<String, Object>of(
+						"marsYear", y.getMarsYear(),
+						"lsMin", y.getLsMin(),
+						"lsMax", y.getLsMax()))
+				.toList();
+
+		log.info("Catalogue INDIVIDUAL retourne : {} annees", result.size());
+		return ResponseEntity.ok().cacheControl(META_CACHE).body(result);
+	}
+
+	// =========================================================================
+	// Endpoints data
+	// =========================================================================
+
+	/**
+	 * Extrait une slice 2D pour visualisation carte.
+	 * GET /api/data/slice
 	 */
 	@GetMapping("/data/slice")
 	public ResponseEntity<SliceResponse> getSlice2D(
@@ -117,7 +142,8 @@ public class FileController {
 		log.info("GET /api/data/slice : dataset={}, variable={}, time={}, altitude={}",
 				dataset, variable, time, altitude);
 
-		String filename = resolveFilename(dataset);
+		String filename = datasetResolver.resolveFilename(dataset);
+		if (datasetResolver.isIndividualDataset(dataset)) time = 0;
 		validationService.validateTimestep(time);
 		validationService.validateAltitude(altitude);
 
@@ -127,7 +153,7 @@ public class FileController {
 		float[][]  data       = (float[][]) sliceData.get("data");
 		double[]   latitudes  = (double[]) sliceData.get("latitudes");
 		double[]   longitudes = (double[]) sliceData.get("longitudes");
-		StatsResult stats     = toStatsResult(StatsCalculator.calculateStats(data));
+		StatsResult stats     = datasetResolver.toStatsResult(StatsCalculator.calculateStats(data));
 		Double altitudeValue  = netcdfService.extractAltitudeValue(filename, variable, altitude);
 
 		SliceResponse response = SliceResponse.builder()
@@ -136,6 +162,7 @@ public class FileController {
 				.timeIndex(time)
 				.altitudeIndex(altitude)
 				.altitudeValue(altitudeValue)
+				.actualLs(datasetResolver.getActualLs(dataset, filename))
 				.dimensions(Map.of("lat", data.length, "lon", data[0].length))
 				.data(data)
 				.latitudes(latitudes)
@@ -143,23 +170,15 @@ public class FileController {
 				.stats(stats)
 				.build();
 
-		log.info("Slice 2D retournée : {}x{}", data.length, data[0].length);
+		log.info("Slice 2D retournee : {}x{}", data.length, data[0].length);
 
-		return ResponseEntity.ok(response);
+		return ResponseEntity.ok().cacheControl(DATA_CACHE).body(response);
 	}
 
 	/**
-	 * Extrait une série temporelle en un point (UC3).
-	 * Retourne 48 valeurs (cycle diurne complet).
-	 * 
-	 * GET /api/data/timeseries?dataset=...&amp;variable=TT&amp;latitude=0&amp;longitude=0&amp;altitude=0
-	 *
-	 * @param dataset   identifiant du dataset
-	 * @param variable  nom de la variable
-	 * @param latitude  latitude du point (-90 à 90)
-	 * @param longitude longitude du point (-180 à 180)
-	 * @param altitude  index d'altitude (0-102)
-	 * @return {@link TimeSeriesResponse} avec 48 valeurs + stats
+	 * Extrait une serie temporelle en un point.
+	 * Non disponible pour les datasets INDIVIDUAL (time = 1).
+	 * GET /api/data/timeseries
 	 */
 	@GetMapping("/data/timeseries")
 	public ResponseEntity<TimeSeriesResponse> getTimeSeries(
@@ -172,7 +191,12 @@ public class FileController {
 		log.info("GET /api/data/timeseries : dataset={}, variable={}, lat={}, lon={}, altitude={}",
 				dataset, variable, latitude, longitude, altitude);
 
-		String filename = resolveFilename(dataset);
+		if (datasetResolver.isIndividualDataset(dataset)) {
+			throw new ValidationException(
+					"La serie temporelle n'est pas disponible pour les fichiers individuels (un seul pas de temps par fichier).");
+		}
+
+		String filename = datasetResolver.resolveFilename(dataset);
 		validationService.validateLatitude(latitude);
 		validationService.validateLongitude(longitude);
 		validationService.validateAltitude(altitude);
@@ -180,8 +204,7 @@ public class FileController {
 		List<Float> values = netcdfService.extractTimeSeries(
 				filename, variable, latitude, longitude, altitude);
 
-		StatsResult stats = toStatsResult(StatsCalculator.calculateStats(toFloatMatrix(values)));
-
+		StatsResult stats = datasetResolver.toStatsResult(StatsCalculator.calculateStats(datasetResolver.toFloatMatrix(values)));
 		Double altitudeValue = netcdfService.extractAltitudeValue(filename, variable, altitude);
 
 		TimeSeriesResponse response = TimeSeriesResponse.builder()
@@ -195,22 +218,15 @@ public class FileController {
 				.stats(stats)
 				.build();
 
-		log.info("Série temporelle retournée : {} valeurs", values.size());
+		log.info("Serie temporelle retournee : {} valeurs", values.size());
 
-		return ResponseEntity.ok(response);
+		return ResponseEntity.ok().cacheControl(DATA_CACHE).body(response);
 	}
 
-
 	/**
-	 * Extrait 48 frames pour animation diurne (UC5).
-	 * Chaque frame est une slice 2D [lat][lon].
-	 * 
-	 * GET /api/data/animation?dataset=...&amp;variable=TT&amp;altitude=0
-	 *
-	 * @param dataset  identifiant du dataset
-	 * @param variable nom de la variable
-	 * @param altitude index d'altitude (0-102)
-	 * @return {@link AnimationResponse} avec 48 frames + coordonnées + stats
+	 * Extrait 48 frames pour animation diurne.
+	 * Non disponible pour les datasets INDIVIDUAL (time = 1).
+	 * GET /api/data/animation
 	 */
 	@GetMapping("/data/animation")
 	public ResponseEntity<AnimationResponse> getAnimation(
@@ -221,20 +237,23 @@ public class FileController {
 		log.info("GET /api/data/animation : dataset={}, variable={}, altitude={}",
 				dataset, variable, altitude);
 
-		String filename = resolveFilename(dataset);
+		if (datasetResolver.isIndividualDataset(dataset)) {
+			throw new ValidationException(
+					"L'animation diurne n'est pas disponible pour les fichiers individuels (un seul pas de temps par fichier).");
+		}
+
+		String filename = datasetResolver.resolveFilename(dataset);
 		validationService.validateAltitude(altitude);
 
-		List<float[][]> frames = netcdfService.extractAnimationFrames(
+		Map<String, Object> animData = netcdfService.extractAnimationFrames(
 				filename, variable, altitude);
 
-		// Récupérer lat/lon depuis la frame 0 via extractSlice2DWithCoords
-		Map<String, Object> frame0Data = netcdfService.extractSlice2DWithCoords(
-				filename, variable, 0, altitude);
-
-		double[]    latitudes  = (double[]) frame0Data.get("latitudes");
-		double[]    longitudes = (double[]) frame0Data.get("longitudes");
-		StatsResult stats      = toStatsResult(StatsCalculator.calculateStats(frames.get(0)));
-		Double altitudeValue   = netcdfService.extractAltitudeValue(filename, variable, altitude);
+		@SuppressWarnings("unchecked")
+		List<float[][]> frames    = (List<float[][]>) animData.get("frames");
+		double[]        latitudes  = (double[]) animData.get("latitudes");
+		double[]        longitudes = (double[]) animData.get("longitudes");
+		StatsResult     stats      = datasetResolver.toStatsResult(StatsCalculator.calculateStats(frames.get(0)));
+		Double          altitudeValue = netcdfService.extractAltitudeValue(filename, variable, altitude);
 
 		AnimationResponse response = AnimationResponse.builder()
 				.dataset(dataset)
@@ -248,60 +267,135 @@ public class FileController {
 				.stats(stats)
 				.build();
 
-		log.info("Animation retournée : {} frames", frames.size());
+		log.info("Animation retournee : {} frames", frames.size());
 
-		return ResponseEntity.ok(response);
-	}
-
-	// Méthodes utilitaires
-	
-	/**
-	 * Vérifie qu'un dataset existe et retourne son nom de fichier complet.
-	 * Combine la vérification d'existence et la résolution du filename en une seule étape.
-	 *
-	 * @param dataset identifiant du dataset (sans extension)
-	 * @return nom de fichier avec extension {@code .nc}
-	 * @throws ValidationException si le dataset est introuvable dans le catalogue
-	 */
-	private String resolveFilename(String dataset) {
-		if (!catalogService.datasetExists(dataset)) {
-			throw new ValidationException("Dataset introuvable : '" + dataset + "'");
-		}
-		String filename = catalogService.getFilenameById(dataset);
-		if (filename == null) {
-			throw new ValidationException("Impossible de trouver le fichier pour dataset : '" + dataset + "'");
-		}
-		return filename;
+		return ResponseEntity.ok().cacheControl(DATA_CACHE).body(response);
 	}
 
 	/**
-	 * Convertit la map de statistiques brutes en {@link StatsResult} DTO.
-	 *
-	 * @param statsMap map issue de {@link NetCDFReaderService#calculateStats(float[][])}
-	 * @return DTO de statistiques
+	 * Extrait un profil vertical en un point geographique.
+	 * GET /api/data/profile
 	 */
-	private StatsResult toStatsResult(Map<String, Double> statsMap) {
-		return StatsResult.builder()
-				.min(statsMap.get("min"))
-				.max(statsMap.get("max"))
-				.mean(statsMap.get("mean"))
-				.stddev(statsMap.get("stddev"))
+	@GetMapping("/data/profile")
+	@SuppressWarnings("unchecked")
+	public ResponseEntity<ProfileResponse> getProfile(
+			@RequestParam String dataset,
+			@RequestParam(defaultValue = "TT") String variable,
+			@RequestParam(defaultValue = "0") int time,
+			@RequestParam double latitude,
+			@RequestParam double longitude) {
+
+		log.info("GET /api/data/profile : dataset={}, variable={}, time={}, lat={}, lon={}",
+				dataset, variable, time, latitude, longitude);
+
+		String filename = datasetResolver.resolveFilename(dataset);
+		if (datasetResolver.isIndividualDataset(dataset)) time = 0;
+		validationService.validateTimestep(time);
+		validationService.validateLatitude(latitude);
+		validationService.validateLongitude(longitude);
+
+		Map<String, Object> profileData = netcdfService.extractVerticalProfile(
+				filename, variable, time, latitude, longitude);
+
+		List<Float> values    = (List<Float>) profileData.get("values");
+		double[]    altitudes = (double[]) profileData.get("altitudes");
+		double actualLat      = (double) profileData.get("actualLat");
+		double actualLon      = (double) profileData.get("actualLon");
+
+		StatsResult stats = datasetResolver.toStatsResult(StatsCalculator.calculateStats(datasetResolver.toFloatMatrix(values)));
+
+		ProfileResponse response = ProfileResponse.builder()
+				.dataset(dataset)
+				.variable(variable)
+				.timeIndex(time)
+				.latitude(actualLat)
+				.longitude(actualLon)
+				.actualLs(datasetResolver.getActualLs(dataset, filename))
+				.altitudes(altitudes)
+				.values(values)
+				.stats(stats)
 				.build();
+
+		log.info("Profil vertical retourne : {} niveaux", values.size());
+
+		return ResponseEntity.ok().cacheControl(DATA_CACHE).body(response);
 	}
 
 	/**
-	 * Convertit une liste de flottants en matrice {@code float[1][n]}
-	 * pour être compatible avec {@link NetCDFReaderService#calculateStats(float[][])}.
-	 *
-	 * @param values liste de valeurs
-	 * @return matrice ligne contenant les mêmes valeurs
+	 * Extrait une coupe verticale meridionale ou zonale.
+	 * GET /api/data/crosssection
 	 */
-	private float[][] toFloatMatrix(List<Float> values) {
-		float[][] matrix = new float[1][values.size()];
-		for (int i = 0; i < values.size(); i++) {
-			Float v = values.get(i);
-			matrix[0][i] = (v != null) ? v : Float.NaN;
+	@GetMapping("/data/crosssection")
+	public ResponseEntity<CrossSectionResponse> getCrossSection(
+			@RequestParam String dataset,
+			@RequestParam(defaultValue = "TT") String variable,
+			@RequestParam(defaultValue = "0") int time,
+			@RequestParam String type,
+			@RequestParam double fixedCoordinate) {
+
+		log.info("GET /api/data/crosssection : dataset={}, variable={}, time={}, type={}, fixed={}",
+				dataset, variable, time, type, fixedCoordinate);
+
+		String filename = datasetResolver.resolveFilename(dataset);
+		if (datasetResolver.isIndividualDataset(dataset)) time = 0;
+		validationService.validateTimestep(time);
+
+		if ("meridional".equals(type)) {
+			validationService.validateLongitude(fixedCoordinate);
+		} else if ("zonal".equals(type)) {
+			validationService.validateLatitude(fixedCoordinate);
 		}
-		return matrix;
+
+		Map<String, Object> csData = netcdfService.extractCrossSection(
+				filename, variable, time, type, fixedCoordinate);
+
+		float[][]  data             = (float[][]) csData.get("data");
+		double[]   altitudes        = (double[]) csData.get("altitudes");
+		double[]   horizontalCoords = (double[]) csData.get("horizontalCoords");
+		double     fixedValue       = (double) csData.get("fixedValue");
+
+		StatsResult stats = datasetResolver.toStatsResult(StatsCalculator.calculateStats(data));
+
+		CrossSectionResponse response = CrossSectionResponse.builder()
+				.dataset(dataset)
+				.variable(variable)
+				.timeIndex(time)
+				.type(type)
+				.fixedCoordinate(fixedValue)
+				.actualLs(datasetResolver.getActualLs(dataset, filename))
+				.altitudes(altitudes)
+				.horizontalCoords(horizontalCoords)
+				.data(data)
+				.stats(stats)
+				.build();
+
+		log.info("Coupe verticale {} retournee : {}x{}", type, data.length, data[0].length);
+
+		return ResponseEntity.ok().cacheControl(DATA_CACHE).body(response);
+	}
+
+	/**
+	 * Retourne le champ de vent (UU, VV) subsamplé pour superposition sur une slice.
+	 * Si UU/VV sont absents du fichier, retourne des tableaux vides (pas d'erreur).
+	 *
+	 * GET /api/data/wind?dataset=...&amp;time=0&amp;altitudeIndex=49
+	 */
+	@GetMapping("/data/wind")
+	public ResponseEntity<Map<String, Object>> getWindField(
+			@RequestParam String dataset,
+			@RequestParam(defaultValue = "0") int time,
+			@RequestParam(defaultValue = "49") int altitudeIndex) {
+
+		log.info("GET /api/data/wind : dataset={}, time={}, altitudeIndex={}", dataset, time, altitudeIndex);
+
+		String filename = datasetResolver.resolveFilename(dataset);
+		if (datasetResolver.isIndividualDataset(dataset)) time = 0;
+		validationService.validateAltitude(altitudeIndex);
+
+		Map<String, Object> windData = netcdfService.extractWindField(filename, time, altitudeIndex);
+
+		log.info("Champ de vent retourne : {} vecteurs", ((double[]) windData.get("lats")).length);
+
+		return ResponseEntity.ok().cacheControl(DATA_CACHE).body(windData);
 	}
 }
