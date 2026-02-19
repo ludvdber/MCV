@@ -1,21 +1,27 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Container, Paper, Typography, Button, CircularProgress,
   Alert, Box, FormControl, InputLabel, Select, MenuItem, TextField, Chip
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
-import { Link as LinkIcon, Functions as LogIcon } from '@mui/icons-material';
+import { Functions as LogIcon } from '@mui/icons-material';
 import { getCrossSection, exportCrossSectionCSV } from '../services/api';
-import { VARIABLES } from '../components/VariableSelector';
 import DatasetSelector from '../components/DatasetSelector';
 import VariableSelector from '../components/VariableSelector';
 import TimeSelector from '../components/TimeSelector';
 import CrossSectionViewer from '../components/CrossSectionViewer';
 import ExportMenu from '../components/ExportMenu';
+import VisuToggle from '../components/VisuToggle';
+import PermalienButton from '../components/PermalienButton';
+import ColorscaleSelector from '../components/ColorscaleSelector';
+import PageLoader from '../components/PageLoader';
 import { useMars } from '../context/MarsContext';
-import { COLORSCALE_OPTIONS, RDBU_VARIABLES } from '../utils/colorscales';
 import { triggerApiDownload } from '../utils/exportUtils';
+import { usePlotRef } from '../hooks/usePlotRef';
+import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
+import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
+import { isSurfaceVariable as checkIsSurface } from '../utils/variableUtils';
 
 /**
  * Page coupe verticale (meridionale / zonale).
@@ -37,21 +43,15 @@ function CrossSectionPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [csType, setCsType] = useState('meridional');
-  const [linkCopied, setLinkCopied] = useState(false);
   const [colorscale, setColorscale] = useState('auto');
   const [logScale, setLogScale] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
 
-  const viewerContainerRef = useRef(null);
+  const [viewerContainerRef, exportPlotRef] = usePlotRef();
+  const [linkCopied, copyToClipboard] = useCopyToClipboard();
   const [searchParams] = useSearchParams();
   const hasRestoredUrl = useRef(false);
   const pendingAutoLaunch = useRef(false);
-
-  const exportPlotRef = useMemo(() => ({
-    get current() {
-      return viewerContainerRef.current?.querySelector('.js-plotly-plot') || null;
-    }
-  }), []);
 
   if (!catalogLoading && !hasRestoredUrl.current) {
     hasRestoredUrl.current = true;
@@ -76,21 +76,11 @@ function CrossSectionPage() {
     }
   }
 
-  const isSurfaceVariable = useMemo(() => {
-    const v = VARIABLES.find(v => v.code === selectedVariable);
-    return v?.altitudeType === null;
-  }, [selectedVariable]);
+  const isSurfaceVariable = checkIsSurface(selectedVariable);
 
   // Utilise la variable de la donnée affichée (pas du formulaire) pour éviter
   // que la palette change avant d'avoir cliqué sur "Analyser".
-  const resolvedColorscale = useMemo(() => {
-    if (colorscale === 'auto') {
-      const isTemp = RDBU_VARIABLES.includes(csData?.variable ?? selectedVariable);
-      return { name: isTemp ? 'RdBu' : 'Viridis', reverse: isTemp };
-    }
-    const opt = COLORSCALE_OPTIONS.find(o => o.value === colorscale);
-    return { name: colorscale, reverse: opt?.reverse || false };
-  }, [colorscale, csData?.variable, selectedVariable]);
+  const resolvedColorscale = useResolvedColorscale(colorscale, csData?.variable, selectedVariable);
 
   const fixedCoordinate = csType === 'meridional' ? selectedLongitude : selectedLatitude;
 
@@ -125,23 +115,12 @@ function CrossSectionPage() {
     p.set('type', csType);
     p.set('fixed', String(fixedCoordinate));
     if (colorscale !== 'auto') p.set('cs', colorscale);
-    navigator.clipboard.writeText(`${window.location.origin}/crosssection?${p.toString()}`).then(() => {
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    });
+    copyToClipboard(`${window.location.origin}/crosssection?${p.toString()}`);
   };
 
   const markDirty = () => { if (csData) setIsDirty(true); };
 
-  if (catalogLoading) {
-    return (
-      <Container>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
-          <CircularProgress />
-        </Box>
-      </Container>
-    );
-  }
+  if (catalogLoading) return <PageLoader />;
 
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
@@ -187,15 +166,8 @@ function CrossSectionPage() {
             />
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Palette de couleurs</InputLabel>
-              <Select value={colorscale} label="Palette de couleurs"
-                onChange={e => { setColorscale(e.target.value); markDirty(); }}>
-                {COLORSCALE_OPTIONS.map(opt => (
-                  <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <ColorscaleSelector value={colorscale}
+              onChange={v => { setColorscale(v); markDirty(); }} />
           </Grid>
         </Grid>
 
@@ -211,12 +183,7 @@ function CrossSectionPage() {
             {loading ? <CircularProgress size={20} color="inherit" /> : 'Visualiser'}
           </Button>
           {csData && (
-            <Button variant={logScale ? 'contained' : 'outlined'} size="small"
-              onClick={() => setLogScale(s => !s)} startIcon={<LogIcon />}
-              color={logScale ? 'warning' : 'inherit'}
-              title="Echelle logarithmique (log10)">
-              Log\u2081\u2080
-            </Button>
+            <VisuToggle value={logScale} onChange={setLogScale} icon={<LogIcon />} title="Echelle logarithmique (log10)">{'Log\u2081\u2080'}</VisuToggle>
           )}
           {isDirty && (
             <Chip label="Parametres modifies — cliquez sur Visualiser" color="warning" size="small" />
@@ -225,10 +192,7 @@ function CrossSectionPage() {
 
         {csData && (
           <Box sx={{ mt: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Button variant="outlined" size="small" color={linkCopied ? 'success' : 'secondary'}
-              onClick={handleCopyLink} startIcon={<LinkIcon />}>
-              {linkCopied ? 'Lien copie !' : 'Permalien'}
-            </Button>
+            <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
             <ExportMenu
               plotRef={exportPlotRef}
               filename={`mars_crosssection_${selectedVariable || 'plot'}`}

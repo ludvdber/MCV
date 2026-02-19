@@ -250,7 +250,7 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV }) {
       {showLog && isColorscaleType && (
         <Box sx={{ mb: 1, px: 1 }}>
           <Typography variant="caption" sx={{ color: 'var(--cyan-accent)', fontStyle: 'italic' }}>
-            Echelle log\u2081\u2080 — valeurs negatives ou nulles masquees
+            {'Echelle log\u2081\u2080 \u2014 valeurs negatives ou nulles masquees'}
           </Typography>
         </Box>
       )}

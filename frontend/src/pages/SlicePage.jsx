@@ -1,22 +1,28 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Container, Paper, Typography, Button, CircularProgress,
-  Alert, Box, FormControl, InputLabel, Select, MenuItem, Chip
+  Alert, Box, Chip
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
-import { Place as PlaceIcon, Map as MapIcon, Link as LinkIcon, Functions as LogIcon } from '@mui/icons-material';
+import { Place as PlaceIcon, Map as MapIcon, Functions as LogIcon } from '@mui/icons-material';
 import { getSlice, exportSliceCSV } from '../services/api';
-import { LOCATION_COLORS, LOCATION_TYPE_LABELS } from '../data/marsLocations';
 import DatasetSelector from '../components/DatasetSelector';
 import VariableSelector from '../components/VariableSelector';
 import TimeSelector from '../components/TimeSelector';
 import AltitudeSelector from '../components/AltitudeSelector';
 import SliceViewer from '../components/SliceViewer';
 import ExportMenu from '../components/ExportMenu';
+import VisuToggle from '../components/VisuToggle';
+import PermalienButton from '../components/PermalienButton';
+import ColorscaleSelector from '../components/ColorscaleSelector';
+import LocationsLegend from '../components/LocationsLegend';
+import PageLoader from '../components/PageLoader';
 import { useMars } from '../context/MarsContext';
-import { COLORSCALE_OPTIONS, RDBU_VARIABLES } from '../utils/colorscales';
 import { triggerApiDownload } from '../utils/exportUtils';
+import { usePlotRef } from '../hooks/usePlotRef';
+import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
+import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
 
 /**
  * Page de visualisation 2D (UC2).
@@ -39,20 +45,14 @@ function SlicePage() {
   const [showLocations, setShowLocations] = useState(false);
   const [showSurface, setShowSurface] = useState(false);
   const [logScale, setLogScale] = useState(false);
-  const [linkCopied, setLinkCopied] = useState(false);
   const [colorscale, setColorscale] = useState('auto');
   const [isDirty, setIsDirty] = useState(false);
 
-  const viewerContainerRef = useRef(null);
+  const [viewerContainerRef, exportPlotRef] = usePlotRef();
+  const [linkCopied, copyToClipboard] = useCopyToClipboard();
   const [searchParams] = useSearchParams();
   const hasRestoredUrl = useRef(false);
   const pendingAutoLaunch = useRef(false);
-
-  const exportPlotRef = useMemo(() => ({
-    get current() {
-      return viewerContainerRef.current?.querySelector('.js-plotly-plot') || null;
-    }
-  }), []);
 
   if (!catalogLoading && !hasRestoredUrl.current) {
     hasRestoredUrl.current = true;
@@ -73,14 +73,7 @@ function SlicePage() {
 
   // Utilise la variable de la donnée affichée (pas du formulaire) pour éviter
   // que la palette change avant d'avoir cliqué sur "Analyser".
-  const resolvedColorscale = useMemo(() => {
-    if (colorscale === 'auto') {
-      const isTemp = RDBU_VARIABLES.includes(sliceData?.variable ?? selectedVariable);
-      return { name: isTemp ? 'RdBu' : 'Viridis', reverse: isTemp };
-    }
-    const opt = COLORSCALE_OPTIONS.find(o => o.value === colorscale);
-    return { name: colorscale, reverse: opt?.reverse || false };
-  }, [colorscale, sliceData?.variable, selectedVariable]);
+  const resolvedColorscale = useResolvedColorscale(colorscale, sliceData?.variable, selectedVariable);
 
   const handleVisualiser = () => {
     if (!selectedDataset || !selectedVariable) return;
@@ -112,23 +105,12 @@ function SlicePage() {
     p.set('t', String(selectedTime));
     p.set('alt', String(selectedAltitude));
     if (colorscale !== 'auto') p.set('cs', colorscale);
-    navigator.clipboard.writeText(`${window.location.origin}/slice?${p.toString()}`).then(() => {
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    });
+    copyToClipboard(`${window.location.origin}/slice?${p.toString()}`);
   };
 
   const markDirty = () => { if (sliceData) setIsDirty(true); };
 
-  if (catalogLoading) {
-    return (
-      <Container>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
-          <CircularProgress />
-        </Box>
-      </Container>
-    );
-  }
+  if (catalogLoading) return <PageLoader />;
 
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
@@ -155,15 +137,8 @@ function SlicePage() {
               variableCode={selectedVariable} />
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Palette de couleurs</InputLabel>
-              <Select value={colorscale} label="Palette de couleurs"
-                onChange={e => { setColorscale(e.target.value); markDirty(); }}>
-                {COLORSCALE_OPTIONS.map(opt => (
-                  <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <ColorscaleSelector value={colorscale}
+              onChange={v => { setColorscale(v); markDirty(); }} />
           </Grid>
         </Grid>
 
@@ -174,22 +149,9 @@ function SlicePage() {
           </Button>
           {sliceData && (
             <>
-              <Button variant={showLocations ? 'contained' : 'outlined'} size="small"
-                onClick={() => setShowLocations(s => !s)} startIcon={<PlaceIcon />}
-                color={showLocations ? 'warning' : 'inherit'}>
-                Points d'interet
-              </Button>
-              <Button variant={showSurface ? 'contained' : 'outlined'} size="small"
-                onClick={() => setShowSurface(s => !s)} startIcon={<MapIcon />}
-                color={showSurface ? 'warning' : 'inherit'}>
-                Surface
-              </Button>
-              <Button variant={logScale ? 'contained' : 'outlined'} size="small"
-                onClick={() => setLogScale(s => !s)} startIcon={<LogIcon />}
-                color={logScale ? 'warning' : 'inherit'}
-                title="Echelle logarithmique (log10)">
-                Log\u2081\u2080
-              </Button>
+              <VisuToggle value={showLocations} onChange={setShowLocations} icon={<PlaceIcon />}>Points d'interet</VisuToggle>
+              <VisuToggle value={showSurface} onChange={setShowSurface} icon={<MapIcon />}>Surface</VisuToggle>
+              <VisuToggle value={logScale} onChange={setLogScale} icon={<LogIcon />} title="Echelle logarithmique (log10)">{'Log\u2081\u2080'}</VisuToggle>
             </>
           )}
           {isDirty && (
@@ -197,24 +159,11 @@ function SlicePage() {
           )}
         </Box>
 
-        {showLocations && sliceData && (
-          <Box sx={{ mt: 1.5, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Typography variant="caption" color="text.secondary">Legende :</Typography>
-            {Object.entries(LOCATION_TYPE_LABELS).map(([type, label]) => (
-              <Box key={type} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: LOCATION_COLORS[type] }} />
-                <Typography variant="caption">{label}</Typography>
-              </Box>
-            ))}
-          </Box>
-        )}
+        <LocationsLegend visible={showLocations && !!sliceData} />
 
         {sliceData && (
           <Box sx={{ mt: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Button variant="outlined" size="small" color={linkCopied ? 'success' : 'secondary'}
-              onClick={handleCopyLink} startIcon={<LinkIcon />}>
-              {linkCopied ? 'Lien copie !' : 'Permalien'}
-            </Button>
+            <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
             <ExportMenu
               plotRef={exportPlotRef}
               filename={`mars_slice_${selectedVariable || 'plot'}`}

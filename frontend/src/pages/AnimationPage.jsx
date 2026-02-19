@@ -1,22 +1,28 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Container, Paper, Typography, Button, CircularProgress,
-  Alert, Box, FormControl, InputLabel, Select, MenuItem, Chip
+  Alert, Box, Chip
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
-import { Place as PlaceIcon, Map as MapIcon, Link as LinkIcon, Functions as LogIcon } from '@mui/icons-material';
+import { Place as PlaceIcon, Map as MapIcon, Functions as LogIcon } from '@mui/icons-material';
 import { getAnimation } from '../services/api';
-import { VARIABLES } from '../components/VariableSelector';
-import { LOCATION_COLORS, LOCATION_TYPE_LABELS } from '../data/marsLocations';
 import DatasetSelector from '../components/DatasetSelector';
 import VariableSelector from '../components/VariableSelector';
 import AltitudeSelector from '../components/AltitudeSelector';
 import AnimationPlayer from '../components/AnimationPlayer';
 import ExportMenu from '../components/ExportMenu';
+import VisuToggle from '../components/VisuToggle';
+import PermalienButton from '../components/PermalienButton';
+import ColorscaleSelector from '../components/ColorscaleSelector';
+import LocationsLegend from '../components/LocationsLegend';
+import PageLoader from '../components/PageLoader';
 import { useMars } from '../context/MarsContext';
-import { COLORSCALE_OPTIONS, RDBU_VARIABLES } from '../utils/colorscales';
 import { downloadAnimationCSV } from '../utils/exportUtils';
+import { usePlotRef } from '../hooks/usePlotRef';
+import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
+import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
+import { isSurfaceVariable } from '../utils/variableUtils';
 
 /**
  * Page d'animation (UC4).
@@ -38,20 +44,14 @@ function AnimationPage() {
   const [showLocations, setShowLocations] = useState(false);
   const [showSurface, setShowSurface] = useState(false);
   const [logScale, setLogScale] = useState(false);
-  const [linkCopied, setLinkCopied] = useState(false);
   const [colorscale, setColorscale] = useState('auto');
   const [isDirty, setIsDirty] = useState(false);
 
-  const viewerContainerRef = useRef(null);
+  const [viewerContainerRef, exportPlotRef] = usePlotRef();
+  const [linkCopied, copyToClipboard] = useCopyToClipboard();
   const [searchParams] = useSearchParams();
   const hasRestoredUrl = useRef(false);
   const pendingAutoLaunch = useRef(false);
-
-  const exportPlotRef = useMemo(() => ({
-    get current() {
-      return viewerContainerRef.current?.querySelector('.js-plotly-plot') || null;
-    }
-  }), []);
 
   if (!catalogLoading && !hasRestoredUrl.current) {
     hasRestoredUrl.current = true;
@@ -69,23 +69,15 @@ function AnimationPage() {
   }
 
   // Utilise la variable de la donnée affichée (pas du formulaire) pour éviter
-  // que la palette change avant d'avoir cliqué sur "Analyser".
-  const resolvedColorscale = useMemo(() => {
-    if (colorscale === 'auto') {
-      const isTemp = RDBU_VARIABLES.includes(animationData?.variable ?? selectedVariable);
-      return { name: isTemp ? 'RdBu' : 'Viridis', reverse: isTemp };
-    }
-    const opt = COLORSCALE_OPTIONS.find(o => o.value === colorscale);
-    return { name: colorscale, reverse: opt?.reverse || false };
-  }, [colorscale, animationData?.variable, selectedVariable]);
+  // que la palette change avant d'avoir cliqué sur "Charger".
+  const resolvedColorscale = useResolvedColorscale(colorscale, animationData?.variable, selectedVariable);
 
   const handleCharger = () => {
     if (!selectedDataset || !selectedVariable) return;
     setLoading(true);
     setError(null);
     setIsDirty(false);
-    const variable = VARIABLES.find(v => v.code === selectedVariable);
-    const altitudeToSend = variable?.altitudeType === null ? 0 : selectedAltitude;
+    const altitudeToSend = isSurfaceVariable(selectedVariable) ? 0 : selectedAltitude;
     getAnimation({ dataset: selectedDataset, variable: selectedVariable, altitude: altitudeToSend })
       .then(res => setAnimationData(res.data))
       .catch(err => setError(err.response?.data?.message || err.message))
@@ -103,10 +95,7 @@ function AnimationPage() {
     if (selectedVariable) p.set('var', selectedVariable);
     p.set('alt', String(selectedAltitude));
     if (colorscale !== 'auto') p.set('cs', colorscale);
-    navigator.clipboard.writeText(`${window.location.origin}/animation?${p.toString()}`).then(() => {
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    });
+    copyToClipboard(`${window.location.origin}/animation?${p.toString()}`);
   };
 
   /** Export CSV client-side : stats par frame (min/max/mean sur lat×lon) */
@@ -117,15 +106,7 @@ function AnimationPage() {
 
   const markDirty = () => { if (animationData) setIsDirty(true); };
 
-  if (catalogLoading) {
-    return (
-      <Container>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
-          <CircularProgress />
-        </Box>
-      </Container>
-    );
-  }
+  if (catalogLoading) return <PageLoader />;
 
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
@@ -148,15 +129,8 @@ function AnimationPage() {
               variableCode={selectedVariable} />
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Palette de couleurs</InputLabel>
-              <Select value={colorscale} label="Palette de couleurs"
-                onChange={e => { setColorscale(e.target.value); markDirty(); }}>
-                {COLORSCALE_OPTIONS.map(opt => (
-                  <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <ColorscaleSelector value={colorscale}
+              onChange={v => { setColorscale(v); markDirty(); }} />
           </Grid>
         </Grid>
 
@@ -167,22 +141,9 @@ function AnimationPage() {
           </Button>
           {animationData && (
             <>
-              <Button variant={showLocations ? 'contained' : 'outlined'} size="small"
-                onClick={() => setShowLocations(s => !s)} startIcon={<PlaceIcon />}
-                color={showLocations ? 'warning' : 'inherit'}>
-                Points d'interet
-              </Button>
-              <Button variant={showSurface ? 'contained' : 'outlined'} size="small"
-                onClick={() => setShowSurface(s => !s)} startIcon={<MapIcon />}
-                color={showSurface ? 'warning' : 'inherit'}>
-                Surface
-              </Button>
-              <Button variant={logScale ? 'contained' : 'outlined'} size="small"
-                onClick={() => setLogScale(s => !s)} startIcon={<LogIcon />}
-                color={logScale ? 'warning' : 'inherit'}
-                title="Echelle logarithmique (log10)">
-                Log\u2081\u2080
-              </Button>
+              <VisuToggle value={showLocations} onChange={setShowLocations} icon={<PlaceIcon />}>Points d'interet</VisuToggle>
+              <VisuToggle value={showSurface} onChange={setShowSurface} icon={<MapIcon />}>Surface</VisuToggle>
+              <VisuToggle value={logScale} onChange={setLogScale} icon={<LogIcon />} title="Echelle logarithmique (log10)">{'Log\u2081\u2080'}</VisuToggle>
             </>
           )}
           {isDirty && (
@@ -194,24 +155,11 @@ function AnimationPage() {
           Charge 48 pas de temps consecutifs. Le chargement peut prendre plusieurs secondes selon votre connexion.
         </Typography>
 
-        {showLocations && animationData && (
-          <Box sx={{ mt: 1.5, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Typography variant="caption" color="text.secondary">Legende :</Typography>
-            {Object.entries(LOCATION_TYPE_LABELS).map(([type, label]) => (
-              <Box key={type} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: LOCATION_COLORS[type] }} />
-                <Typography variant="caption">{label}</Typography>
-              </Box>
-            ))}
-          </Box>
-        )}
+        <LocationsLegend visible={showLocations && !!animationData} />
 
         {animationData && (
           <Box sx={{ mt: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Button variant="outlined" size="small" color={linkCopied ? 'success' : 'secondary'}
-              onClick={handleCopyLink} startIcon={<LinkIcon />}>
-              {linkCopied ? 'Lien copie !' : 'Permalien'}
-            </Button>
+            <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
             <ExportMenu
               plotRef={exportPlotRef}
               filename={`mars_animation_${selectedVariable || 'plot'}`}

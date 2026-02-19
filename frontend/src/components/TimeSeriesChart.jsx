@@ -3,6 +3,7 @@ import Plotly from 'plotly.js-dist-min';
 import { Paper, Typography, Box } from '@mui/material';
 import { VARIABLES } from './VariableSelector';
 import ExportMenu from './ExportMenu';
+import StatsBar from './StatsBar';
 
 /** Axe X : heures locales martiennes (0.5h a 24h, 48 valeurs) */
 const HOURS = Array.from({ length: 48 }, (_, i) => (i + 1) * 0.5);
@@ -95,14 +96,7 @@ function TimeSeriesChart({ timeSeriesData, variableCode, datasetLabel, onExportC
       <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <div ref={plotRef} style={{ width: '100%' }} />
       </Paper>
-      {stats && (
-        <Paper sx={{ p: 1.5, mt: 1, display: 'flex', justifyContent: 'center', gap: 3 }}>
-          <Typography variant="body2">Min : {stats.min?.toPrecision(4) ?? '-'}</Typography>
-          <Typography variant="body2">Max : {stats.max?.toPrecision(4) ?? '-'}</Typography>
-          <Typography variant="body2">Moyenne : {stats.mean?.toPrecision(4) ?? '-'}</Typography>
-          <Typography variant="body2">Ecart-type : {stats.stddev?.toPrecision(4) ?? '-'}</Typography>
-        </Paper>
-      )}
+      <StatsBar stats={stats} />
     </Box>
   );
 }

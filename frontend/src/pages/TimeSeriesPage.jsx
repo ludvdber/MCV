@@ -1,17 +1,20 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Container, Paper, Typography, Button, CircularProgress, Alert, Box, Chip } from '@mui/material';
 import Grid from '@mui/material/Grid';
-import { Link as LinkIcon } from '@mui/icons-material';
 import { getTimeSeries, exportTimeSeriesCSV } from '../services/api';
-import { VARIABLES } from '../components/VariableSelector';
+import PermalienButton from '../components/PermalienButton';
 import DatasetSelector from '../components/DatasetSelector';
 import VariableSelector from '../components/VariableSelector';
 import AltitudeSelector from '../components/AltitudeSelector';
 import LatLonSelector from '../components/LatLonSelector';
 import TimeSeriesChart from '../components/TimeSeriesChart';
 import ExportMenu from '../components/ExportMenu';
+import PageLoader from '../components/PageLoader';
 import { useMars } from '../context/MarsContext';
+import { usePlotRef } from '../hooks/usePlotRef';
+import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
+import { isSurfaceVariable } from '../utils/variableUtils';
 
 /**
  * Page serie temporelle (UC3).
@@ -31,19 +34,13 @@ function TimeSeriesPage() {
   const [timeSeriesData, setTimeSeriesData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [linkCopied, setLinkCopied] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
 
-  const viewerContainerRef = useRef(null);
+  const [viewerContainerRef, exportPlotRef] = usePlotRef();
+  const [linkCopied, copyToClipboard] = useCopyToClipboard();
   const [searchParams] = useSearchParams();
   const hasRestoredUrl = useRef(false);
   const pendingAutoLaunch = useRef(false);
-
-  const exportPlotRef = useMemo(() => ({
-    get current() {
-      return viewerContainerRef.current?.querySelector('.js-plotly-plot') || null;
-    }
-  }), []);
 
   if (!catalogLoading && !hasRestoredUrl.current) {
     hasRestoredUrl.current = true;
@@ -67,8 +64,7 @@ function TimeSeriesPage() {
     setLoading(true);
     setError(null);
     setIsDirty(false);
-    const variable = VARIABLES.find(v => v.code === selectedVariable);
-    const altitudeToSend = variable?.altitudeType === null ? 0 : selectedAltitude;
+    const altitudeToSend = isSurfaceVariable(selectedVariable) ? 0 : selectedAltitude;
     getTimeSeries({
       dataset: selectedDataset,
       variable: selectedVariable,
@@ -87,8 +83,7 @@ function TimeSeriesPage() {
   }
 
   const handleExportCSV = () => {
-    const variable = VARIABLES.find(v => v.code === selectedVariable);
-    const altitudeToSend = variable?.altitudeType === null ? 0 : selectedAltitude;
+    const altitudeToSend = isSurfaceVariable(selectedVariable) ? 0 : selectedAltitude;
     exportTimeSeriesCSV({
       dataset: selectedDataset,
       variable: selectedVariable,
@@ -112,23 +107,12 @@ function TimeSeriesPage() {
     p.set('lat', String(selectedLatitude));
     p.set('lon', String(selectedLongitude));
     p.set('alt', String(selectedAltitude));
-    navigator.clipboard.writeText(`${window.location.origin}/timeseries?${p.toString()}`).then(() => {
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    });
+    copyToClipboard(`${window.location.origin}/timeseries?${p.toString()}`);
   };
 
   const markDirty = () => { if (timeSeriesData) setIsDirty(true); };
 
-  if (catalogLoading) {
-    return (
-      <Container>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
-          <CircularProgress />
-        </Box>
-      </Container>
-    );
-  }
+  if (catalogLoading) return <PageLoader />;
 
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
@@ -172,10 +156,7 @@ function TimeSeriesPage() {
 
         {timeSeriesData && (
           <Box sx={{ mt: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Button variant="outlined" size="small" color={linkCopied ? 'success' : 'secondary'}
-              onClick={handleCopyLink} startIcon={<LinkIcon />}>
-              {linkCopied ? 'Lien copie !' : 'Permalien'}
-            </Button>
+            <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
             <ExportMenu
               plotRef={exportPlotRef}
               filename={`mars_timeseries_${selectedVariable || 'plot'}`}

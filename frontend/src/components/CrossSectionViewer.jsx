@@ -4,6 +4,7 @@ import { Paper, Typography, Box } from '@mui/material';
 import { VARIABLES } from './VariableSelector';
 import { RDBU_VARIABLES } from '../utils/colorscales';
 import ExportMenu from './ExportMenu';
+import StatsBar from './StatsBar';
 
 /**
  * Affiche un heatmap Plotly d'une coupe verticale (meridionale ou zonale).
@@ -41,16 +42,18 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
     // ── Log scale transform ───────────────────────────────────────────────
     let displayData = data;
     let logColorbarExtra = {};
+    let logZMin = null, logZMax = null;
     let hoverTemplate = `${isMeridional ? 'Lat' : 'Lon'}: %{x}°<br>Alt: %{y:.1f} km<br>Valeur: %{z:.6g} ${unit}<extra></extra>`;
 
     if (logScale) {
       displayData = data.map(row => row.map(v => (v != null && v > 0) ? Math.log10(v) : null));
       const rawStats = crossSectionData.stats;
       if (rawStats?.min > 0 && rawStats?.max > 0) {
-        const minLog = Math.floor(Math.log10(rawStats.min));
-        const maxLog = Math.ceil(Math.log10(rawStats.max));
+        logZMin = Math.floor(Math.log10(rawStats.min));
+        logZMax = Math.ceil(Math.log10(rawStats.max));
+        if (logZMin === logZMax) { logZMin -= 1; logZMax += 1; }
         const tickvals = [], ticktext = [];
-        for (let e = minLog; e <= maxLog; e++) { tickvals.push(e); ticktext.push(`10^${e}`); }
+        for (let e = logZMin; e <= logZMax; e++) { tickvals.push(e); ticktext.push(`10^${e}`); }
         logColorbarExtra = { tickvals, ticktext };
       }
       hoverTemplate = `${isMeridional ? 'Lat' : 'Lon'}: %{x}°<br>Alt: %{y:.1f} km<br>log\u2081\u2080: %{z:.3f}<br>Valeur: %{customdata:.6g} ${unit}<extra></extra>`;
@@ -63,8 +66,9 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
       z: displayData,
       colorscale: finalColorscale,
       reversescale: finalReverse,
-      ...(customZMin != null ? { zmin: customZMin } : {}),
-      ...(customZMax != null ? { zmax: customZMax } : {}),
+      ...(logScale
+        ? (logZMin != null ? { zmin: logZMin, zmax: logZMax } : {})
+        : { ...(customZMin != null ? { zmin: customZMin } : {}), ...(customZMax != null ? { zmax: customZMax } : {}) }),
       ...(logScale ? { customdata: data } : {}),
       zsmooth: 'best',
       connectgaps: true,
@@ -136,14 +140,7 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
       <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <div ref={plotRef} style={{ width: '100%' }} />
       </Paper>
-      {stats && (
-        <Paper sx={{ p: 1.5, mt: 1, display: 'flex', justifyContent: 'center', gap: 3 }}>
-          <Typography variant="body2">Min : {stats.min?.toPrecision(4) ?? '-'}</Typography>
-          <Typography variant="body2">Max : {stats.max?.toPrecision(4) ?? '-'}</Typography>
-          <Typography variant="body2">Moyenne : {stats.mean?.toPrecision(4) ?? '-'}</Typography>
-          <Typography variant="body2">Ecart-type : {stats.stddev?.toPrecision(4) ?? '-'}</Typography>
-        </Paper>
-      )}
+      <StatsBar stats={stats} />
     </Box>
   );
 }

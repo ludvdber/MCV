@@ -7,6 +7,7 @@ import { buildLocationTrace } from '../data/marsLocations';
 import { computeHeatmapCustomData } from '../utils/heatmapAnalysis';
 import { RDBU_VARIABLES } from '../utils/colorscales';
 import ExportMenu from './ExportMenu';
+import StatsBar from './StatsBar';
 
 /**
  * Affiche une heatmap 2D latitude/longitude d'une variable atmospherique.
@@ -229,14 +230,7 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
       <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <div ref={plotRef} style={{ width: '100%' }} />
       </Paper>
-      {stats && (
-        <Paper sx={{ p: 1.5, mt: 1, display: 'flex', justifyContent: 'center', gap: 3 }}>
-          <Typography variant="body2">Min : {stats.min?.toPrecision(4) ?? '-'}</Typography>
-          <Typography variant="body2">Max : {stats.max?.toPrecision(4) ?? '-'}</Typography>
-          <Typography variant="body2">Moyenne : {stats.mean?.toPrecision(4) ?? '-'}</Typography>
-          <Typography variant="body2">Ecart-type : {stats.stddev?.toPrecision(4) ?? '-'}</Typography>
-        </Paper>
-      )}
+      <StatsBar stats={stats} />
     </Box>
   );
 }

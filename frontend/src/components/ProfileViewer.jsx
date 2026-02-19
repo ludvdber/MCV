@@ -3,6 +3,7 @@ import Plotly from 'plotly.js-dist-min';
 import { Paper, Typography, Box } from '@mui/material';
 import { VARIABLES } from './VariableSelector';
 import ExportMenu from './ExportMenu';
+import StatsBar from './StatsBar';
 
 /**
  * Affiche un profil vertical Plotly (valeur en X, altitude en Y).
@@ -87,14 +88,7 @@ function ProfileViewer({ profileData, variableCode, datasetLabel, onExportCSV = 
       <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <div ref={plotRef} style={{ width: '100%' }} />
       </Paper>
-      {stats && (
-        <Paper sx={{ p: 1.5, mt: 1, display: 'flex', justifyContent: 'center', gap: 3 }}>
-          <Typography variant="body2">Min : {stats.min?.toPrecision(4) ?? '-'}</Typography>
-          <Typography variant="body2">Max : {stats.max?.toPrecision(4) ?? '-'}</Typography>
-          <Typography variant="body2">Moyenne : {stats.mean?.toPrecision(4) ?? '-'}</Typography>
-          <Typography variant="body2">Ecart-type : {stats.stddev?.toPrecision(4) ?? '-'}</Typography>
-        </Paper>
-      )}
+      <StatsBar stats={stats} />
     </Box>
   );
 }

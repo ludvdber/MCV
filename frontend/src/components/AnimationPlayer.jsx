@@ -9,6 +9,7 @@ import { computeHeatmapCustomData } from '../utils/heatmapAnalysis';
 import { RDBU_VARIABLES } from '../utils/colorscales';
 import { downloadAnimationCSV } from '../utils/exportUtils';
 import ExportMenu from './ExportMenu';
+import StatsBar from './StatsBar';
 
 /** Duree de base d'une frame en ms (vitesse 1x = ~3.3 fps) */
 const BASE_FRAME_MS = 300;
@@ -90,12 +91,13 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
    * entre toutes les frames.
    */
   const computeLogTicks = useCallback((stats) => {
-    if (!stats || stats.min <= 0 || stats.max <= 0) return {};
-    const minLog = Math.floor(Math.log10(stats.min));
-    const maxLog = Math.ceil(Math.log10(stats.max));
+    if (!stats || stats.min <= 0 || stats.max <= 0) return { colorbar: {}, zMin: null, zMax: null };
+    let zMin = Math.floor(Math.log10(stats.min));
+    let zMax = Math.ceil(Math.log10(stats.max));
+    if (zMin === zMax) { zMin -= 1; zMax += 1; }
     const tickvals = [], ticktext = [];
-    for (let e = minLog; e <= maxLog; e++) { tickvals.push(e); ticktext.push(`10^${e}`); }
-    return { tickvals, ticktext };
+    for (let e = zMin; e <= zMax; e++) { tickvals.push(e); ticktext.push(`10^${e}`); }
+    return { colorbar: { tickvals, ticktext }, zMin, zMax };
   }, []);
 
   /** Creation initiale du graphique quand animationData change */
@@ -126,14 +128,18 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
     // ── Log scale transform (frame 0) ────────────────────────────────────
     let initFrame = frames[0];
     let logColorbarExtra = {};
+    let logZMin = null, logZMax = null;
     let initCustomdata;
     let hoverTemplate;
 
     if (logScale) {
       initFrame = frames[0].map(row => row.map(v => (v != null && v > 0) ? Math.log10(v) : null));
-      logColorbarExtra = computeLogTicks(animationData.stats);
+      const logTicks = computeLogTicks(animationData.stats);
+      logColorbarExtra = logTicks.colorbar;
+      logZMin = logTicks.zMin;
+      logZMax = logTicks.zMax;
       initCustomdata = frames[0];
-      hoverTemplate = 'Lon: %{x}\u00b0<br>Lat: %{y}\u00b0<br>Valeur: %{customdata:.6g} ' + unit + '<extra></extra>';
+      hoverTemplate = 'Lon: %{x}\u00b0<br>Lat: %{y}\u00b0<br>Valeur: %{customdata:.6g} ' + unit + '<br>log\u2081\u2080 = %{z:.3f}<extra></extra>';
     } else if (showDetailedTooltip) {
       if (!customDataCacheRef.current.has(0))
         customDataCacheRef.current.set(0, computeHeatmapCustomData(frames[0], latitudes, longitudes));
@@ -155,8 +161,9 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
       z: initFrame,
       colorscale: finalColorscale,
       reversescale: finalReverse,
-      ...(customZMin != null ? { zmin: customZMin } : {}),
-      ...(customZMax != null ? { zmax: customZMax } : {}),
+      ...(logScale
+        ? (logZMin != null ? { zmin: logZMin, zmax: logZMax } : {})
+        : { ...(customZMin != null ? { zmin: customZMin } : {}), ...(customZMax != null ? { zmax: customZMax } : {}) }),
       ...(initCustomdata ? { customdata: initCustomdata } : {}),
       zsmooth: 'best',
       connectgaps: true,
@@ -246,14 +253,18 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
     // ── Log scale transform (frame courante) ──────────────────────────────
     let frameData = frames[currentFrame];
     let logColorbarExtra = {};
+    let logZMin = null, logZMax = null;
     let frameCustomdata;
     let hoverTemplate;
 
     if (logScale) {
       frameData = frames[currentFrame].map(row => row.map(v => (v != null && v > 0) ? Math.log10(v) : null));
-      logColorbarExtra = computeLogTicks(animationData.stats);
+      const logTicks = computeLogTicks(animationData.stats);
+      logColorbarExtra = logTicks.colorbar;
+      logZMin = logTicks.zMin;
+      logZMax = logTicks.zMax;
       frameCustomdata = frames[currentFrame];
-      hoverTemplate = 'Lon: %{x}\u00b0<br>Lat: %{y}\u00b0<br>Valeur: %{customdata:.6g} ' + unit + '<extra></extra>';
+      hoverTemplate = 'Lon: %{x}\u00b0<br>Lat: %{y}\u00b0<br>Valeur: %{customdata:.6g} ' + unit + '<br>log\u2081\u2080 = %{z:.3f}<extra></extra>';
     } else if (showDetailedTooltip) {
       // Calcul du tooltip enrichi mis en cache par index de frame
       if (!customDataCacheRef.current.has(currentFrame))
@@ -276,8 +287,9 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
       z: frameData,
       colorscale: finalColorscale,
       reversescale: finalReverse,
-      ...(customZMin != null ? { zmin: customZMin } : {}),
-      ...(customZMax != null ? { zmax: customZMax } : {}),
+      ...(logScale
+        ? (logZMin != null ? { zmin: logZMin, zmax: logZMax } : {})
+        : { ...(customZMin != null ? { zmin: customZMin } : {}), ...(customZMax != null ? { zmax: customZMax } : {}) }),
       ...(frameCustomdata ? { customdata: frameCustomdata } : {}),
       zsmooth: 'best',
       connectgaps: true,
@@ -448,15 +460,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
         </Box>
       </Paper>
 
-      {/* Stats globales (sur l'ensemble des frames) */}
-      {stats && (
-        <Paper sx={{ p: 1.5, mt: 1, display: 'flex', justifyContent: 'center', gap: 3 }}>
-          <Typography variant="body2">Min : {stats.min?.toPrecision(4) ?? '-'}</Typography>
-          <Typography variant="body2">Max : {stats.max?.toPrecision(4) ?? '-'}</Typography>
-          <Typography variant="body2">Moyenne : {stats.mean?.toPrecision(4) ?? '-'}</Typography>
-          <Typography variant="body2">Ecart-type : {stats.stddev?.toPrecision(4) ?? '-'}</Typography>
-        </Paper>
-      )}
+      <StatsBar stats={stats} />
     </Box>
   );
 }
