@@ -1,8 +1,9 @@
 import { useRef, useEffect } from 'react';
 import Plotly from 'plotly.js-dist-min';
 import { Paper, Typography, Box } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { formatTime } from './TimeSelector';
-import { VARIABLES } from './VariableSelector';
+import { VARIABLES_MAP } from './VariableSelector';
 import { buildLocationTrace } from '../data/marsLocations';
 import { computeHeatmapCustomData } from '../utils/heatmapAnalysis';
 import { RDBU_VARIABLES } from '../utils/colorscales';
@@ -26,19 +27,21 @@ import StatsBar from './StatsBar';
  */
 
 function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = false, showSurface = false, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip = false, windData = null, onExportCSV = null, noExportMenu = false, externalPlotRef = null, logScale = false }) {
+  const { t, i18n } = useTranslation();
   const internalPlotRef = useRef(null);
   const plotRef = externalPlotRef ?? internalPlotRef;
 
   useEffect(() => {
-    if (!plotRef.current || !sliceData) return;
+    const el = plotRef.current;
+    if (!el || !sliceData) return;
 
     const { data, latitudes, longitudes, timeIndex, altitudeIndex, altitudeValue } = sliceData;
-    const varInfo = VARIABLES.find(v => v.code === variableCode);
+    const varInfo = VARIABLES_MAP.get(variableCode);
     const unit = varInfo?.unit || '';
-    const variableLabel = varInfo?.label || variableCode;
+    const variableLabel = varInfo ? t(`variable.${variableCode}`) : variableCode;
     const altitudeText = altitudeValue != null
       ? `~${Number(altitudeValue).toFixed(1)} km`
-      : `Niveau ${altitudeIndex}`;
+      : `${t('selector.altitude.level')} ${altitudeIndex}`;
 
     const lonMin = Math.min(...longitudes);
     const lonMax = Math.max(...longitudes);
@@ -118,7 +121,12 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
     // ---- Vecteurs de vent (quiver) ----
     if (windData && windData.lats && windData.lats.length > 0) {
       const { lats: wLats, lons: wLons, u, v } = windData;
-      const maxSpeed = Math.max(...u.map((ui, i) => Math.hypot(ui, v[i]))) || 1;
+      let maxSpeed = 0;
+      for (let i = 0; i < u.length; i++) {
+        const spd = Math.hypot(u[i], v[i]);
+        if (spd > maxSpeed) maxSpeed = spd;
+      }
+      if (maxSpeed === 0) maxSpeed = 1;
       const scale = 6.0; // longueur max en degrés (vecteur le plus rapide = 6°)
 
       const xLines = [], yLines = [];
@@ -162,7 +170,7 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
       title: { text: `${datasetLabel || ''} — ${variableLabel} — ${formatTime(timeIndex)} — ${altitudeText}`, font: { size: 16, color: fontColor } },
       font: { color: fontColor },
       xaxis: {
-        title: 'Longitude (°)',
+        title: t('viz.longitude'),
         range: [lonMin, lonMax],
         showgrid: false,
         zeroline: false,
@@ -170,7 +178,7 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
         color: fontColor
       },
       yaxis: {
-        title: 'Latitude (°)',
+        title: t('viz.latitude'),
         range: [latMin, latMax],
         showgrid: false,
         zeroline: false,
@@ -197,21 +205,20 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
       }];
     }
 
-    Plotly.newPlot(plotRef.current, traces, layout, {
+    Plotly.newPlot(el, traces, layout, {
       responsive: true,
       displaylogo: false,
       modeBarButtonsToRemove: ['lasso2d', 'select2d']
     });
 
-    return () => { if (plotRef.current) Plotly.purge(plotRef.current); };
-  }, [sliceData, variableCode, showLocations, showSurface, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip, windData, logScale]);
+    return () => Plotly.purge(el);
+  }, [sliceData, variableCode, datasetLabel, showLocations, showSurface, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip, windData, logScale, i18n.language]);
 
   if (!sliceData) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
         <Typography color="text.secondary">
-          Selectionnez un dataset, une variable, un timestep et un niveau d'altitude,
-          puis cliquez sur Visualiser.
+          {t('viz.slice.empty')}
         </Typography>
       </Paper>
     );

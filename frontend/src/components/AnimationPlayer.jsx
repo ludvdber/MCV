@@ -2,8 +2,9 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Plotly from 'plotly.js-dist-min';
 import { Paper, Box, Slider, IconButton, Typography, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import { PlayArrow, Pause } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 import { formatTime } from './TimeSelector';
-import { VARIABLES } from './VariableSelector';
+import { VARIABLES_MAP } from './VariableSelector';
 import { buildLocationTrace } from '../data/marsLocations';
 import { computeHeatmapCustomData } from '../utils/heatmapAnalysis';
 import { RDBU_VARIABLES } from '../utils/colorscales';
@@ -46,6 +47,7 @@ const scrubMarks = [0, 7, 15, 23, 31, 39, 47].map(t => ({
  * @param {boolean}     logScale     - afficher l'echelle en log10 (pour variables a faibles valeurs)
  */
 function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocations = false, showSurface = false, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip = false, noExportMenu = false, externalPlotRef = null, logScale = false }) {
+  const { t, i18n } = useTranslation();
   const internalPlotRef = useRef(null);
   const plotRef = externalPlotRef ?? internalPlotRef;
   const rafRef = useRef(null);
@@ -60,15 +62,15 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
   const fontColor = 'rgba(255,255,255,0.85)';
 
   /** Unite physique de la variable (ex: 'K', 'Pa', 'm/s') */
-  const unit = VARIABLES.find(v => v.code === variableCode)?.unit || '';
+  const unit = VARIABLES_MAP.get(variableCode)?.unit || '';
 
   /** Label lisible de la variable (ex: 'Temperature' au lieu de 'TT') */
-  const variableLabel = VARIABLES.find(v => v.code === variableCode)?.label || variableCode;
+  const variableLabel = VARIABLES_MAP.get(variableCode) ? t(`variable.${variableCode}`) : variableCode;
 
   /** Formate l'altitude : valeur réelle en km si disponible, sinon index */
   const altitudeText = animationData?.altitudeValue != null
     ? `~${Number(animationData.altitudeValue).toFixed(1)} km`
-    : animationData?.altitudeIndex != null ? `Niveau ${animationData.altitudeIndex}` : '';
+    : animationData?.altitudeIndex != null ? `${t('selector.altitude.level')} ${animationData.altitudeIndex}` : '';
 
   /** Titre Plotly statique (sans l'heure qui change) */
   const plotTitle = {
@@ -102,7 +104,8 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
 
   /** Creation initiale du graphique quand animationData change */
   useEffect(() => {
-    if (!plotRef.current || !animationData) return;
+    const el = plotRef.current;
+    if (!el || !animationData) return;
 
     setCurrentFrame(0);
     setIsPlaying(false);
@@ -189,7 +192,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
       title: { ...plotTitle, font: { ...plotTitle.font, color: fontColor } },
       font: { color: fontColor },
       xaxis: {
-        title: 'Longitude (°)',
+        title: t('viz.longitude'),
         range: [lonMin, lonMax],
         showgrid: false,
         zeroline: false,
@@ -197,7 +200,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
         color: fontColor
       },
       yaxis: {
-        title: 'Latitude (°)',
+        title: t('viz.latitude'),
         range: [latMin, latMax],
         showgrid: false,
         zeroline: false,
@@ -224,15 +227,15 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
       }];
     }
 
-    Plotly.newPlot(plotRef.current, initTraces, layout, {
+    Plotly.newPlot(el, initTraces, layout, {
       responsive: true,
       displaylogo: false,
       modeBarButtonsToRemove: ['lasso2d', 'select2d']
     });
 
-    return () => { if (plotRef.current) Plotly.purge(plotRef.current); };
+    return () => Plotly.purge(el);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [animationData, variableCode, unit, stopAnimation, logScale]);
+  }, [animationData, variableCode, unit, stopAnimation, logScale, i18n.language]);
 
   /** Mise a jour du graphique quand la frame change (Plotly.react = update performant) */
   useEffect(() => {
@@ -315,7 +318,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
       title: { ...plotTitle, font: { ...plotTitle.font, color: fontColor } },
       font: { color: fontColor },
       xaxis: {
-        title: 'Longitude (°)',
+        title: t('viz.longitude'),
         range: [lonMin, lonMax],
         showgrid: false,
         zeroline: false,
@@ -323,7 +326,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
         color: fontColor
       },
       yaxis: {
-        title: 'Latitude (°)',
+        title: t('viz.latitude'),
         range: [latMin, latMax],
         showgrid: false,
         zeroline: false,
@@ -352,7 +355,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
 
     Plotly.react(plotRef.current, frameTraces, layout);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentFrame, animationData, variableCode, unit, showLocations, showSurface, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip, logScale]);
+  }, [currentFrame, animationData, variableCode, unit, datasetLabel, showLocations, showSurface, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip, logScale, i18n.language]);
 
   /** Duree effective d'une frame selon la vitesse choisie */
   const frameDuration = BASE_FRAME_MS / speed;
@@ -392,8 +395,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
         <Typography color="text.secondary">
-          Selectionnez un dataset, une variable et un niveau d'altitude,
-          puis cliquez sur Charger l'animation.
+          {t('viz.animation.empty')}
         </Typography>
       </Paper>
     );
@@ -424,6 +426,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
           <IconButton
             color="primary"
             onClick={() => setIsPlaying(p => !p)}
+            aria-label={isPlaying ? 'Pause animation' : 'Play animation'}
           >
             {isPlaying ? <Pause /> : <PlayArrow />}
           </IconButton>

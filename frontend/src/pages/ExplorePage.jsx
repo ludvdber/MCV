@@ -13,8 +13,9 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
-import { VARIABLES } from '../components/VariableSelector';
+import { VARIABLES_MAP } from '../components/VariableSelector';
 import { triggerApiDownload, downloadAnimationCSV } from '../utils/exportUtils';
 import {
   getSlice, getTimeSeries, getAnimation, getProfile, getCrossSection, getWind,
@@ -30,8 +31,8 @@ import { formatTime } from '../components/TimeSelector';
 /* ─── Helpers purs ────────────────────────────────────────────────────────── */
 
 /** Génère un label court pour l'onglet d'un résultat. */
-function genLabel(type, params) {
-  const varLabel = VARIABLES.find(v => v.code === params.variable)?.label || params.variable;
+function genLabel(type, params, t) {
+  const varLabel = VARIABLES_MAP.has(params.variable) ? t(`variable.${params.variable}`) : params.variable;
   switch (type) {
     case 'slice':
       return `${varLabel} ${formatTime(params.time)} alt${params.altitude}`;
@@ -54,6 +55,7 @@ function genLabel(type, params) {
 /* ─── Contenu principal (à l'intérieur du Provider) ──────────────────────── */
 
 function ExplorePageContent() {
+  const { t } = useTranslation();
   const state    = useExploreState();
   const dispatch = useExploreDispatch();
 
@@ -86,7 +88,7 @@ function ExplorePageContent() {
   );
 
   const isSurfaceVariable = useMemo(() => {
-    const v = VARIABLES.find(v => v.code === selectedVariable);
+    const v = VARIABLES_MAP.get(selectedVariable);
     return v?.altitudeType === null;
   }, [selectedVariable]);
 
@@ -148,22 +150,22 @@ function ExplorePageContent() {
     if (!selectedDataset || !selectedVariable) return;
 
     if (resultOrder.length >= MAX_TABS) {
-      dispatch({ type: A.SET_ERROR, value: `Limite de ${MAX_TABS} onglets atteinte — fermez un onglet pour en ouvrir un nouveau.` });
+      dispatch({ type: A.SET_ERROR, value: t('page.explore.tabLimit', { max: MAX_TABS }) });
       return;
     }
     if (isIndividual && ['timeseries', 'animation'].includes(vizType)) {
-      dispatch({ type: A.SET_ERROR, value: "Ce type de visualisation n'est pas disponible pour les fichiers individuels (un seul pas de temps)." });
+      dispatch({ type: A.SET_ERROR, value: t('page.explore.individualError') });
       return;
     }
     if (ALTITUDE_REQUIRED_TYPES.includes(vizType) && isSurfaceVariable) {
-      dispatch({ type: A.SET_ERROR, value: 'Les variables de surface ne possedent pas de dimension altitude. Choisissez une variable atmospherique.' });
+      dispatch({ type: A.SET_ERROR, value: t('page.explore.surfaceError') });
       return;
     }
 
     dispatch({ type: A.SET_LOADING, value: true });
     dispatch({ type: A.CLEAR_ERROR });
 
-    const variable       = VARIABLES.find(v => v.code === selectedVariable);
+    const variable       = VARIABLES_MAP.get(selectedVariable);
     const altitudeToSend = variable?.altitudeType === null ? 0 : selectedAltitude;
     const timeToSend     = isIndividual ? 0 : selectedTime;
 
@@ -213,7 +215,7 @@ function ExplorePageContent() {
       const result = {
         id,
         type: vizType,
-        label: genLabel(vizType, params),
+        label: genLabel(vizType, params, t),
         params,
         data: vizType === 'animation' ? null : data,
         datasetLabel: effectiveDatasetLabel,
@@ -287,7 +289,7 @@ function ExplorePageContent() {
   const handleExportCSV = useCallback(() => {
     if (!activeResultObj) return;
     const { type, params } = activeResultObj;
-    const variable       = VARIABLES.find(v => v.code === params.variable);
+    const variable       = VARIABLES_MAP.get(params.variable);
     const altitudeToSend = variable?.altitudeType === null ? 0 : params.altitude;
 
     switch (type) {
@@ -337,10 +339,12 @@ function ExplorePageContent() {
     if (zMaxInput) p.set('zmax', zMaxInput);
     if (vizType === 'crosssection') p.set('cstype', crossSectionType);
 
-    navigator.clipboard.writeText(`${window.location.origin}/explore?${p.toString()}`).then(() => {
-      dispatch({ type: A.SET_LINK_COPIED, value: true });
-      setTimeout(() => dispatch({ type: A.SET_LINK_COPIED, value: false }), 2000);
-    });
+    navigator.clipboard.writeText(`${window.location.origin}/explore?${p.toString()}`)
+      .then(() => {
+        dispatch({ type: A.SET_LINK_COPIED, value: true });
+        setTimeout(() => dispatch({ type: A.SET_LINK_COPIED, value: false }), 2000);
+      })
+      .catch(() => {});
   }, [selectedDataset, selectedVariable, vizType, selectedTime, selectedAltitude, selectedLatitude, selectedLongitude, colorscale, zMinInput, zMaxInput, crossSectionType, dispatch]);
 
   /* ── Rendu ─────────────────────────────────────────────────────────────── */

@@ -1,7 +1,8 @@
 import { useRef, useEffect } from 'react';
 import Plotly from 'plotly.js-dist-min';
 import { Paper, Typography, Box } from '@mui/material';
-import { VARIABLES } from './VariableSelector';
+import { useTranslation } from 'react-i18next';
+import { VARIABLES_MAP } from './VariableSelector';
 import { RDBU_VARIABLES } from '../utils/colorscales';
 import ExportMenu from './ExportMenu';
 import StatsBar from './StatsBar';
@@ -16,15 +17,17 @@ import StatsBar from './StatsBar';
  * @param {boolean}     logScale     - afficher l'echelle en log10 (pour variables a faibles valeurs)
  */
 function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colorscaleName, reverseColorscale, customZMin, customZMax, onExportCSV = null, noExportMenu = false, externalPlotRef = null, logScale = false }) {
+  const { t, i18n } = useTranslation();
   const internalPlotRef = useRef(null);
   const plotRef = externalPlotRef ?? internalPlotRef;
 
   useEffect(() => {
-    if (!plotRef.current || !crossSectionData) return;
+    const el = plotRef.current;
+    if (!el || !crossSectionData) return;
 
     const { type, fixedCoordinate, altitudes, horizontalCoords, data } = crossSectionData;
-    const varInfo = VARIABLES.find(v => v.code === variableCode);
-    const variableLabel = varInfo?.label || variableCode;
+    const varInfo = VARIABLES_MAP.get(variableCode);
+    const variableLabel = varInfo ? t(`variable.${variableCode}`) : variableCode;
     const unit = varInfo?.unit || '';
 
     const useRdBu = RDBU_VARIABLES.includes(variableCode);
@@ -32,7 +35,7 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
     const finalReverse = reverseColorscale != null ? reverseColorscale : useRdBu;
 
     const isMeridional = type === 'meridional';
-    const xLabel = isMeridional ? 'Latitude (°)' : 'Longitude (°)';
+    const xLabel = isMeridional ? t('viz.latitude') : t('viz.longitude');
     const fixedLabel = isMeridional
       ? `Lon ${fixedCoordinate}°`
       : `Lat ${fixedCoordinate}°`;
@@ -59,7 +62,7 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
       hoverTemplate = `${isMeridional ? 'Lat' : 'Lon'}: %{x}°<br>Alt: %{y:.1f} km<br>log\u2081\u2080: %{z:.3f}<br>Valeur: %{customdata:.6g} ${unit}<extra></extra>`;
     }
 
-    Plotly.newPlot(plotRef.current, [{
+    Plotly.newPlot(el, [{
       type: 'heatmap',
       x: horizontalCoords,
       y: altitudes,
@@ -98,7 +101,7 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
         zeroline: false
       },
       yaxis: {
-        title: 'Altitude (km)',
+        title: t('viz.altitude'),
         color: fontColor,
         showgrid: false,
         zeroline: false,
@@ -113,15 +116,14 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
       modeBarButtonsToRemove: ['lasso2d', 'select2d']
     });
 
-    return () => { if (plotRef.current) Plotly.purge(plotRef.current); };
-  }, [crossSectionData, variableCode, colorscaleName, reverseColorscale, customZMin, customZMax, logScale]);
+    return () => Plotly.purge(el);
+  }, [crossSectionData, variableCode, datasetLabel, colorscaleName, reverseColorscale, customZMin, customZMax, logScale, i18n.language]);
 
   if (!crossSectionData) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
         <Typography color="text.secondary">
-          Selectionnez un dataset, une variable, un type de coupe
-          et une coordonnee fixee, puis cliquez sur Lancer.
+          {t('viz.crosssection.empty')}
         </Typography>
       </Paper>
     );
