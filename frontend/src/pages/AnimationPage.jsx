@@ -17,6 +17,7 @@ import PermalienButton from '../components/PermalienButton';
 import ColorscaleSelector from '../components/ColorscaleSelector';
 import LocationsLegend from '../components/LocationsLegend';
 import PageLoader from '../components/PageLoader';
+import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { downloadAnimationCSV } from '../utils/exportUtils';
 import { usePlotRef } from '../hooks/usePlotRef';
@@ -37,6 +38,7 @@ function AnimationPage() {
     selectedAltitude, setSelectedAltitude,
     dataset, datasetLabel,
   } = useMars();
+  const { t } = useTranslation();
 
   const [animationData, setAnimationData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -110,7 +112,7 @@ function AnimationPage() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
-      <Typography variant="h5" gutterBottom>Animation — Cycle diurne martien</Typography>
+      <Typography variant="h5" gutterBottom>{t('page.animation.title')}</Typography>
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2}>
@@ -130,29 +132,29 @@ function AnimationPage() {
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
             <ColorscaleSelector value={colorscale}
-              onChange={v => { setColorscale(v); markDirty(); }} />
+              onChange={setColorscale} />
           </Grid>
         </Grid>
 
         <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <Button variant="contained" onClick={handleCharger}
             disabled={!selectedDataset || !selectedVariable || loading}>
-            {loading ? <CircularProgress size={20} color="inherit" /> : "Charger l'animation"}
+            {loading ? <CircularProgress size={20} color="inherit" /> : t('page.animation.button')}
           </Button>
           {animationData && (
             <>
-              <VisuToggle value={showLocations} onChange={setShowLocations} icon={<PlaceIcon />}>Points d'interet</VisuToggle>
-              <VisuToggle value={showSurface} onChange={setShowSurface} icon={<MapIcon />}>Surface</VisuToggle>
-              <VisuToggle value={logScale} onChange={setLogScale} icon={<LogIcon />} title="Echelle logarithmique (log10)">{'Log\u2081\u2080'}</VisuToggle>
+              <VisuToggle value={showLocations} onChange={setShowLocations} icon={<PlaceIcon />}>{t('common.toggleLocations')}</VisuToggle>
+              <VisuToggle value={showSurface} onChange={setShowSurface} icon={<MapIcon />}>{t('common.toggleSurface')}</VisuToggle>
+              <VisuToggle value={logScale} onChange={setLogScale} icon={<LogIcon />} title={t('common.toggleLog')}>{'Log\u2081\u2080'}</VisuToggle>
             </>
           )}
           {isDirty && (
-            <Chip label="Parametres modifies — rechargez l'animation" color="warning" size="small" />
+            <Chip label={t('page.animation.dirty')} color="warning" size="small" />
           )}
         </Box>
 
         <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-          Charge 48 pas de temps consecutifs. Le chargement peut prendre plusieurs secondes selon votre connexion.
+          {t('page.animation.caption')}
         </Typography>
 
         <LocationsLegend visible={showLocations && !!animationData} />

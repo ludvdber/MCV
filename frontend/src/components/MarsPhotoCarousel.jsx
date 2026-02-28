@@ -15,6 +15,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box, Typography, IconButton, Skeleton, Chip, Tooltip,
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import {
   ChevronLeft as PrevIcon,
   ChevronRight as NextIcon,
@@ -22,16 +23,16 @@ import {
 } from '@mui/icons-material';
 
 const NASA_IMAGES_API  = 'https://images-api.nasa.gov/search';
-const CACHE_KEY        = 'mars_gallery_v3';
+const CACHE_KEY        = 'mars_gallery_v4';
 const CACHE_TTL        = 6 * 60 * 60 * 1000; // 6 heures
 const MAX_PHOTOS       = 16;
 const SLIDE_INTERVAL_MS = 5200;
 
 /** Trois requêtes pour avoir des images variées et belles. */
 const QUERIES = [
-  { q: 'mars HiRISE orbital',        tag: 'Vue orbitale',  n: 8  },
-  { q: 'mars perseverance panorama', tag: 'Surface',       n: 10 },
-  { q: 'mars planet globe',          tag: 'Planète',       n: 6  },
+  { q: 'mars HiRISE orbital',        tagKey: 'carousel.tag.orbital', n: 8  },
+  { q: 'mars perseverance panorama', tagKey: 'carousel.tag.surface', n: 10 },
+  { q: 'mars planet globe',          tagKey: 'carousel.tag.planet',  n: 6  },
 ];
 
 /* ─── Cache localStorage ─── */
@@ -49,7 +50,7 @@ function writeCache(photos) {
 }
 
 /* ─── Parse résultats NASA Image Library ─── */
-function parseItems(data, tag) {
+function parseItems(data, tagKey) {
   return (data.collection?.items ?? [])
     .map(item => {
       const d     = item.data?.[0];
@@ -67,7 +68,7 @@ function parseItems(data, tag) {
         date:      (d.date_created ?? '').slice(0, 10),
         nasaId:    d.nasa_id ?? '',
         center:    d.center ?? 'NASA',
-        tag,
+        tagKey,
       };
     })
     .filter(Boolean);
@@ -98,7 +99,7 @@ function SmartImage({ photo, onLoad }) {
     <Box
       component="img"
       src={src}
-      alt={photo.title}
+      alt={photo.title || 'Mars photograph'}
       onLoad={onLoad}
       onError={handleError}
       sx={{
@@ -114,6 +115,7 @@ function SmartImage({ photo, onLoad }) {
    Composant principal
 ═══════════════════════════════════════════════════════════════ */
 export default function MarsPhotoCarousel() {
+  const { t } = useTranslation();
   const [photos,   setPhotos]   = useState([]);
   const [current,  setCurrent]  = useState(0);
   const [loaded,   setLoaded]   = useState(false);
@@ -121,20 +123,24 @@ export default function MarsPhotoCarousel() {
   const [imgReady, setImgReady] = useState(false);
   const timerRef = useRef(null);
 
-  /* ── Fetch avec cache 6h ── */
+  /* ── Fetch avec cache 6h + AbortController pour cleanup ── */
   useEffect(() => {
     const cached = readCache();
     if (cached?.length) { setPhotos(cached); setLoaded(true); return; }
 
+    const controller = new AbortController();
+
     (async () => {
       try {
         const results = await Promise.allSettled(
-          QUERIES.map(({ q, tag, n }) =>
-            fetch(`${NASA_IMAGES_API}?q=${encodeURIComponent(q)}&media_type=image&page_size=${n}`)
+          QUERIES.map(({ q, tagKey, n }) =>
+            fetch(`${NASA_IMAGES_API}?q=${encodeURIComponent(q)}&media_type=image&page_size=${n}`, { signal: controller.signal })
               .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-              .then(data => parseItems(data, tag))
+              .then(data => parseItems(data, tagKey))
           )
         );
+
+        if (controller.signal.aborted) return;
 
         const byQuery = results
           .filter(r => r.status === 'fulfilled')
@@ -154,9 +160,11 @@ export default function MarsPhotoCarousel() {
         writeCache(final);
         setLoaded(true);
       } catch {
-        setLoaded(true);
+        if (!controller.signal.aborted) setLoaded(true);
       }
     })();
+
+    return () => controller.abort();
   }, []);
 
   /* ── Auto-slide ── */
@@ -227,7 +235,7 @@ export default function MarsPhotoCarousel() {
         }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Box sx={{ display: 'flex', gap: 0.8, mb: 0.8, flexWrap: 'wrap' }}>
-              <Chip label={photo.tag} size="small" sx={{
+              <Chip label={t(photo.tagKey)} size="small" sx={{
                 height: 20, fontSize: '0.7rem',
                 fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, letterSpacing: '0.02em',
                 backgroundColor: 'rgba(56,189,248,0.18)', color: '#38bdf8',
@@ -262,7 +270,7 @@ export default function MarsPhotoCarousel() {
             )}
           </Box>
 
-          <Tooltip title="Voir sur NASA Images">
+          <Tooltip title={t('carousel.viewOnNasa')}>
             <IconButton
               size="small"
               component="a"
@@ -288,6 +296,7 @@ export default function MarsPhotoCarousel() {
           <IconButton
             onClick={(e) => { e.stopPropagation(); prev(); }}
             size="small"
+            aria-label="Previous photo"
             sx={{
               position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
               backgroundColor: 'rgba(13,27,64,0.8)', border: '1px solid rgba(56,189,248,0.2)',
@@ -300,6 +309,7 @@ export default function MarsPhotoCarousel() {
           <IconButton
             onClick={(e) => { e.stopPropagation(); next(); }}
             size="small"
+            aria-label="Next photo"
             sx={{
               position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
               backgroundColor: 'rgba(13,27,64,0.8)', border: '1px solid rgba(56,189,248,0.2)',
@@ -321,7 +331,11 @@ export default function MarsPhotoCarousel() {
           {photos.map((_, i) => (
             <Box
               key={i}
+              role="button"
+              tabIndex={0}
+              aria-label={`Photo ${i + 1}`}
               onClick={() => { setCurrent(i); setImgReady(false); }}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCurrent(i); setImgReady(false); } }}
               sx={{
                 width: i === current ? 18 : 6, height: 6,
                 borderRadius: 3,

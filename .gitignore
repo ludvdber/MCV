@@ -97,3 +97,4 @@ dist-ssr/
 *.njsproj
 *.sln
 .claude/
+CLAUDE.md

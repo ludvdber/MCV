@@ -3,6 +3,7 @@ import {
   Box, Typography, Slider, Button, Chip,
   FormControl, InputLabel, Select, MenuItem, TextField,
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Selecteur de fichier INDIVIDUAL.
@@ -19,6 +20,7 @@ import {
  * @param {number|null} [initialLs]   - Ls a pre-selectionner (restore permalien)
  */
 function IndividualSelector({ years = [], onSelect, initialYear = null, initialLs = null }) {
+  const { t } = useTranslation();
   const [selectedYear, setSelectedYear] = useState('');
   /** Valeur numerique source de verite (slider + datasetId) */
   const [targetLs, setTargetLs] = useState(0);
@@ -98,11 +100,11 @@ function IndividualSelector({ years = [], onSelect, initialYear = null, initialL
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {/* Select annee martienne */}
       <FormControl fullWidth>
-        <InputLabel>Annee martienne</InputLabel>
+        <InputLabel>{t('selector.individual.year')}</InputLabel>
         <Select
           value={selectedYear}
           onChange={handleYearChange}
-          label="Annee martienne"
+          label={t('selector.individual.year')}
         >
           {years.map(y => (
             <MenuItem key={y.marsYear} value={y.marsYear}>
@@ -116,7 +118,7 @@ function IndividualSelector({ years = [], onSelect, initialYear = null, initialL
         <>
           {/* Info plage Ls */}
           <Typography variant="caption" sx={{ color: 'var(--cyan-accent)' }}>
-            Plage disponible : Ls {yearInfo.lsMin.toFixed(2)}° — {yearInfo.lsMax.toFixed(2)}°
+            {t('selector.individual.range', { min: yearInfo.lsMin.toFixed(2), max: yearInfo.lsMax.toFixed(2) })}
           </Typography>
 
           {/* Slider + TextField sur la meme ligne */}
@@ -179,7 +181,7 @@ function IndividualSelector({ years = [], onSelect, initialYear = null, initialL
                 flexShrink: 0,
               }}
             >
-              Selectionner
+              {t('selector.individual.select')}
             </Button>
           </Box>
         </>
