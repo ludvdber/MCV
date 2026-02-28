@@ -37,7 +37,7 @@ dependencies {
 	implementation 'edu.ucar:cdm-core:5.9.1'
 
 	// Guava - requis par cdm-core 5.9.1
-	implementation 'com.google.guava:guava:33.4.0-jre'
+	implementation 'com.google.guava:guava:33.5.0-jre'
 	
 	// Lombok
 	compileOnly 'org.projectlombok:lombok'
@@ -48,6 +48,7 @@ dependencies {
 	
 	// Tests
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
