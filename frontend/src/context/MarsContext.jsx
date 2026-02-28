@@ -1,6 +1,7 @@
-import { createContext, useState, useEffect, useContext } from 'react';
+import { createContext, useState, useEffect, useContext, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getCatalog, getIndividualCatalog } from '../services/api';
-import { VARIABLES } from '../components/VariableSelector';
+import { VARIABLES_MAP } from '../components/VariableSelector';
 
 /**
  * Contexte React global pour le Mars Climate Viewer.
@@ -21,6 +22,8 @@ const MarsContext = createContext(null);
  * Charge le catalogue au montage et expose tout l'etat global + setters.
  */
 function MarsProvider({ children }) {
+  const { t } = useTranslation();
+
   // --- Catalogue MEAN ---
   const [datasets, setDatasets] = useState([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
@@ -53,14 +56,14 @@ function MarsProvider({ children }) {
   useEffect(() => {
     getIndividualCatalog()
       .then(res => setIndividualYears(res.data))
-      .catch(err => console.warn('Individual catalog:', err.message))
+      .catch(() => {})
       .finally(() => setIndividualLoading(false));
   }, []);
 
   // --- Valeurs derivees ---
   const dataset = datasets.find(d => d.id === selectedDataset) || null;
   const datasetLabel = dataset
-    ? `MY${dataset.marsYear} — Ls ${dataset.lsStart}° a ${dataset.lsEnd}°`
+    ? t('selector.dataset.format', { my: dataset.marsYear, lsStart: dataset.lsStart, lsEnd: dataset.lsEnd })
     : '';
 
   /**
@@ -69,14 +72,14 @@ function MarsProvider({ children }) {
    * - Variable dynamique (altitudeM, 102 niveaux) → altitude plafonnee a 101
    * - Variable thermodynamique (altitudeT, 103 niveaux) → pas de changement
    */
-  const handleVariableChange = (code) => {
+  const handleVariableChange = useCallback((code) => {
     setSelectedVariable(code);
-    const v = VARIABLES.find(v => v.code === code);
+    const v = VARIABLES_MAP.get(code);
     if (!v?.altitudeType) setSelectedAltitude(0);
-    else if (v.altitudeType === 'altitudeM' && selectedAltitude > 101) setSelectedAltitude(101);
-  };
+    else if (v.altitudeType === 'altitudeM') setSelectedAltitude(prev => prev > 101 ? 101 : prev);
+  }, []);
 
-  const value = {
+  const value = useMemo(() => ({
     // Catalogue
     datasets,
     catalogLoading,
@@ -104,7 +107,14 @@ function MarsProvider({ children }) {
     // Valeurs derivees
     dataset,
     datasetLabel,
-  };
+  }), [
+    datasets, catalogLoading, catalogError,
+    selectedDataset, selectedVariable, selectedTime,
+    selectedAltitude, selectedLatitude, selectedLongitude,
+    individualYears, individualLoading,
+    selectedIndividualMY, selectedIndividualLs,
+    dataset, datasetLabel, handleVariableChange, t,
+  ]);
 
   return (
     <MarsContext.Provider value={value}>

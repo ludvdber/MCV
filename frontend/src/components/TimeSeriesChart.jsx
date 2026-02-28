@@ -1,12 +1,17 @@
 import { useRef, useEffect } from 'react';
 import Plotly from 'plotly.js-dist-min';
 import { Paper, Typography, Box } from '@mui/material';
-import { VARIABLES } from './VariableSelector';
+import { useTranslation } from 'react-i18next';
+import { VARIABLES_MAP } from './VariableSelector';
 import ExportMenu from './ExportMenu';
 import StatsBar from './StatsBar';
 
-/** Axe X : heures locales martiennes (0.5h a 24h, 48 valeurs) */
-const HOURS = Array.from({ length: 48 }, (_, i) => (i + 1) * 0.5);
+/** Axe X : heures locales martiennes en format hh:mm (00:30 a 24:00, 48 valeurs) */
+const HOURS = Array.from({ length: 48 }, (_, i) => {
+  const h = Math.floor((i + 1) * 0.5);
+  const m = ((i + 1) * 0.5 % 1) * 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+});
 
 /**
  * Affiche un line chart Plotly de la serie temporelle diurne (48 pas de temps).
@@ -22,35 +27,37 @@ const HOURS = Array.from({ length: 48 }, (_, i) => (i + 1) * 0.5);
  * @param {string|null} variableCode - code variable pour le titre de l'axe Y
  */
 function TimeSeriesChart({ timeSeriesData, variableCode, datasetLabel, onExportCSV = null, noExportMenu = false, externalPlotRef = null }) {
+  const { t, i18n } = useTranslation();
   const internalPlotRef = useRef(null);
   const plotRef = externalPlotRef ?? internalPlotRef;
 
   useEffect(() => {
-    if (!plotRef.current || !timeSeriesData) return;
+    const el = plotRef.current;
+    if (!el || !timeSeriesData) return;
 
     const { latitude, longitude, altitudeIndex, altitudeValue, values } = timeSeriesData;
-    const varInfo = VARIABLES.find(v => v.code === variableCode);
-    const variableLabel = varInfo?.label || variableCode;
+    const varInfo = VARIABLES_MAP.get(variableCode);
+    const variableLabel = varInfo ? t(`variable.${variableCode}`) : variableCode;
     const unit = varInfo?.unit || '';
     const altitudeText = altitudeValue != null
       ? `~${Number(altitudeValue).toFixed(1)} km`
-      : `Niveau ${altitudeIndex}`;
+      : `${t('selector.altitude.level')} ${altitudeIndex}`;
 
     const fontColor = 'rgba(255,255,255,0.85)';
 
-    Plotly.newPlot(plotRef.current, [{
+    Plotly.newPlot(el, [{
       x: HOURS,
       y: values,
       mode: 'lines+markers',
       line: { color: '#e05a2b', width: 2.5 },
       marker: { color: '#ff7043', size: 5 },
-      hovertemplate: '%{x}h : %{y:.6g}<extra></extra>'
+      hovertemplate: '%{x} : %{y:.6g}<extra></extra>'
     }], {
       title: { text: `${datasetLabel || ''} — ${variableLabel} — Lat ${latitude}°, Lon ${longitude}° — ${altitudeText}`, font: { size: 16, color: fontColor } },
       font: { color: fontColor },
       xaxis: {
-        title: 'Heure locale martienne (h)',
-        range: [0, 24.5],
+        title: t('viz.localTime'),
+        type: 'category',
         color: fontColor,
         gridcolor: 'rgba(56, 189, 248, 0.08)',
         zeroline: false
@@ -61,7 +68,15 @@ function TimeSeriesChart({ timeSeriesData, variableCode, datasetLabel, onExportC
         gridcolor: 'rgba(56, 189, 248, 0.08)',
         zeroline: false
       },
-      margin: { t: 80, r: 30, b: 50, l: 70 },
+      annotations: [{
+        text: t('viz.martian_sol_note'),
+        xref: 'paper', yref: 'paper',
+        x: 1, y: -0.28,
+        showarrow: false,
+        font: { size: 11, color: 'rgba(255,255,255,0.7)' },
+        xanchor: 'right'
+      }],
+      margin: { t: 80, r: 30, b: 80, l: 70 },
       paper_bgcolor: 'rgba(0,0,0,0)',
       plot_bgcolor: 'rgba(0,0,0,0)'
     }, {
@@ -69,15 +84,14 @@ function TimeSeriesChart({ timeSeriesData, variableCode, datasetLabel, onExportC
       displaylogo: false
     });
 
-    return () => { if (plotRef.current) Plotly.purge(plotRef.current); };
-  }, [timeSeriesData, variableCode]);
+    return () => Plotly.purge(el);
+  }, [timeSeriesData, variableCode, datasetLabel, i18n.language]);
 
   if (!timeSeriesData) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
         <Typography color="text.secondary">
-          Selectionnez un dataset, une variable, un point lat/lon
-          et un niveau d'altitude, puis cliquez sur Analyser.
+          {t('viz.timeseries.empty')}
         </Typography>
       </Paper>
     );

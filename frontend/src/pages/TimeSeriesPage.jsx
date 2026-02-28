@@ -11,6 +11,7 @@ import LatLonSelector from '../components/LatLonSelector';
 import TimeSeriesChart from '../components/TimeSeriesChart';
 import ExportMenu from '../components/ExportMenu';
 import PageLoader from '../components/PageLoader';
+import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { usePlotRef } from '../hooks/usePlotRef';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
@@ -30,6 +31,7 @@ function TimeSeriesPage() {
     selectedLongitude, setSelectedLongitude,
     dataset, datasetLabel,
   } = useMars();
+  const { t } = useTranslation();
 
   const [timeSeriesData, setTimeSeriesData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -97,7 +99,7 @@ function TimeSeriesPage() {
       a.download = `timeseries_${selectedVariable}_lat${selectedLatitude}_lon${selectedLongitude}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-    });
+    }).catch(() => {});
   };
 
   const handleCopyLink = () => {
@@ -116,7 +118,7 @@ function TimeSeriesPage() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
-      <Typography variant="h5" gutterBottom>Serie temporelle — Cycle diurne martien</Typography>
+      <Typography variant="h5" gutterBottom>{t('page.timeseries.title')}</Typography>
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2}>
@@ -147,10 +149,10 @@ function TimeSeriesPage() {
         <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <Button variant="contained" onClick={handleAnalyser}
             disabled={!selectedDataset || !selectedVariable || loading}>
-            {loading ? <CircularProgress size={20} color="inherit" /> : 'Analyser'}
+            {loading ? <CircularProgress size={20} color="inherit" /> : t('page.timeseries.button')}
           </Button>
           {isDirty && (
-            <Chip label="Parametres modifies — relancez l'analyse" color="warning" size="small" />
+            <Chip label={t('page.timeseries.dirty')} color="warning" size="small" />
           )}
         </Box>
 

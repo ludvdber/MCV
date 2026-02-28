@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 /**
  * Copie une URL dans le presse-papier avec retour visuel temporaire.
@@ -11,11 +11,18 @@ import { useState, useCallback } from 'react';
  */
 export function useCopyToClipboard() {
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
   const copyToClipboard = useCallback((url) => {
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    navigator.clipboard.writeText(url)
+      .then(() => {
+        setCopied(true);
+        clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {});
   }, []);
   return [copied, copyToClipboard];
 }

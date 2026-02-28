@@ -1,6 +1,7 @@
 import { Box, Typography, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { Home as HomeIcon, RocketLaunch as RocketIcon } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Page 404 — theme spatial martien.
@@ -8,6 +9,7 @@ import { Home as HomeIcon, RocketLaunch as RocketIcon } from '@mui/icons-materia
  */
 function NotFoundPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   return (
     <Box
@@ -77,15 +79,14 @@ function NotFoundPage() {
           letterSpacing: '0.1em',
         }}
       >
-        PAGE INTROUVABLE
+        {t('page.notfound.subtitle')}
       </Typography>
 
       <Typography
         color="text.secondary"
         sx={{ maxWidth: 480, mb: 4, fontSize: '1.05rem', lineHeight: 1.7 }}
       >
-        La page que vous recherchez s'est perdue dans l'espace martien.
-        Elle a peut-etre ete deplacee, supprimee, ou n'a jamais existe dans cette galaxie.
+        {t('page.notfound.description')}
       </Typography>
 
       {/* Coordonnees fictives */}
@@ -102,7 +103,7 @@ function NotFoundPage() {
         }}
       >
         {[
-          { label: 'ERREUR', value: '404' },
+          { label: t('page.notfound.error'), value: '404' },
           { label: 'LAT', value: '??.??°' },
           { label: 'LON', value: '??.??°' },
           { label: 'ALT', value: '∞ km' },
@@ -125,7 +126,7 @@ function NotFoundPage() {
         onClick={() => navigate('/')}
         sx={{ px: 4 }}
       >
-        Retour a l'accueil
+        {t('page.notfound.backHome')}
       </Button>
     </Box>
   );

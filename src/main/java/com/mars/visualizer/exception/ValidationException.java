@@ -1,21 +1,27 @@
 package com.mars.visualizer.exception;
 
+import lombok.Getter;
+
 /**
  * Exception levée lors de validation de paramètres invalides.
- * Permet de retourner un code HTTP 400 (Bad Request) à l'utilisateur
- * avec un message clair sur l'erreur de saisie.
+ * Porte une clé i18n et des arguments pour résolution via MessageSource.
  *
  * @author Ludo
- * @version 1.0
+ * @version 2.0
  */
+@Getter
 public class ValidationException extends RuntimeException {
 
+    private final String messageKey;
+    private final Object[] messageArgs;
+
     /**
-     * Crée une exception de validation avec un message décrivant le paramètre invalide.
-     *
-     * @param message description de l'erreur de validation
+     * @param messageKey clé i18n (ex: "error.variable.not.found")
+     * @param messageArgs arguments pour les placeholders {0}, {1}, …
      */
-    public ValidationException(String message) {
-        super(message);
+    public ValidationException(String messageKey, Object... messageArgs) {
+        super(messageKey);
+        this.messageKey = messageKey;
+        this.messageArgs = messageArgs;
     }
 }

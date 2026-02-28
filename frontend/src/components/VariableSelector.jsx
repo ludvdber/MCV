@@ -1,11 +1,11 @@
 import { Autocomplete, TextField, Box, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Liste des 23 variables atmospheriques du modele GEM-Mars.
  * Chaque variable possede :
  * - code : identifiant dans les fichiers NetCDF (ex: 'TT')
- * - label : nom lisible
- * - unit : unite physique
+ * - unit : unite physique (les labels lisibles sont dans les fichiers i18n : variable.TT, variable.PX, etc.)
  * - category : groupe d'affichage (Thermodynamiques, Dynamiques, Surface)
  * - altitudeType : grille d'altitude utilisee
  *     'altitudeT' = 103 niveaux (variables thermodynamiques)
@@ -16,32 +16,35 @@ import { Autocomplete, TextField, Box, Typography } from '@mui/material';
  */
 export const VARIABLES = [
   // Thermodynamiques (altitudeT, 103 niveaux)
-  { code: 'TT',   label: 'Temperature',            unit: 'K',      category: 'Thermodynamiques', altitudeType: 'altitudeT' },
-  { code: 'PX',   label: 'Pression',               unit: 'Pa',     category: 'Thermodynamiques', altitudeType: 'altitudeT' },
-  { code: 'GZ',   label: 'Geopotentiel',            unit: 'm2/s2',  category: 'Thermodynamiques', altitudeType: 'altitudeT' },
-  { code: 'H2O',  label: 'Vapeur d\'eau',           unit: 'ppmv',   category: 'Thermodynamiques', altitudeType: 'altitudeT' },
-  { code: 'CO2',  label: 'Dioxyde de carbone',      unit: 'ppmv',   category: 'Thermodynamiques', altitudeType: 'altitudeT' },
-  { code: 'O3',   label: 'Ozone',                   unit: 'ppmv',   category: 'Thermodynamiques', altitudeType: 'altitudeT' },
-  { code: 'CO',   label: 'Monoxyde de carbone',     unit: 'ppmv',   category: 'Thermodynamiques', altitudeType: 'altitudeT' },
-  { code: 'T9',   label: 'Glace d\'eau nuages',     unit: 'K',      category: 'Thermodynamiques', altitudeType: 'altitudeT' },
-  { code: 'DVM1', label: 'Poussiere mode 1',        unit: 'kg/kg',  category: 'Thermodynamiques', altitudeType: 'altitudeT' },
-  { code: 'DVM2', label: 'Poussiere mode 2',        unit: 'kg/kg',  category: 'Thermodynamiques', altitudeType: 'altitudeT' },
-  { code: 'DVM3', label: 'Poussiere mode 3',        unit: 'kg/kg',  category: 'Thermodynamiques', altitudeType: 'altitudeT' },
-  { code: 'RWIC', label: 'Rayon effectif glace',    unit: 'um',     category: 'Thermodynamiques', altitudeType: 'altitudeT' },
-  { code: 'WW',   label: 'Vitesse verticale',       unit: 'Pa/s',   category: 'Thermodynamiques', altitudeType: 'altitudeT' },
+  { code: 'TT',   unit: 'K',      category: 'Thermodynamiques', altitudeType: 'altitudeT' },
+  { code: 'PX',   unit: 'Pa',     category: 'Thermodynamiques', altitudeType: 'altitudeT' },
+  { code: 'GZ',   unit: 'm2/s2',  category: 'Thermodynamiques', altitudeType: 'altitudeT' },
+  { code: 'H2O',  unit: 'ppmv',   category: 'Thermodynamiques', altitudeType: 'altitudeT' },
+  { code: 'CO2',  unit: 'ppmv',   category: 'Thermodynamiques', altitudeType: 'altitudeT' },
+  { code: 'O3',   unit: 'ppmv',   category: 'Thermodynamiques', altitudeType: 'altitudeT' },
+  { code: 'CO',   unit: 'ppmv',   category: 'Thermodynamiques', altitudeType: 'altitudeT' },
+  { code: 'T9',   unit: 'K',      category: 'Thermodynamiques', altitudeType: 'altitudeT' },
+  { code: 'DVM1', unit: 'kg/kg',  category: 'Thermodynamiques', altitudeType: 'altitudeT' },
+  { code: 'DVM2', unit: 'kg/kg',  category: 'Thermodynamiques', altitudeType: 'altitudeT' },
+  { code: 'DVM3', unit: 'kg/kg',  category: 'Thermodynamiques', altitudeType: 'altitudeT' },
+  { code: 'RWIC', unit: 'um',     category: 'Thermodynamiques', altitudeType: 'altitudeT' },
+  { code: 'WW',   unit: 'Pa/s',   category: 'Thermodynamiques', altitudeType: 'altitudeT' },
   // Dynamiques (altitudeM, 102 niveaux)
-  { code: 'UU',   label: 'Vent zonal',              unit: 'm/s',    category: 'Dynamiques',       altitudeType: 'altitudeM' },
-  { code: 'VV',   label: 'Vent meridien',           unit: 'm/s',    category: 'Dynamiques',       altitudeType: 'altitudeM' },
+  { code: 'UU',   unit: 'm/s',    category: 'Dynamiques',       altitudeType: 'altitudeM' },
+  { code: 'VV',   unit: 'm/s',    category: 'Dynamiques',       altitudeType: 'altitudeM' },
   // Surface (pas d'altitude)
-  { code: 'P0',   label: 'Pression surface',        unit: 'Pa',     category: 'Surface',          altitudeType: null },
-  { code: 'MLOC', label: 'Poussiere colonne',       unit: 'kg/m2',  category: 'Surface',          altitudeType: null },
-  { code: 'MALO', label: 'Opacite locale',          unit: '-',      category: 'Surface',          altitudeType: null },
-  { code: 'MCZ',  label: 'Glace colonne',           unit: 'kg/m2',  category: 'Surface',          altitudeType: null },
-  { code: 'MH',   label: 'Vapeur colonne',          unit: 'pr-um',  category: 'Surface',          altitudeType: null },
-  { code: 'MTSF', label: 'Temperature surface',     unit: 'K',      category: 'Surface',          altitudeType: null },
-  { code: 'MCO2', label: 'Glace CO2 surface',       unit: 'kg/m2',  category: 'Surface',          altitudeType: null },
-  { code: 'MSN',  label: 'Glace H2O surface',       unit: 'kg/m2',  category: 'Surface',          altitudeType: null },
+  { code: 'P0',   unit: 'Pa',     category: 'Surface',          altitudeType: null },
+  { code: 'MLOC', unit: 'kg/m2',  category: 'Surface',          altitudeType: null },
+  { code: 'MALO', unit: '-',      category: 'Surface',          altitudeType: null },
+  { code: 'MCZ',  unit: 'kg/m2',  category: 'Surface',          altitudeType: null },
+  { code: 'MH',   unit: 'pr-um',  category: 'Surface',          altitudeType: null },
+  { code: 'MTSF', unit: 'K',      category: 'Surface',          altitudeType: null },
+  { code: 'MCO2', unit: 'kg/m2',  category: 'Surface',          altitudeType: null },
+  { code: 'MSN',  unit: 'kg/m2',  category: 'Surface',          altitudeType: null },
 ];
+
+/** Map code → variable pour lookup O(1) au lieu de Array.find() O(n) */
+export const VARIABLES_MAP = new Map(VARIABLES.map(v => [v.code, v]));
 
 /**
  * Selecteur de variable atmospherique avec groupement par categorie.
@@ -54,6 +57,8 @@ export const VARIABLES = [
  *   presentes dans le dataset selectionne (provient de dataset.variables)
  */
 function VariableSelector({ value, onChange, disabled = false, availableVariables }) {
+  const { t } = useTranslation();
+
   const options = availableVariables
     ? VARIABLES.filter(v => availableVariables.includes(v.code))
     : VARIABLES;
@@ -67,20 +72,20 @@ function VariableSelector({ value, onChange, disabled = false, availableVariable
       value={selected}
       onChange={(_, v) => onChange(v?.code || null)}
       disabled={disabled}
-      groupBy={(v) => v.category}
-      getOptionLabel={(v) => `${v.code} — ${v.label} (${v.unit})`}
+      groupBy={(v) => t(`variable.category.${v.category}`)}
+      getOptionLabel={(v) => `${v.code} — ${t(`variable.${v.code}`)} (${v.unit})`}
       renderOption={({ key, ...props }, v) => (
         <Box component="li" key={key} {...props}>
           <Typography variant="body2">
-            <strong>{v.code}</strong> — {v.label} ({v.unit})
+            <strong>{v.code}</strong> — {t(`variable.${v.code}`)} ({v.unit})
           </Typography>
         </Box>
       )}
       renderInput={(params) => (
         <TextField
           {...params}
-          label="Variable atmospherique"
-          placeholder="Selectionnez une variable..."
+          label={t('selector.variable.label')}
+          placeholder={t('selector.variable.placeholder')}
           variant="outlined"
         />
       )}

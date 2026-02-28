@@ -89,8 +89,8 @@ public class CatalogService {
                 try {
                     DatasetMetadata metadata = buildMetadata(filename);
                     built.add(metadata);
-                    log.debug("Dataset indexé : {}", metadata.getId());
-                } catch (Exception e) {
+                    log.debug("Dataset indexé : {}", metadata.id());
+                } catch (IOException e) {
                     log.warn("Impossible d'indexer le fichier '{}' : {}", filename, e.getMessage());
                 }
             }
@@ -121,7 +121,7 @@ public class CatalogService {
     public Optional<DatasetMetadata> getDatasetById(String id) {
         log.debug("Recherche dataset : {}", id);
         return catalog.stream()
-                .filter(d -> d.getId().equals(id))
+                .filter(d -> d.id().equals(id))
                 .findFirst();
     }
 
@@ -185,15 +185,7 @@ public class CatalogService {
 
         log.debug("Metadata extraites pour '{}' : {} variables, dimensions={}", filename, variables.size(), dimensions);
 
-        return DatasetMetadata.builder()
-                .id(id)
-                .filename(filename)
-                .marsYear(marsYear)
-                .lsStart(lsStart)
-                .lsEnd(lsEnd)
-                .variables(variables)
-                .dimensions(dimensions)
-                .build();
+        return new DatasetMetadata(id, filename, marsYear, lsStart, lsEnd, variables, dimensions);
     }
 
     /**
@@ -242,13 +234,12 @@ public class CatalogService {
      * Retourne le nom de fichier complet (avec {@code .nc}) pour un identifiant de dataset.
      *
      * @param id identifiant du dataset (sans extension)
-     * @return nom de fichier avec extension, ou {@code null} si non trouvé
+     * @return Optional contenant le nom de fichier, vide si non trouvé
      */
-    public String getFilenameById(String id) {
+    public Optional<String> getFilenameById(String id) {
         return catalog.stream()
-                .filter(ds -> ds.getId().equals(id))
-                .map(DatasetMetadata::getFilename)
-                .findFirst()
-                .orElse(null);
+                .filter(ds -> ds.id().equals(id))
+                .map(DatasetMetadata::filename)
+                .findFirst();
     }
 }

@@ -11,6 +11,7 @@ import LatLonSelector from '../components/LatLonSelector';
 import ProfileViewer from '../components/ProfileViewer';
 import ExportMenu from '../components/ExportMenu';
 import PageLoader from '../components/PageLoader';
+import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { usePlotRef } from '../hooks/usePlotRef';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
@@ -31,6 +32,7 @@ function ProfilePage() {
     selectedLongitude, setSelectedLongitude,
     dataset, datasetLabel,
   } = useMars();
+  const { t } = useTranslation();
 
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -98,7 +100,7 @@ function ProfilePage() {
       a.download = `profile_${selectedVariable}_lat${selectedLatitude}_lon${selectedLongitude}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-    });
+    }).catch(() => {});
   };
 
   const handleCopyLink = () => {
@@ -117,7 +119,7 @@ function ProfilePage() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
-      <Typography variant="h5" gutterBottom>Profil vertical</Typography>
+      <Typography variant="h5" gutterBottom>{t('page.profile.title')}</Typography>
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2}>
@@ -146,17 +148,17 @@ function ProfilePage() {
 
         {isSurfaceVariable && (
           <Alert severity="warning" sx={{ mt: 2 }}>
-            Variable de surface — pas de dimension altitude. Choisissez une variable atmospherique.
+            {t('page.profile.surfaceAlert')}
           </Alert>
         )}
 
         <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <Button variant="contained" onClick={handleAnalyser}
             disabled={!selectedDataset || !selectedVariable || loading || isSurfaceVariable}>
-            {loading ? <CircularProgress size={20} color="inherit" /> : 'Analyser'}
+            {loading ? <CircularProgress size={20} color="inherit" /> : t('page.profile.button')}
           </Button>
           {isDirty && (
-            <Chip label="Parametres modifies — relancez l'analyse" color="warning" size="small" />
+            <Chip label={t('page.profile.dirty')} color="warning" size="small" />
           )}
         </Box>
 

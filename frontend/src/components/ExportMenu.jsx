@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Plotly from 'plotly.js-dist-min';
+import { useTranslation } from 'react-i18next';
 import {
   Button, Menu, MenuItem, ListItemIcon, ListItemText, Divider,
   Snackbar, Alert,
@@ -22,6 +23,7 @@ import {
  * @param {boolean}         disabled  - desactive le bouton
  */
 function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, disabled = false }) {
+  const { t } = useTranslation();
   const [anchorEl, setAnchorEl] = useState(null);
   const [exportError, setExportError] = useState(null);
   const open = Boolean(anchorEl);
@@ -115,9 +117,8 @@ function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, disabled 
     try {
       const url = await exportAsImage(plotRef.current, 'png', { width: 1920, height: 1080, scale: 2 });
       triggerDownload(url, `${filename}.png`);
-    } catch (e) {
-      console.error('PNG export:', e);
-      setExportError("Echec de l'export PNG. Verifiez que le graphique est charge.");
+    } catch {
+      setExportError(t('export.pngError'));
     }
   };
 
@@ -127,9 +128,8 @@ function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, disabled 
     try {
       const url = await exportAsImage(plotRef.current, 'svg', { width: 1200, height: 700 });
       triggerDownload(url, `${filename}.svg`);
-    } catch (e) {
-      console.error('SVG export:', e);
-      setExportError("Echec de l'export SVG. Verifiez que le graphique est charge.");
+    } catch {
+      setExportError(t('export.svgError'));
     }
   };
 
@@ -148,9 +148,11 @@ function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, disabled 
         endIcon={<ArrowIcon />}
         startIcon={<DownloadIcon />}
         onClick={handleOpen}
+        aria-haspopup="true"
+        aria-expanded={open}
         sx={{ whiteSpace: 'nowrap' }}
       >
-        Exporter
+        {t('export.button')}
       </Button>
 
       <Menu
@@ -163,16 +165,16 @@ function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, disabled 
         <MenuItem onClick={handlePNG}>
           <ListItemIcon><PngIcon fontSize="small" /></ListItemIcon>
           <ListItemText
-            primary="PNG haute resolution"
-            secondary="1920×1080 @ 2×"
+            primary={t('export.pngTitle')}
+            secondary={t('export.pngDesc')}
             slotProps={{ secondary: { sx: { fontSize: '0.7rem' } } }}
           />
         </MenuItem>
         <MenuItem onClick={handleSVG}>
           <ListItemIcon><SvgIcon fontSize="small" /></ListItemIcon>
           <ListItemText
-            primary="SVG vectoriel"
-            secondary="Ideal pour publication"
+            primary={t('export.svgTitle')}
+            secondary={t('export.svgDesc')}
             slotProps={{ secondary: { sx: { fontSize: '0.7rem' } } }}
           />
         </MenuItem>
@@ -181,8 +183,8 @@ function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, disabled 
           <MenuItem key="csv" onClick={handleCSV}>
             <ListItemIcon><CsvIcon fontSize="small" /></ListItemIcon>
             <ListItemText
-              primary="CSV donnees"
-              secondary="Valeurs brutes"
+              primary={t('export.csvTitle')}
+              secondary={t('export.csvDesc')}
               slotProps={{ secondary: { sx: { fontSize: '0.7rem' } } }}
             />
           </MenuItem>

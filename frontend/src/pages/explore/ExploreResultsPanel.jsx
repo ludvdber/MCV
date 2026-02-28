@@ -9,6 +9,7 @@
  *   onExportCSV    ()           => void — déclenche l'export CSV du résultat actif
  */
 import { useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box, Paper, Typography, Tabs, Tab, IconButton, Chip,
 } from '@mui/material';
@@ -22,7 +23,7 @@ import {
   Air as WindIcon,
   Functions as LogIcon,
 } from '@mui/icons-material';
-import { LOCATION_COLORS, LOCATION_TYPE_LABELS } from '../../data/marsLocations';
+import { LOCATION_COLORS, LOCATION_TYPE_KEYS } from '../../data/marsLocations';
 import { COLORSCALE_OPTIONS, RDBU_VARIABLES } from '../../utils/colorscales';
 import { computeAnomalyZ } from '../../utils/heatmapAnalysis';
 import { LATLON_HEATMAP_TYPES, COLORSCALE_TYPES } from './exploreConstants.jsx';
@@ -37,6 +38,7 @@ import DetailPanel from '../../components/DetailPanel';
 import ExportMenu from '../../components/ExportMenu';
 
 export default function ExploreResultsPanel({ onRemoveResult, onExportCSV }) {
+  const { t } = useTranslation();
   const state    = useExploreState();
   const dispatch = useExploreDispatch();
 
@@ -79,7 +81,7 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV }) {
       return { name: isTemp ? 'RdBu' : 'Viridis', reverse: isTemp };
     }
     const opt = COLORSCALE_OPTIONS.find(o => o.value === colorscale);
-    return { name: colorscale, reverse: opt?.reverse ?? false };
+    return { name: opt?.scale || colorscale, reverse: opt?.reverse ?? false };
   }, [colorscale, activeResultObj, showAnomaly]);
 
   /** Données slice (potentiellement transformées pour le mode anomalie) */
@@ -104,9 +106,8 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV }) {
       }}>
         <Box>
           <GridOnIcon sx={{ fontSize: 56, color: 'var(--text-secondary)', opacity: 0.3, mb: 2 }} />
-          <Typography color="text.secondary">
-            Configurez vos parametres et cliquez sur Lancer<br />
-            pour afficher une visualisation.
+          <Typography color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+            {t('page.explore.emptyState')}
           </Typography>
         </Box>
       </Paper>
@@ -156,7 +157,7 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV }) {
               size="small"
               onClick={() => dispatch({ type: A.TOGGLE_LOCATIONS })}
               color={showLocations ? 'warning' : 'default'}
-              title="Points d'interet"
+              title={t('explore.toggle.poi')}
             >
               <PlaceIcon fontSize="small" />
             </IconButton>
@@ -164,7 +165,7 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV }) {
               size="small"
               onClick={() => dispatch({ type: A.TOGGLE_SURFACE })}
               color={showSurface ? 'warning' : 'default'}
-              title="Surface Mars"
+              title={t('explore.toggle.surface')}
             >
               <MapIcon fontSize="small" />
             </IconButton>
@@ -172,7 +173,7 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV }) {
               size="small"
               onClick={() => dispatch({ type: A.TOGGLE_TOOLTIP })}
               color={showDetailedTooltip ? 'warning' : 'default'}
-              title="Tooltip scientifique (anomalie, gradient, percentile, POI)"
+              title={t('explore.toggle.tooltip')}
             >
               <ScienceIcon fontSize="small" />
             </IconButton>
@@ -181,7 +182,7 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV }) {
                 size="small"
                 onClick={() => dispatch({ type: A.TOGGLE_ANOMALY })}
                 color={showAnomaly ? 'warning' : 'default'}
-                title="Mode anomalie zonale (ecart a la moyenne par latitude)"
+                title={t('explore.toggle.anomaly')}
               >
                 <AnomalyIcon fontSize="small" />
               </IconButton>
@@ -193,7 +194,7 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV }) {
                 size="small"
                 onClick={() => dispatch({ type: A.TOGGLE_WIND })}
                 color={showWind ? 'info' : 'default'}
-                title="Vecteurs de vent (UU/VV)"
+                title={t('explore.toggle.wind')}
               >
                 <WindIcon fontSize="small" />
               </IconButton>
@@ -207,7 +208,7 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV }) {
             size="small"
             onClick={() => dispatch({ type: A.TOGGLE_LOG })}
             color={showLog ? 'warning' : 'default'}
-            title="Echelle logarithmique (log10 — utile pour les variables a faibles valeurs comme la poussiere)"
+            title={t('explore.toggle.log')}
             sx={{ ml: isLatLonHeatmap ? 0 : 1, flexShrink: 0 }}
           >
             <LogIcon fontSize="small" />
@@ -229,11 +230,11 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV }) {
       {/* ── Métadonnées de contexte ────────────────────────────────────── */}
       {showLocations && isLatLonHeatmap && (
         <Box sx={{ mb: 1, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', px: 1 }}>
-          <Typography variant="caption" color="text.secondary">Legende :</Typography>
-          {Object.entries(LOCATION_TYPE_LABELS).map(([type, label]) => (
+          <Typography variant="caption" color="text.secondary">{t('common.legend')}</Typography>
+          {Object.entries(LOCATION_TYPE_KEYS).map(([type, key]) => (
             <Box key={type} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: LOCATION_COLORS[type] }} />
-              <Typography variant="caption">{label}</Typography>
+              <Typography variant="caption">{t(key)}</Typography>
             </Box>
           ))}
         </Box>
@@ -242,7 +243,7 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV }) {
       {showAnomaly && activeResultObj?.type === 'slice' && (
         <Box sx={{ mb: 1, px: 1 }}>
           <Typography variant="caption" sx={{ color: 'var(--cyan-accent)', fontStyle: 'italic' }}>
-            Mode anomalie zonale — ecart a la moyenne par bande de latitude (palette RdBu symetrique)
+            {t('page.explore.anomalyCaption')}
           </Typography>
         </Box>
       )}
@@ -250,7 +251,7 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV }) {
       {showLog && isColorscaleType && (
         <Box sx={{ mb: 1, px: 1 }}>
           <Typography variant="caption" sx={{ color: 'var(--cyan-accent)', fontStyle: 'italic' }}>
-            {'Echelle log\u2081\u2080 \u2014 valeurs negatives ou nulles masquees'}
+            {t('page.explore.logCaption')}
           </Typography>
         </Box>
       )}
@@ -258,7 +259,7 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV }) {
       {activeData?.actualLs != null && (
         <Box sx={{ mb: 1, px: 1 }}>
           <Chip
-            label={`Ls exact : ${activeData.actualLs.toFixed(2)}°`}
+            label={t('page.explore.actualLs', { ls: activeData.actualLs.toFixed(2) })}
             size="small"
             sx={{
               bgcolor: 'rgba(0,188,212,0.15)',

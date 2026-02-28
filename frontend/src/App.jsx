@@ -9,11 +9,11 @@
  *   sont charges a la demande pour eviter que Plotly.js (~1 MB) bloque le chargement
  *   de la page d'accueil
  */
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, Component } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme, alpha } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { CircularProgress, Box } from '@mui/material';
+import { CircularProgress, Box, Typography, Button } from '@mui/material';
 import Home from './pages/Home';
 import { MarsProvider } from './context/MarsContext';
 import StarField from './components/StarField';
@@ -188,6 +188,30 @@ const Loading = () => (
   </Box>
 );
 
+/** ErrorBoundary — attrape les erreurs de rendu React pour eviter un ecran blanc */
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="50vh" gap={2}>
+          <Typography variant="h5" color="error">Something went wrong.</Typography>
+          <Button variant="contained" onClick={() => { this.setState({ hasError: false }); window.location.replace('/'); }}>
+            Back to home
+          </Button>
+        </Box>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function App() {
   return (
     <ThemeProvider theme={theme}>
@@ -206,18 +230,20 @@ function App() {
                 pt: { xs: 7, md: 0 },
               }}
             >
-              <Suspense fallback={<Loading />}>
-                <Routes>
-                  <Route path="/" element={<Home />} />
-                  <Route path="/slice" element={<SlicePage />} />
-                  <Route path="/timeseries" element={<TimeSeriesPage />} />
-                  <Route path="/animation" element={<AnimationPage />} />
-                  <Route path="/explore" element={<ExplorePage />} />
-                  <Route path="/crosssection" element={<CrossSectionPage />} />
-                  <Route path="/profile" element={<ProfilePage />} />
-                  <Route path="*" element={<NotFoundPage />} />
-                </Routes>
-              </Suspense>
+              <ErrorBoundary>
+                <Suspense fallback={<Loading />}>
+                  <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/slice" element={<SlicePage />} />
+                    <Route path="/timeseries" element={<TimeSeriesPage />} />
+                    <Route path="/animation" element={<AnimationPage />} />
+                    <Route path="/explore" element={<ExplorePage />} />
+                    <Route path="/crosssection" element={<CrossSectionPage />} />
+                    <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="*" element={<NotFoundPage />} />
+                  </Routes>
+                </Suspense>
+              </ErrorBoundary>
             </Box>
           </Box>
         </BrowserRouter>

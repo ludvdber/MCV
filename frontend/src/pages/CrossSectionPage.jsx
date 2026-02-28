@@ -16,6 +16,7 @@ import VisuToggle from '../components/VisuToggle';
 import PermalienButton from '../components/PermalienButton';
 import ColorscaleSelector from '../components/ColorscaleSelector';
 import PageLoader from '../components/PageLoader';
+import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { triggerApiDownload } from '../utils/exportUtils';
 import { usePlotRef } from '../hooks/usePlotRef';
@@ -38,6 +39,7 @@ function CrossSectionPage() {
     selectedLongitude, setSelectedLongitude,
     dataset, datasetLabel,
   } = useMars();
+  const { t } = useTranslation();
 
   const [csData, setCsData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -124,7 +126,7 @@ function CrossSectionPage() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
-      <Typography variant="h5" gutterBottom>Coupe verticale</Typography>
+      <Typography variant="h5" gutterBottom>{t('page.crosssection.title')}</Typography>
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2}>
@@ -143,17 +145,17 @@ function CrossSectionPage() {
           </Grid>
           <Grid size={{ xs: 12, md: 3 }}>
             <FormControl fullWidth size="small">
-              <InputLabel>Type de coupe</InputLabel>
-              <Select value={csType} label="Type de coupe"
+              <InputLabel>{t('page.crosssection.cutType')}</InputLabel>
+              <Select value={csType} label={t('page.crosssection.cutType')}
                 onChange={e => { setCsType(e.target.value); markDirty(); }}>
-                <MenuItem value="meridional">Meridionale (lon fixee)</MenuItem>
-                <MenuItem value="zonal">Zonale (lat fixee)</MenuItem>
+                <MenuItem value="meridional">{t('page.crosssection.meridional')}</MenuItem>
+                <MenuItem value="zonal">{t('page.crosssection.zonal')}</MenuItem>
               </Select>
             </FormControl>
           </Grid>
           <Grid size={{ xs: 12, md: 3 }}>
             <TextField size="small"
-              label={csType === 'meridional' ? 'Longitude fixee (°)' : 'Latitude fixee (°)'}
+              label={csType === 'meridional' ? t('page.crosssection.fixedLon') : t('page.crosssection.fixedLat')}
               type="number"
               value={csType === 'meridional' ? selectedLongitude : selectedLatitude}
               onChange={e => {
@@ -167,26 +169,26 @@ function CrossSectionPage() {
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
             <ColorscaleSelector value={colorscale}
-              onChange={v => { setColorscale(v); markDirty(); }} />
+              onChange={setColorscale} />
           </Grid>
         </Grid>
 
         {isSurfaceVariable && (
           <Alert severity="warning" sx={{ mt: 2 }}>
-            Variable de surface — pas de dimension altitude. Choisissez une variable atmospherique.
+            {t('page.crosssection.surfaceAlert')}
           </Alert>
         )}
 
         <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <Button variant="contained" onClick={handleVisualiser}
             disabled={!selectedDataset || !selectedVariable || loading || isSurfaceVariable}>
-            {loading ? <CircularProgress size={20} color="inherit" /> : 'Visualiser'}
+            {loading ? <CircularProgress size={20} color="inherit" /> : t('page.crosssection.button')}
           </Button>
           {csData && (
-            <VisuToggle value={logScale} onChange={setLogScale} icon={<LogIcon />} title="Echelle logarithmique (log10)">{'Log\u2081\u2080'}</VisuToggle>
+            <VisuToggle value={logScale} onChange={setLogScale} icon={<LogIcon />} title={t('common.toggleLog')}>{'Log\u2081\u2080'}</VisuToggle>
           )}
           {isDirty && (
-            <Chip label="Parametres modifies — cliquez sur Visualiser" color="warning" size="small" />
+            <Chip label={t('page.crosssection.dirty')} color="warning" size="small" />
           )}
         </Box>
 

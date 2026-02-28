@@ -1,15 +1,10 @@
 import { Slider, Box, Typography } from '@mui/material';
-import { VARIABLES } from './VariableSelector';
+import { useTranslation } from 'react-i18next';
+import { VARIABLES_MAP } from './VariableSelector';
 
 /** Reperes affiches sur le slider d'altitude (niveau 0 = sommet ~142 km, niveau max = surface) */
-const marks = [
-  { value: 0, label: 'Sommet' },
-  { value: 20, label: '20' },
-  { value: 40, label: '40' },
-  { value: 60, label: '60' },
-  { value: 80, label: '80' },
-  { value: 100, label: 'Surface' },
-];
+/** Cles statiques pour les marks — les labels traduits sont injectes dans le composant */
+const MARK_VALUES = [0, 20, 40, 60, 80, 100];
 
 /**
  * Slider de selection du niveau d'altitude.
@@ -28,14 +23,20 @@ const marks = [
  * @param {boolean} [disabled=false]
  */
 function AltitudeSelector({ value, onChange, variableCode, disabled = false }) {
-  const variable = VARIABLES.find(v => v.code === variableCode);
+  const { t } = useTranslation();
+  const variable = VARIABLES_MAP.get(variableCode);
   const altitudeType = variable?.altitudeType || null;
   const isSurface = altitudeType === null;
   const max = altitudeType === 'altitudeM' ? 101 : 102;
 
+  const marks = MARK_VALUES.map(v => ({
+    value: v,
+    label: v === 0 ? t('selector.altitude.top') : v === 100 ? t('selector.altitude.surface') : String(v),
+  }));
+
   return (
     <Box>
-      <Typography gutterBottom>Niveau d'altitude</Typography>
+      <Typography gutterBottom>{t('selector.altitude.label')}</Typography>
       <Slider
         min={0}
         max={max}
@@ -44,7 +45,7 @@ function AltitudeSelector({ value, onChange, variableCode, disabled = false }) {
         onChange={(_, v) => onChange(v)}
         disabled={disabled || isSurface}
         valueLabelDisplay="auto"
-        valueLabelFormat={(v) => `Niveau ${v}`}
+        valueLabelFormat={(v) => `${t('selector.altitude.level')} ${v}`}
         marks={marks}
         sx={{
           '& .MuiSlider-markLabel[data-index="0"]': { transform: 'translateX(0%)' },
@@ -53,7 +54,7 @@ function AltitudeSelector({ value, onChange, variableCode, disabled = false }) {
       />
       {isSurface && variableCode && (
         <Typography variant="caption" color="text.secondary">
-          Variable de surface — pas de niveau d'altitude
+          {t('selector.altitude.surfaceCaption')}
         </Typography>
       )}
     </Box>

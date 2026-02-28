@@ -1,4 +1,5 @@
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { COLORSCALE_OPTIONS } from '../utils/colorscales';
 
 /**
@@ -9,10 +10,11 @@ import { COLORSCALE_OPTIONS } from '../utils/colorscales';
  * @param {function} onChange - callback(newValue: string)
  */
 function ColorscaleSelector({ value, onChange }) {
+  const { t } = useTranslation();
   return (
     <FormControl fullWidth size="small">
-      <InputLabel>Palette de couleurs</InputLabel>
-      <Select value={value} label="Palette de couleurs" onChange={e => onChange(e.target.value)}>
+      <InputLabel>{t('selector.colorscale.label')}</InputLabel>
+      <Select value={value} label={t('selector.colorscale.label')} onChange={e => onChange(e.target.value)}>
         {COLORSCALE_OPTIONS.map(opt => (
           <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
         ))}

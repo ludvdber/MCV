@@ -1,5 +1,7 @@
+import { memo } from 'react';
 import { Button } from '@mui/material';
 import { Link as LinkIcon } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Bouton "Permalien" avec retour visuel de copie.
@@ -9,6 +11,8 @@ import { Link as LinkIcon } from '@mui/icons-material';
  * @param {boolean}  copied  - true pendant ~2s après une copie réussie
  */
 function PermalienButton({ onClick, copied }) {
+  const { t } = useTranslation();
+
   return (
     <Button
       variant="outlined"
@@ -17,9 +21,9 @@ function PermalienButton({ onClick, copied }) {
       onClick={onClick}
       startIcon={<LinkIcon />}
     >
-      {copied ? 'Lien copie !' : 'Permalien'}
+      {copied ? t('common.linkCopied') : t('common.permalink')}
     </Button>
   );
 }
 
-export default PermalienButton;
+export default memo(PermalienButton);

@@ -1,4 +1,5 @@
 import { Slider, Box, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 /** Reperes affiches sur le slider de latitude */
 const latMarks = [
@@ -34,10 +35,11 @@ const lonMarks = [
  * @param {boolean} [disabled=false]
  */
 function LatLonSelector({ latitude, longitude, onLatChange, onLonChange, disabled = false }) {
+  const { t } = useTranslation();
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box>
-        <Typography gutterBottom>Latitude</Typography>
+        <Typography gutterBottom>{t('selector.latlon.latitude')}</Typography>
         <Slider
           min={-88}
           max={88}
@@ -51,7 +53,7 @@ function LatLonSelector({ latitude, longitude, onLatChange, onLonChange, disable
         />
       </Box>
       <Box>
-        <Typography gutterBottom>Longitude</Typography>
+        <Typography gutterBottom>{t('selector.latlon.longitude')}</Typography>
         <Slider
           min={-176}
           max={180}

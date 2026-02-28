@@ -16,6 +16,7 @@ import {
   RocketLaunch as LaunchIcon,
   Link as LinkIcon,
 } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 import { useMars } from '../../context/MarsContext';
 import { COLORSCALE_OPTIONS } from '../../utils/colorscales';
 import { useExploreState, useExploreDispatch, A } from './ExploreContext.jsx';
@@ -24,12 +25,13 @@ import {
 } from './exploreConstants.jsx';
 import DatasetSelector from '../../components/DatasetSelector';
 import VariableSelector from '../../components/VariableSelector';
-import { VARIABLES } from '../../components/VariableSelector';
+import { VARIABLES_MAP } from '../../components/VariableSelector';
 import TimeSelector from '../../components/TimeSelector';
 import AltitudeSelector from '../../components/AltitudeSelector';
 import LatLonSelector from '../../components/LatLonSelector';
 
 export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
+  const { t } = useTranslation();
   const {
     datasets,
     selectedDataset, setSelectedDataset,
@@ -59,7 +61,7 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
   const needsAltitude  = ['slice', 'timeseries', 'animation'].includes(vizType);
 
   const isSurfaceVariable = (() => {
-    const v = VARIABLES.find(v => v.code === selectedVariable);
+    const v = VARIABLES_MAP.get(selectedVariable);
     return v?.altitudeType === null;
   })();
 
@@ -79,7 +81,7 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
           textShadow: '0 0 16px rgba(224, 90, 43, 0.4)',
         }}
       >
-        Exploration
+        {t('page.explore.title')}
       </Typography>
 
       <DatasetSelector
@@ -108,10 +110,10 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
       <Divider sx={{ borderColor: 'rgba(56, 189, 248, 0.12)' }} />
 
       <FormControl fullWidth size="small">
-        <InputLabel>Type de visualisation</InputLabel>
+        <InputLabel>{t('page.explore.vizType')}</InputLabel>
         <Select
           value={vizType}
-          label="Type de visualisation"
+          label={t('page.explore.vizType')}
           onChange={e => dispatch({ type: A.SET_VIZ_TYPE, value: e.target.value })}
         >
           {VIZ_TYPES.map(vt => (
@@ -121,9 +123,9 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
               disabled={isIndividual && ['timeseries', 'animation'].includes(vt.value)}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {vt.icon} {vt.label}
+                {vt.icon} {t(vt.labelKey)}
                 {isIndividual && ['timeseries', 'animation'].includes(vt.value) && (
-                  <Typography variant="caption" sx={{ color: 'text.disabled', ml: 0.5 }}>(MEAN only)</Typography>
+                  <Typography variant="caption" sx={{ color: 'text.disabled', ml: 0.5 }}>{t('page.explore.meanOnly')}</Typography>
                 )}
               </Box>
             </MenuItem>
@@ -141,7 +143,7 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
 
       {ALTITUDE_REQUIRED_TYPES.includes(vizType) && isSurfaceVariable && (
         <Alert severity="warning" sx={{ py: 0.5, '& .MuiAlert-message': { fontSize: '0.75rem' } }}>
-          Variable de surface — pas de profil vertical possible.
+          {t('page.explore.surfaceNoProfile')}
         </Alert>
       )}
 
@@ -161,19 +163,19 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
       {vizType === 'crosssection' && (
         <>
           <FormControl fullWidth size="small">
-            <InputLabel>Type de coupe</InputLabel>
+            <InputLabel>{t('page.crosssection.cutType')}</InputLabel>
             <Select
               value={crossSectionType}
-              label="Type de coupe"
+              label={t('page.crosssection.cutType')}
               onChange={e => dispatch({ type: A.SET_CROSS_SECTION, value: e.target.value })}
             >
-              <MenuItem value="meridional">Meridionale (lon fixee)</MenuItem>
-              <MenuItem value="zonal">Zonale (lat fixee)</MenuItem>
+              <MenuItem value="meridional">{t('page.crosssection.meridional')}</MenuItem>
+              <MenuItem value="zonal">{t('page.crosssection.zonal')}</MenuItem>
             </Select>
           </FormControl>
           <TextField
             size="small"
-            label={crossSectionType === 'meridional' ? 'Longitude fixee (°)' : 'Latitude fixee (°)'}
+            label={crossSectionType === 'meridional' ? t('page.crosssection.fixedLon') : t('page.crosssection.fixedLat')}
             type="number"
             value={crossSectionType === 'meridional' ? selectedLongitude : selectedLatitude}
             onChange={e => {
@@ -199,10 +201,10 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
           <Divider sx={{ borderColor: 'rgba(56, 189, 248, 0.12)' }} />
 
           <FormControl fullWidth size="small">
-            <InputLabel>Palette de couleurs</InputLabel>
+            <InputLabel>{t('selector.colorscale.label')}</InputLabel>
             <Select
               value={colorscale}
-              label="Palette de couleurs"
+              label={t('selector.colorscale.label')}
               onChange={e => dispatch({ type: A.SET_COLORSCALE, value: e.target.value })}
             >
               {COLORSCALE_OPTIONS.map(opt => (
@@ -214,7 +216,7 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
           <Box sx={{ display: 'flex', gap: 1 }}>
             <TextField
               size="small"
-              label="Min"
+              label={t('page.explore.zMin')}
               type="number"
               value={zMinInput}
               onChange={e => dispatch({ type: A.SET_Z_MIN, value: e.target.value })}
@@ -222,7 +224,7 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
             />
             <TextField
               size="small"
-              label="Max"
+              label={t('page.explore.zMax')}
               type="number"
               value={zMaxInput}
               onChange={e => dispatch({ type: A.SET_Z_MAX, value: e.target.value })}
@@ -231,7 +233,7 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
           </Box>
           {dataStats && (
             <Typography variant="caption" color="text.secondary">
-              Plage des donnees : {dataStats.min?.toFixed(1)} — {dataStats.max?.toFixed(1)}
+              {t('page.explore.dataRange', { min: dataStats.min?.toFixed(1), max: dataStats.max?.toFixed(1) })}
             </Typography>
           )}
         </>
@@ -239,7 +241,7 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
 
       {vizType === 'animation' && (
         <Typography variant="caption" color="text.secondary">
-          Charge 48 frames (~1.8 MB)
+          {t('page.explore.animCaption')}
         </Typography>
       )}
 
@@ -250,7 +252,7 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
         disabled={!selectedDataset || !selectedVariable || loading}
         startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <LaunchIcon />}
       >
-        {loading ? 'Chargement...' : 'Lancer'}
+        {loading ? t('page.explore.loading') : t('page.explore.launch')}
       </Button>
 
       <Button
@@ -261,7 +263,7 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
         startIcon={<LinkIcon />}
         disabled={!selectedDataset || !selectedVariable}
       >
-        {linkCopied ? 'Lien copie !' : 'Copier le permalien'}
+        {linkCopied ? t('common.linkCopied') : t('page.explore.copyLink')}
       </Button>
 
       {error && (

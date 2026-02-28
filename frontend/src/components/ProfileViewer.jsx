@@ -1,7 +1,8 @@
 import { useRef, useEffect } from 'react';
 import Plotly from 'plotly.js-dist-min';
 import { Paper, Typography, Box } from '@mui/material';
-import { VARIABLES } from './VariableSelector';
+import { useTranslation } from 'react-i18next';
+import { VARIABLES_MAP } from './VariableSelector';
 import ExportMenu from './ExportMenu';
 import StatsBar from './StatsBar';
 
@@ -14,20 +15,22 @@ import StatsBar from './StatsBar';
  * @param {string|null} variableCode - code variable pour le titre de l'axe X
  */
 function ProfileViewer({ profileData, variableCode, datasetLabel, onExportCSV = null, noExportMenu = false, externalPlotRef = null }) {
+  const { t, i18n } = useTranslation();
   const internalPlotRef = useRef(null);
   const plotRef = externalPlotRef ?? internalPlotRef;
 
   useEffect(() => {
-    if (!plotRef.current || !profileData) return;
+    const el = plotRef.current;
+    if (!el || !profileData) return;
 
     const { latitude, longitude, altitudes, values } = profileData;
-    const varInfo = VARIABLES.find(v => v.code === variableCode);
-    const variableLabel = varInfo?.label || variableCode;
+    const varInfo = VARIABLES_MAP.get(variableCode);
+    const variableLabel = varInfo ? t(`variable.${variableCode}`) : variableCode;
     const unit = varInfo?.unit || '';
 
     const fontColor = 'rgba(255,255,255,0.85)';
 
-    Plotly.newPlot(plotRef.current, [{
+    Plotly.newPlot(el, [{
       x: values,
       y: altitudes,
       mode: 'lines+markers',
@@ -47,7 +50,7 @@ function ProfileViewer({ profileData, variableCode, datasetLabel, onExportCSV = 
         zeroline: false
       },
       yaxis: {
-        title: 'Altitude (km)',
+        title: t('viz.altitude'),
         color: fontColor,
         gridcolor: 'rgba(56, 189, 248, 0.08)',
         zeroline: false,
@@ -61,15 +64,14 @@ function ProfileViewer({ profileData, variableCode, datasetLabel, onExportCSV = 
       displaylogo: false
     });
 
-    return () => { if (plotRef.current) Plotly.purge(plotRef.current); };
-  }, [profileData, variableCode]);
+    return () => Plotly.purge(el);
+  }, [profileData, variableCode, datasetLabel, i18n.language]);
 
   if (!profileData) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
         <Typography color="text.secondary">
-          Selectionnez un dataset, une variable, un point lat/lon
-          et un pas de temps, puis cliquez sur Lancer.
+          {t('viz.profile.empty')}
         </Typography>
       </Paper>
     );

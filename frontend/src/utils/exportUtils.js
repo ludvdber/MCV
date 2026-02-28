@@ -27,9 +27,11 @@ export function triggerDownload(url, filename) {
  * @returns {Promise}
  */
 export function triggerApiDownload(promise, filename) {
-  return promise.then(res => {
-    triggerDownload(URL.createObjectURL(res.data), filename);
-  });
+  return promise
+    .then(res => {
+      triggerDownload(URL.createObjectURL(res.data), filename);
+    })
+    .catch(() => {});
 }
 
 /**

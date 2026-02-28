@@ -9,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
  * Lève ValidationException si un paramètre est invalide.
  *
  * @author Ludo
- * @version 1.0
+ * @version 2.0
  */
 @Service
 @Slf4j
@@ -31,11 +31,8 @@ public class ValidationService {
         log.debug("Validation timestep : {}", timestep);
 
         if (timestep < TIMESTEP_MIN || timestep > TIMESTEP_MAX) {
-            String message = String.format(
-                    "Index temporel invalide : %d. Valeur attendue entre %d et %d.",
+            throw new ValidationException("error.timestep.invalid",
                     timestep, TIMESTEP_MIN, TIMESTEP_MAX);
-            log.warn(message);
-            throw new ValidationException(message);
         }
     }
 
@@ -50,11 +47,8 @@ public class ValidationService {
         log.debug("Validation altitude : {}", altitude);
 
         if (altitude < ALTITUDE_MIN || altitude > ALTITUDE_MAX) {
-            String message = String.format(
-                    "Index d'altitude invalide : %d. Valeur attendue entre %d et %d.",
+            throw new ValidationException("error.altitude.invalid",
                     altitude, ALTITUDE_MIN, ALTITUDE_MAX);
-            log.warn(message);
-            throw new ValidationException(message);
         }
     }
 
@@ -69,15 +63,12 @@ public class ValidationService {
         log.debug("Validation variable '{}' dans : {}", variable, availableVars);
 
         if (variable == null || variable.isBlank()) {
-            throw new ValidationException("Le nom de la variable ne peut pas être vide.");
+            throw new ValidationException("error.variable.empty");
         }
 
         if (!availableVars.contains(variable)) {
-            String message = String.format(
-                    "Variable introuvable : '%s'. Variables disponibles : %s.",
+            throw new ValidationException("error.variable.not.found",
                     variable, availableVars);
-            log.warn(message);
-            throw new ValidationException(message);
         }
     }
 
@@ -91,10 +82,7 @@ public class ValidationService {
         log.debug("Validation latitude : {}", lat);
 
         if (lat < -90.0 || lat > 90.0) {
-            String message = String.format(
-                    "Latitude invalide : %.4f. Valeur attendue entre -90 et 90 degrés.", lat);
-            log.warn(message);
-            throw new ValidationException(message);
+            throw new ValidationException("error.latitude.invalid", lat);
         }
     }
 
@@ -108,10 +96,7 @@ public class ValidationService {
         log.debug("Validation longitude : {}", lon);
 
         if (lon < -180.0 || lon > 180.0) {
-            String message = String.format(
-                    "Longitude invalide : %.4f. Valeur attendue entre -180 et 180 degrés.", lon);
-            log.warn(message);
-            throw new ValidationException(message);
+            throw new ValidationException("error.longitude.invalid", lon);
         }
     }
 }

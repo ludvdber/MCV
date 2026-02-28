@@ -1,7 +1,8 @@
 import { useRef, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import Plotly from 'plotly.js-dist-min';
 import { Paper, Box } from '@mui/material';
-import { VARIABLES } from './VariableSelector';
+import { VARIABLES_MAP } from './VariableSelector';
 
 /**
  * Panneau de details pour les resultats heatmap (slice / animation).
@@ -18,12 +19,13 @@ import { VARIABLES } from './VariableSelector';
  * @param {string} variableCode - code variable (ex: 'TT')
  */
 function DetailPanel({ resultData, resultType, variableCode }) {
+  const { t, i18n } = useTranslation();
   const histRef = useRef(null);
   const zonalRef = useRef(null);
 
-  const varInfo = VARIABLES.find(v => v.code === variableCode);
+  const varInfo = VARIABLES_MAP.get(variableCode);
   const unit = varInfo?.unit || '';
-  const variableLabel = varInfo?.label || variableCode;
+  const variableLabel = varInfo ? t(`variable.${variableCode}`) : variableCode;
 
   const { flatValues, zonalMean, latitudes } = useMemo(() => {
     if (!resultData) return { flatValues: [], zonalMean: [], latitudes: [] };
@@ -82,11 +84,12 @@ function DetailPanel({ resultData, resultType, variableCode }) {
 
   // Histogramme de distribution
   useEffect(() => {
-    if (!histRef.current || flatValues.length === 0) return;
+    const el = histRef.current;
+    if (!el || flatValues.length === 0) return;
 
     const fontColor = 'rgba(255,255,255,0.85)';
 
-    Plotly.newPlot(histRef.current, [{
+    Plotly.newPlot(el, [{
       type: 'histogram',
       x: flatValues,
       nbinsx: 50,
@@ -95,9 +98,9 @@ function DetailPanel({ resultData, resultType, variableCode }) {
         line: { color: 'rgba(224, 90, 43, 1)', width: 0.5 },
       },
     }], {
-      title: { text: `Distribution — ${variableLabel} (${unit})`, font: { size: 13, color: fontColor } },
+      title: { text: `${t('viz.detail.distribution')} — ${variableLabel} (${unit})`, font: { size: 13, color: fontColor } },
       xaxis: { title: `${variableLabel} (${unit})`, color: fontColor },
-      yaxis: { title: 'Frequence', color: fontColor },
+      yaxis: { title: t('viz.detail.frequency'), color: fontColor },
       font: { color: fontColor },
       margin: { t: 40, r: 20, b: 50, l: 60 },
       paper_bgcolor: 'rgba(0,0,0,0)',
@@ -106,25 +109,26 @@ function DetailPanel({ resultData, resultType, variableCode }) {
       height: 230,
     }, { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['lasso2d', 'select2d'] });
 
-    return () => { if (histRef.current) Plotly.purge(histRef.current); };
-  }, [flatValues, variableLabel, unit]);
+    return () => Plotly.purge(el);
+  }, [flatValues, variableLabel, unit, i18n.language]);
 
   // Profil de moyenne zonale
   useEffect(() => {
-    if (!zonalRef.current || zonalMean.length === 0) return;
+    const el = zonalRef.current;
+    if (!el || zonalMean.length === 0) return;
 
     const fontColor = 'rgba(255,255,255,0.85)';
 
-    Plotly.newPlot(zonalRef.current, [{
+    Plotly.newPlot(el, [{
       type: 'scatter',
       mode: 'lines',
       x: zonalMean,
       y: latitudes,
       line: { color: '#38bdf8', width: 2 },
     }], {
-      title: { text: 'Moyenne zonale', font: { size: 13, color: fontColor } },
+      title: { text: t('viz.detail.zonalMean'), font: { size: 13, color: fontColor } },
       xaxis: { title: `${variableLabel} (${unit})`, color: fontColor },
-      yaxis: { title: 'Latitude (\u00b0)', color: fontColor },
+      yaxis: { title: t('viz.latitude'), color: fontColor },
       font: { color: fontColor },
       margin: { t: 40, r: 20, b: 50, l: 60 },
       paper_bgcolor: 'rgba(0,0,0,0)',
@@ -132,8 +136,8 @@ function DetailPanel({ resultData, resultType, variableCode }) {
       height: 230,
     }, { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['lasso2d', 'select2d'] });
 
-    return () => { if (zonalRef.current) Plotly.purge(zonalRef.current); };
-  }, [zonalMean, latitudes, variableLabel, unit]);
+    return () => Plotly.purge(el);
+  }, [zonalMean, latitudes, variableLabel, unit, i18n.language]);
 
   if (!resultData || (resultType !== 'slice' && resultType !== 'animation')) {
     return null;

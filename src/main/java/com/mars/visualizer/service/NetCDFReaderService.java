@@ -7,9 +7,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.springframework.stereotype.Service;
 
@@ -40,6 +38,19 @@ import ucar.nc2.NetcdfFiles;
 @Service
 @Slf4j
 public class NetCDFReaderService {
+
+	// Records typés pour les résultats d'extraction (élimine Map<String,Object> + casts unsafe)
+	public record SliceData(float[][] data, double[] latitudes, double[] longitudes) {}
+	public record AnimationData(List<float[][]> frames, double[] latitudes, double[] longitudes) {}
+	public record ProfileData(List<Float> values, double[] altitudes, double actualLat, double actualLon) {}
+	public record CrossSectionData(float[][] data, double[] altitudes, double[] horizontalCoords, double fixedValue) {}
+	public record WindFieldData(double[] lats, double[] lons, double[] u, double[] v) {}
+
+	// Noms de coordonnées et variables standardisés
+	private static final String COORD_LAT = "lat";
+	private static final String COORD_LON = "lon";
+	private static final String VAR_UU    = "UU";
+	private static final String VAR_VV    = "VV";
 
 	private final DataPathConfig pathConfig;
 
@@ -82,6 +93,9 @@ public class NetCDFReaderService {
 		Path filePath = Path.of(filename);
 		if (!filePath.isAbsolute()) {
 			filePath = pathConfig.getMeanPath().resolve(filename);
+			assertPathSafe(filePath, pathConfig.getMeanPath());
+		} else {
+			assertPathSafe(filePath, pathConfig.getIndividualPath());
 		}
 
 		if (!Files.exists(filePath)) {
@@ -98,25 +112,21 @@ public class NetCDFReaderService {
 	}
 
 	/**
-	 * Lit les métadonnées d'un fichier MEAN sans charger toutes les données.
+	 * Vérifie qu'un chemin résolu reste bien sous le répertoire autorisé.
+	 * Protège contre les attaques par traversée de chemin (ex: "../../etc/passwd").
+	 * Utilise normalize() + startsWith() (pas toRealPath() qui échoue sur UNC/réseau).
+	 *
+	 * @param file        chemin du fichier résolu
+	 * @param allowedRoot répertoire racine autorisé
+	 * @throws NetCDFException si le chemin sort du répertoire autorisé
 	 */
-	public String getMeanFileInfo(String filename) throws IOException {
-		try (NetcdfFile ncfile = openMeanFile(filename)) {
-			StringBuilder info = new StringBuilder();
-			info.append("Fichier : ").append(filename).append("\n");
-			info.append("Format : ").append(ncfile.getFileTypeDescription()).append("\n");
-			info.append("Dimensions : ").append(ncfile.getRootGroup().getDimensions()).append("\n");
-			info.append("Variables globales : ").append(ncfile.getVariables().size()).append("\n");
-			return info.toString();
+	private void assertPathSafe(Path file, Path allowedRoot) {
+		Path normalizedFile = file.normalize().toAbsolutePath();
+		Path normalizedRoot = allowedRoot.normalize().toAbsolutePath();
+		if (!normalizedFile.startsWith(normalizedRoot)) {
+			log.error("Path traversal bloqué : {} hors de {}", normalizedFile, normalizedRoot);
+			throw new NetCDFException("error.path.traversal", normalizedFile.toString());
 		}
-	}
-
-	/**
-	 * Vérifie si un fichier MEAN existe.
-	 */
-	public boolean meanFileExists(String filename) {
-		Path filePath = pathConfig.getMeanPath().resolve(filename);
-		return Files.exists(filePath);
 	}
 
 	/**
@@ -138,58 +148,12 @@ public class NetCDFReaderService {
 	// =========================================================================
 
 	/**
-	 * Extrait une slice 2D d'une variable à une altitude et un temps donnés.
-	 * Lecture partielle : {@code 1×1×nLat×nLon} (variables 4D) ou
-	 * {@code 1×nLat×nLon} (variables de surface 3D).
-	 *
-	 * @param filename      nom du fichier MEAN
-	 * @param variableName  nom de la variable (ex: "TT")
-	 * @param timeIndex     index temporel (0-47)
-	 * @param altitudeIndex index altitude (0-102)
-	 * @return tableau 2D [lat][lon] des valeurs
-	 */
-	public float[][] extractSlice2D(String filename, String variableName, int timeIndex, int altitudeIndex)
-			throws IOException {
-
-		log.info("Extraction slice 2D : fichier={}, variable={}, time={}, altitude={}",
-				filename, variableName, timeIndex, altitudeIndex);
-
-		try (NetcdfFile ncfile = openMeanFile(filename)) {
-			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
-			if (variable == null) {
-				throw new IOException("Variable introuvable : " + variableName);
-			}
-
-			int[]     varShape  = variable.getShape();
-			boolean   isSurface = (varShape.length == 3);
-			int       nLat      = isSurface ? varShape[1] : varShape[2];
-			int       nLon      = isSurface ? varShape[2] : varShape[3];
-			float[][] slice     = new float[nLat][nLon];
-
-			ucar.ma2.Array data = isSurface
-				? readSection(variable, new int[]{timeIndex, 0, 0},               new int[]{1, nLat, nLon})
-				: readSection(variable, new int[]{timeIndex, altitudeIndex, 0, 0}, new int[]{1, 1, nLat, nLon});
-
-			ucar.ma2.Index index = data.getIndex();
-			for (int lat = 0; lat < nLat; lat++) {
-				for (int lon = 0; lon < nLon; lon++) {
-					slice[lat][lon] = data.getFloat(
-						isSurface ? index.set(0, lat, lon) : index.set(0, 0, lat, lon));
-				}
-			}
-
-			log.info("Slice 2D extraite : {}x{} (surface={})", nLat, nLon, isSurface);
-			return slice;
-		}
-	}
-
-	/**
 	 * Extrait une slice 2D avec les coordonnées géo.
 	 * Lecture partielle : {@code 1×1×nLat×nLon} au lieu du tenseur complet.
 	 *
-	 * @return Map contenant "data" (float[][]), "latitudes" (double[]), "longitudes" (double[])
+	 * @return SliceData record typé (élimine les casts unsafe)
 	 */
-	public Map<String, Object> extractSlice2DWithCoords(String filename, String variableName,
+	public SliceData extractSlice2DWithCoords(String filename, String variableName,
 			int timeIndex, int altitudeIndex) {
 
 		log.info("Extraction slice 2D avec coordonnées : fichier={}, variable={}, time={}, altitude={}",
@@ -198,7 +162,7 @@ public class NetCDFReaderService {
 		try (NetcdfFile ncfile = openMeanFile(filename)) {
 			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
 			if (variable == null) {
-				throw new NetCDFException("Variable introuvable : " + variableName);
+				throw new NetCDFException("error.netcdf.variable.not.found", variableName);
 			}
 
 			int[]     varShape  = variable.getShape();
@@ -219,21 +183,14 @@ public class NetCDFReaderService {
 				}
 			}
 
-			double[] latitudes  = extractCoordinates(ncfile, "lat");
-			double[] longitudes = extractCoordinates(ncfile, "lon");
-
-			Map<String, Object> result = new HashMap<>();
-			result.put("data",       slice);
-			result.put("latitudes",  latitudes);
-			result.put("longitudes", longitudes);
+			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
+			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
 
 			log.info("Slice 2D extraite avec coordonnées : {}x{} (surface={})", nLat, nLon, isSurface);
-			return result;
+			return new SliceData(slice, latitudes, longitudes);
 
-		} catch (NetCDFException e) {
-			throw e;
 		} catch (IOException e) {
-			throw new NetCDFException("Erreur lecture slice 2D dans '" + filename + "'", e);
+			throw new NetCDFException(e, "error.netcdf.read.slice", filename);
 		}
 	}
 
@@ -257,11 +214,11 @@ public class NetCDFReaderService {
 		try (NetcdfFile ncfile = openMeanFile(filename)) {
 			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
 			if (variable == null) {
-				throw new NetCDFException("Variable introuvable : " + variableName);
+				throw new NetCDFException("error.netcdf.variable.not.found", variableName);
 			}
 
-			double[] latitudes  = extractCoordinates(ncfile, "lat");
-			double[] longitudes = extractCoordinates(ncfile, "lon");
+			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
+			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
 			int      latIdx     = findNearestIndex(latitudes,  latitude);
 			int      lonIdx     = findNearestIndex(longitudes, longitude);
 
@@ -284,10 +241,8 @@ public class NetCDFReaderService {
 			log.debug("Série temporelle extraite : {} valeurs (surface={})", series.size(), isSurface);
 			return series;
 
-		} catch (NetCDFException e) {
-			throw e;
 		} catch (IOException e) {
-			throw new NetCDFException("Erreur lecture série temporelle dans '" + filename + "'", e);
+			throw new NetCDFException(e, "error.netcdf.read.timeseries", filename);
 		}
 	}
 
@@ -295,16 +250,9 @@ public class NetCDFReaderService {
 	 * Extrait 48 frames pour animation diurne.
 	 * Lecture partielle : {@code nTime×1×nLat×nLon} (variables 4D).
 	 *
-	 * <p>Retourne également les coordonnées lat/lon dans le même {@code Map}
-	 * afin d'éviter une seconde ouverture du fichier dans le contrôleur.
-	 *
-	 * @param filename      nom du fichier MEAN
-	 * @param variableName  variable à extraire
-	 * @param altitudeIndex index d'altitude
-	 * @return Map contenant "frames" (List&lt;float[][]&gt;),
-	 *         "latitudes" (double[]), "longitudes" (double[])
+	 * @return AnimationData record typé
 	 */
-	public Map<String, Object> extractAnimationFrames(String filename, String variableName, int altitudeIndex) {
+	public AnimationData extractAnimationFrames(String filename, String variableName, int altitudeIndex) {
 
 		log.info("Extraction frames animation : fichier={}, variable={}, altitude={}",
 				filename, variableName, altitudeIndex);
@@ -312,7 +260,7 @@ public class NetCDFReaderService {
 		try (NetcdfFile ncfile = openMeanFile(filename)) {
 			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
 			if (variable == null) {
-				throw new NetCDFException("Variable introuvable : " + variableName);
+				throw new NetCDFException("error.netcdf.variable.not.found", variableName);
 			}
 
 			int[]   varShape  = variable.getShape();
@@ -321,7 +269,6 @@ public class NetCDFReaderService {
 			int     nLat      = isSurface ? varShape[1] : varShape[2];
 			int     nLon      = isSurface ? varShape[2] : varShape[3];
 
-			// Lecture partielle : tous les temps, une seule altitude, toute la grille lat/lon
 			ucar.ma2.Array data = isSurface
 				? readSection(variable, new int[]{0, 0, 0},               new int[]{nTime, nLat, nLon})
 				: readSection(variable, new int[]{0, altitudeIndex, 0, 0}, new int[]{nTime, 1, nLat, nLon});
@@ -340,35 +287,27 @@ public class NetCDFReaderService {
 				frames.add(frame);
 			}
 
-			// Coordonnées extraites dans le même try-with-resources → pas de 2ème ouverture
-			double[] latitudes  = extractCoordinates(ncfile, "lat");
-			double[] longitudes = extractCoordinates(ncfile, "lon");
+			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
+			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
 
 			log.debug("Frames animation extraites : {} frames de {}x{} (surface={})",
 					nTime, nLat, nLon, isSurface);
 
-			Map<String, Object> result = new HashMap<>();
-			result.put("frames",     frames);
-			result.put("latitudes",  latitudes);
-			result.put("longitudes", longitudes);
-			return result;
+			return new AnimationData(frames, latitudes, longitudes);
 
-		} catch (NetCDFException e) {
-			throw e;
 		} catch (IOException e) {
-			throw new NetCDFException("Erreur lecture frames animation dans '" + filename + "'", e);
+			throw new NetCDFException(e, "error.netcdf.read.animation", filename);
 		}
 	}
 
 	/**
 	 * Extrait un profil vertical (toutes les altitudes) en un point et un instant.
 	 * Lecture partielle : {@code 1×nAlt×1×1} — une seule colonne atmosphérique.
-	 * Réservé aux variables 4D. Lève une exception pour les variables de surface.
+	 * Réservé aux variables 4D.
 	 *
-	 * @return Map contenant "values" (List&lt;Float&gt;), "altitudes" (double[]),
-	 *         "actualLat" (double), "actualLon" (double)
+	 * @return ProfileData record typé
 	 */
-	public Map<String, Object> extractVerticalProfile(String filename, String variableName,
+	public ProfileData extractVerticalProfile(String filename, String variableName,
 			int timeIndex, double latitude, double longitude) {
 
 		log.info("Extraction profil vertical : fichier={}, variable={}, time={}, lat={}, lon={}",
@@ -377,17 +316,16 @@ public class NetCDFReaderService {
 		try (NetcdfFile ncfile = openMeanFile(filename)) {
 			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
 			if (variable == null) {
-				throw new NetCDFException("Variable introuvable : " + variableName);
+				throw new NetCDFException("error.netcdf.variable.not.found", variableName);
 			}
 
 			int[] varShape = variable.getShape();
 			if (varShape.length == 3) {
-				throw new NetCDFException(
-					"Variable de surface '" + variableName + "' : pas de dimension altitude pour un profil vertical.");
+				throw new NetCDFException("error.netcdf.surface.no.profile", variableName);
 			}
 
-			double[] latitudes  = extractCoordinates(ncfile, "lat");
-			double[] longitudes = extractCoordinates(ncfile, "lon");
+			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
+			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
 			int      latIdx     = findNearestIndex(latitudes,  latitude);
 			int      lonIdx     = findNearestIndex(longitudes, longitude);
 
@@ -395,7 +333,6 @@ public class NetCDFReaderService {
 			double[] altCoords  = extractCoordinates(ncfile, altDimName);
 			int      nAlt       = varShape[1];
 
-			// Lecture partielle : un seul temps, toutes altitudes, un seul point lat/lon
 			ucar.ma2.Array data  = readSection(variable,
 				new int[]{timeIndex, 0, latIdx, lonIdx}, new int[]{1, nAlt, 1, 1});
 			ucar.ma2.Index index = data.getIndex();
@@ -405,35 +342,22 @@ public class NetCDFReaderService {
 				values.add(data.getFloat(index.set(0, a, 0, 0)));
 			}
 
-			Map<String, Object> result = new HashMap<>();
-			result.put("values",    values);
-			result.put("altitudes", altCoords);
-			result.put("actualLat", latitudes[latIdx]);
-			result.put("actualLon", longitudes[lonIdx]);
-
 			log.info("Profil vertical extrait : {} niveaux", nAlt);
-			return result;
+			return new ProfileData(values, altCoords, latitudes[latIdx], longitudes[lonIdx]);
 
-		} catch (NetCDFException e) {
-			throw e;
 		} catch (IOException e) {
-			throw new NetCDFException("Erreur lecture profil vertical dans '" + filename + "'", e);
+			throw new NetCDFException(e, "error.netcdf.read.profile", filename);
 		}
 	}
 
 	/**
 	 * Extrait une coupe verticale (méridionale ou zonale) en un instant.
-	 * Lecture partielle :
-	 * <ul>
-	 *   <li>Méridionale : {@code 1×nAlt×nLat×1} (longitude fixée)</li>
-	 *   <li>Zonale      : {@code 1×nAlt×1×nLon} (latitude fixée)</li>
-	 * </ul>
+	 * Lecture partielle : méridionale {@code 1×nAlt×nLat×1}, zonale {@code 1×nAlt×1×nLon}.
 	 * Réservé aux variables 4D.
 	 *
-	 * @return Map contenant "data" (float[][]), "altitudes" (double[]),
-	 *         "horizontalCoords" (double[]), "fixedValue" (double)
+	 * @return CrossSectionData record typé
 	 */
-	public Map<String, Object> extractCrossSection(String filename, String variableName,
+	public CrossSectionData extractCrossSection(String filename, String variableName,
 			int timeIndex, String type, double fixedCoordinate) {
 
 		log.info("Extraction coupe verticale : fichier={}, variable={}, time={}, type={}, fixed={}",
@@ -442,17 +366,16 @@ public class NetCDFReaderService {
 		try (NetcdfFile ncfile = openMeanFile(filename)) {
 			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
 			if (variable == null) {
-				throw new NetCDFException("Variable introuvable : " + variableName);
+				throw new NetCDFException("error.netcdf.variable.not.found", variableName);
 			}
 
 			int[] varShape = variable.getShape();
 			if (varShape.length == 3) {
-				throw new NetCDFException(
-					"Variable de surface '" + variableName + "' : pas de dimension altitude pour une coupe verticale.");
+				throw new NetCDFException("error.netcdf.surface.no.crosssection", variableName);
 			}
 
-			double[] latitudes  = extractCoordinates(ncfile, "lat");
-			double[] longitudes = extractCoordinates(ncfile, "lon");
+			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
+			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
 			String   altDimName = variable.getDimension(1).getShortName();
 			double[] altCoords  = extractCoordinates(ncfile, altDimName);
 
@@ -468,7 +391,6 @@ public class NetCDFReaderService {
 				int lonIdx = findNearestIndex(longitudes, fixedCoordinate);
 				actualFixed = longitudes[lonIdx];
 
-				// 1×nAlt×nLat×1
 				ucar.ma2.Array data  = readSection(variable,
 					new int[]{timeIndex, 0, 0, lonIdx}, new int[]{1, nAlt, nLat, 1});
 				ucar.ma2.Index index = data.getIndex();
@@ -487,7 +409,6 @@ public class NetCDFReaderService {
 				int latIdx = findNearestIndex(latitudes, fixedCoordinate);
 				actualFixed = latitudes[latIdx];
 
-				// 1×nAlt×1×nLon
 				ucar.ma2.Array data  = readSection(variable,
 					new int[]{timeIndex, 0, latIdx, 0}, new int[]{1, nAlt, 1, nLon});
 				ucar.ma2.Index index = data.getIndex();
@@ -503,63 +424,45 @@ public class NetCDFReaderService {
 				}
 
 			} else {
-				throw new NetCDFException(
-					"Type de coupe invalide : '" + type + "'. Attendu : 'meridional' ou 'zonal'.");
+				throw new NetCDFException("error.netcdf.crosssection.type", type);
 			}
 
-			// Convertir float[] → double[] pour la réponse (cohérence avec l'API existante)
 			double[] hCoords = new double[horizontalCoords.length];
 			for (int i = 0; i < horizontalCoords.length; i++) hCoords[i] = horizontalCoords[i];
 
-			Map<String, Object> result = new HashMap<>();
-			result.put("data",             section);
-			result.put("altitudes",        altCoords);
-			result.put("horizontalCoords", hCoords);
-			result.put("fixedValue",       actualFixed);
-
 			log.info("Coupe verticale {} extraite : {}x{}", type, section.length, section[0].length);
-			return result;
+			return new CrossSectionData(section, altCoords, hCoords, actualFixed);
 
-		} catch (NetCDFException e) {
-			throw e;
 		} catch (IOException e) {
-			throw new NetCDFException("Erreur lecture coupe verticale dans '" + filename + "'", e);
+			throw new NetCDFException(e, "error.netcdf.read.crosssection", filename);
 		}
 	}
 
 	/**
 	 * Extrait un champ de vent (UU, VV) subsamplé à un instant et une altitude.
 	 * Lecture partielle : {@code 1×1×nLat×nLon} pour UU et VV.
-	 * Retourne un point sur {@code step} en lat et lon pour réduire la densité.
-	 * Si UU ou VV est absent, retourne des tableaux vides.
+	 * Si UU ou VV est absent, retourne un WindFieldData avec tableaux vides.
 	 *
-	 * @return Map contenant "lats" (double[]), "lons" (double[]),
-	 *         "u" (double[]), "v" (double[]) — même taille
+	 * @return WindFieldData record typé
 	 */
-	public Map<String, Object> extractWindField(String filename, int timeIndex, int altitudeIndex) {
+	public WindFieldData extractWindField(String filename, int timeIndex, int altitudeIndex) {
 
 		log.info("Extraction champ de vent : fichier={}, time={}, altitude={}", filename, timeIndex, altitudeIndex);
 
 		try (NetcdfFile ncfile = openMeanFile(filename)) {
-			ucar.nc2.Variable uuVar = ncfile.findVariable("UU");
-			ucar.nc2.Variable vvVar = ncfile.findVariable("VV");
+			ucar.nc2.Variable uuVar = ncfile.findVariable(VAR_UU);
+			ucar.nc2.Variable vvVar = ncfile.findVariable(VAR_VV);
 
 			if (uuVar == null || vvVar == null) {
 				log.warn("Variables UU ou VV absentes dans {} — champ de vent non disponible", filename);
-				Map<String, Object> empty = new HashMap<>();
-				empty.put("lats", new double[0]);
-				empty.put("lons", new double[0]);
-				empty.put("u",    new double[0]);
-				empty.put("v",    new double[0]);
-				return empty;
+				return new WindFieldData(new double[0], new double[0], new double[0], new double[0]);
 			}
 
-			double[] latCoords = extractCoordinates(ncfile, "lat");
-			double[] lonCoords = extractCoordinates(ncfile, "lon");
+			double[] latCoords = extractCoordinates(ncfile, COORD_LAT);
+			double[] lonCoords = extractCoordinates(ncfile, COORD_LON);
 			int      nLat      = latCoords.length;
 			int      nLon      = lonCoords.length;
 
-			// Lecture partielle : un seul temps, une seule altitude, toute la grille
 			ucar.ma2.Array uData = readSection(uuVar,
 				new int[]{timeIndex, altitudeIndex, 0, 0}, new int[]{1, 1, nLat, nLon});
 			ucar.ma2.Array vData = readSection(vvVar,
@@ -568,7 +471,7 @@ public class NetCDFReaderService {
 			ucar.ma2.Index uIdx = uData.getIndex();
 			ucar.ma2.Index vIdx = vData.getIndex();
 
-			int step = 3; // 1 vecteur sur 3 en lat et lon
+			int step = 3;
 			int cLat = 0; for (int la = 0; la < nLat; la += step) cLat++;
 			int cLon = 0; for (int lo = 0; lo < nLon; lo += step) cLon++;
 			int total = cLat * cLon;
@@ -591,19 +494,11 @@ public class NetCDFReaderService {
 				}
 			}
 
-			Map<String, Object> result = new HashMap<>();
-			result.put("lats", latsArr);
-			result.put("lons", lonsArr);
-			result.put("u",    uArr);
-			result.put("v",    vArr);
-
 			log.info("Champ de vent extrait : {} vecteurs ({}x{} grid, step={})", k, cLat, cLon, step);
-			return result;
+			return new WindFieldData(latsArr, lonsArr, uArr, vArr);
 
-		} catch (NetCDFException e) {
-			throw e;
 		} catch (IOException e) {
-			throw new NetCDFException("Erreur lecture champ de vent dans '" + filename + "'", e);
+			throw new NetCDFException(e, "error.netcdf.read.wind", filename);
 		}
 	}
 
@@ -618,7 +513,7 @@ public class NetCDFReaderService {
 		try (NetcdfFile ncfile = openMeanFile(filename)) {
 			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
 			if (variable == null) {
-				throw new NetCDFException("Variable '" + variableName + "' introuvable dans " + filename);
+				throw new NetCDFException("error.netcdf.variable.not.in.file", variableName, filename);
 			}
 
 			int[] shape = variable.getShape();
@@ -629,8 +524,8 @@ public class NetCDFReaderService {
 
 			String   altDimName = variable.getDimension(1).getShortName();
 			double[] altCoords  = extractCoordinates(ncfile, altDimName);
-			if (altCoords == null || altitudeIndex >= altCoords.length) {
-				log.warn("Coordonnées d'altitude introuvables ou index hors bornes");
+			if (altitudeIndex >= altCoords.length) {
+				log.warn("Index d'altitude hors bornes : {} >= {}", altitudeIndex, altCoords.length);
 				return null;
 			}
 
@@ -638,10 +533,8 @@ public class NetCDFReaderService {
 			log.debug("Altitude réelle : index {} → {} km", altitudeIndex, value);
 			return value;
 
-		} catch (NetCDFException e) {
-			throw e;
 		} catch (IOException e) {
-			throw new NetCDFException("Erreur lecture altitude dans '" + filename + "'", e);
+			throw new NetCDFException(e, "error.netcdf.read.altitude", filename);
 		}
 	}
 
@@ -662,12 +555,10 @@ public class NetCDFReaderService {
 		try {
 			return variable.read(origin, shape);
 		} catch (IOException e) {
-			throw new NetCDFException("Erreur I/O lecture section NetCDF [" +
-				variable.getShortName() + "]", e);
+			throw new NetCDFException(e, "error.netcdf.read.section", variable.getShortName());
 		} catch (ucar.ma2.InvalidRangeException e) {
-			throw new NetCDFException(
-				"Section hors bornes pour '" + variable.getShortName() + "' " +
-				"[origin=" + Arrays.toString(origin) + ", shape=" + Arrays.toString(shape) + "]", e);
+			throw new NetCDFException(e, "error.netcdf.section.out.of.range",
+				variable.getShortName(), Arrays.toString(origin), Arrays.toString(shape));
 		}
 	}
 
@@ -680,7 +571,7 @@ public class NetCDFReaderService {
 	 */
 	public int findNearestIndex(double[] coords, double target) {
 		if (coords == null || coords.length == 0) {
-			throw new NetCDFException("Coordonnées introuvables dans le fichier NetCDF.");
+			throw new NetCDFException("error.netcdf.coordinates.not.found");
 		}
 
 		int    bestIdx  = 0;
@@ -703,13 +594,13 @@ public class NetCDFReaderService {
 	 *
 	 * @param ncfile    fichier NetCDF ouvert
 	 * @param coordName nom de la coordonnée
-	 * @return tableau des valeurs, ou {@code null} si la variable est absente
+	 * @return tableau des valeurs (jamais null)
+	 * @throws NetCDFException si la variable coordonnée est absente
 	 */
 	private double[] extractCoordinates(NetcdfFile ncfile, String coordName) throws IOException {
 		ucar.nc2.Variable coordVar = ncfile.findVariable(coordName);
 		if (coordVar == null) {
-			log.warn("Coordonnée {} introuvable, utilisation d'indices", coordName);
-			return null;
+			throw new NetCDFException("error.netcdf.coordinates.not.found", coordName);
 		}
 
 		ucar.ma2.Array coordArray = coordVar.read();

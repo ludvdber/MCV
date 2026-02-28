@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Autocomplete, TextField, Box, Typography, ToggleButtonGroup, ToggleButton } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import IndividualSelector from './IndividualSelector';
 
 /**
@@ -19,6 +20,7 @@ import IndividualSelector from './IndividualSelector';
  * @param {number|null} [initialIndividualLs=null] - Ls pre-selectionnee (restore permalien)
  */
 function DatasetSelector({ datasets, value, onChange, disabled = false, individualYears = [], initialIndividualMY = null, initialIndividualLs = null }) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState('mean');
   const selected = datasets.find(ds => ds.id === value) || null;
 
@@ -80,15 +82,15 @@ function DatasetSelector({ datasets, value, onChange, disabled = false, individu
           value={selected}
           onChange={(_, ds) => onChange(ds?.id || null)}
           disabled={disabled}
-          getOptionLabel={(ds) => `MY${ds.marsYear} — Ls ${ds.lsStart}° a ${ds.lsEnd}°`}
+          getOptionLabel={(ds) => t('selector.dataset.format', { my: ds.marsYear, lsStart: ds.lsStart, lsEnd: ds.lsEnd })}
           renderOption={({ key, ...props }, ds) => (
             <Box component="li" key={key} {...props}>
               <Box>
                 <Typography variant="body1">
-                  MY{ds.marsYear} — Ls {ds.lsStart}° a {ds.lsEnd}°
+                  {t('selector.dataset.format', { my: ds.marsYear, lsStart: ds.lsStart, lsEnd: ds.lsEnd })}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {ds.variables.length} variables | {ds.dimensions.time} pas de temps
+                  {t('selector.dataset.variables', { count: ds.variables.length, time: ds.dimensions.time })}
                 </Typography>
               </Box>
             </Box>
@@ -96,8 +98,8 @@ function DatasetSelector({ datasets, value, onChange, disabled = false, individu
           renderInput={(params) => (
             <TextField
               {...params}
-              label="Dataset"
-              placeholder="Selectionnez un dataset..."
+              label={t('selector.dataset.label')}
+              placeholder={t('selector.dataset.placeholder')}
               variant="outlined"
             />
           )}

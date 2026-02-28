@@ -35,7 +35,13 @@ import {
   ArrowForward as ArrowIcon,
   OpenInFull as ExploreAllIcon,
 } from '@mui/icons-material';
-import { homeContent } from '../content/home.fr';
+import { useTranslation } from 'react-i18next';
+import { homeContent as homeContentFr } from '../content/home.fr';
+import { homeContent as homeContentEn } from '../content/home.en';
+import { homeContent as homeContentNl } from '../content/home.nl';
+
+/** Mappe la langue courante au fichier de contenu correspondant */
+const HOME_CONTENT = { fr: homeContentFr, en: homeContentEn, nl: homeContentNl };
 import { useMars } from '../context/MarsContext';
 import { useReveal } from '../hooks/useReveal';
 import DatasetSelector from '../components/DatasetSelector';
@@ -47,7 +53,7 @@ import StatCard from '../components/home/StatCard';
 import TimelineItem from '../components/home/TimelineItem';
 import BelgiumCard from '../components/home/BelgiumCard';
 
-const { hero, why, solarSystem, features, stats, timeline, belgium } = homeContent;
+/* Le contenu est selectionne dynamiquement dans le composant via useTranslation */
 
 /* ═══ Icons maps ═══ */
 const WHY_ICONS  = { water: WaterIcon, explore: ExploreIcon, science: ScienceIcon };
@@ -87,6 +93,9 @@ function MarsFallback() {
 /* ═══ Composant principal ═══ */
 function Home() {
   const { datasets, catalogLoading, catalogError, selectedDataset, setSelectedDataset } = useMars();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language.split('-')[0];
+  const { hero, why, solarSystem, features, stats, timeline, belgium } = HOME_CONTENT[lang] || HOME_CONTENT.en;
   const sectionsRef = useRef(null);
   const scrollToSections = () => sectionsRef.current?.scrollIntoView({ behavior: 'smooth' });
 
@@ -121,14 +130,14 @@ function Home() {
             </Box>
             <Box {...useReveal(0.5)} sx={{ mt: 4, maxWidth: 500 }}>
               <DatasetSelector datasets={datasets} value={selectedDataset} onChange={setSelectedDataset} disabled={catalogLoading} />
-              {catalogError && <Typography color="error" variant="caption" sx={{ mt: 1 }}>Erreur backend : {catalogError}</Typography>}
+              {catalogError && <Typography color="error" variant="caption" sx={{ mt: 1 }}>{t('home.backendError')} {catalogError}</Typography>}
             </Box>
             <Box {...useReveal(0.6)} sx={{ mt: 4, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <Button variant="contained" size="large" component={Link} to="/explore" startIcon={<RocketIcon />} sx={{ px: 4, py: 1.2 }}>
                 {hero.cta}
               </Button>
               <Button variant="outlined" color="secondary" size="large" onClick={scrollToSections} endIcon={<ChevronIcon />} sx={{ px: 3, py: 1.2 }}>
-                En savoir plus
+                {t('home.learnMore')}
               </Button>
             </Box>
           </Grid>
@@ -216,7 +225,7 @@ function Home() {
           <Box {...useReveal(0.1)}>
             <Suspense fallback={
               <Box sx={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(56,189,248,0.1)', borderRadius: 3 }}>
-                <Typography color="text.secondary">Chargement du systeme solaire…</Typography>
+                <Typography color="text.secondary">{t('home.solarLoading')}</Typography>
               </Box>
             }>
               <SolarSystem />
@@ -224,7 +233,7 @@ function Home() {
           </Box>
           <Box {...useReveal(0.2)} sx={{ mt: 2, textAlign: 'center' }}>
             <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-              Vitesses proportionnelles aux periodes orbitales reelles · Survolez une planete pour ses caracteristiques · Clic + glisse pour pivoter · Molette pour zoomer
+              {t('home.solarCaption')}
             </Typography>
           </Box>
         </Container>
@@ -235,7 +244,7 @@ function Home() {
       ══════════════════════════════════════════════════════════ */}
       <Box sx={{ py: { xs: 8, md: 12 }, borderTop: '1px solid rgba(56,189,248,0.06)', borderBottom: '1px solid rgba(56,189,248,0.06)' }}>
         <Container maxWidth="lg">
-          <SectionHeader tag="Outils d'exploration" title="Les vues disponibles" subtitle="Six modalités de visualisation complémentaires pour explorer chaque dimension de l'atmosphère martienne." color="secondary" />
+          <SectionHeader tag={t('home.featuresTag')} title={t('home.featuresTitle')} subtitle={t('home.featuresSubtitle')} color="secondary" />
           {/* Vues spécifiques (5 cartes) */}
           <Grid container spacing={3}>
             {features.filter(f => !f.featured).map((feature, i) => (
@@ -267,12 +276,12 @@ function Home() {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.8, flexWrap: 'wrap' }}>
                       <Typography sx={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', fontWeight: 700, color: feature.color }}>{feature.title}</Typography>
                       <Chip label={feature.tag} size="small" sx={{ height: 22, fontSize: '0.78rem', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, backgroundColor: alpha(feature.color, 0.15), color: feature.color, border: `1px solid ${alpha(feature.color, 0.35)}` }} />
-                      <Chip label="Avancé" size="small" variant="outlined" sx={{ height: 22, fontSize: '0.72rem', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, color: 'rgba(255,255,255,0.5)', borderColor: 'rgba(255,255,255,0.2)' }} />
+                      <Chip label={t('home.advanced')} size="small" variant="outlined" sx={{ height: 22, fontSize: '0.72rem', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, color: 'rgba(255,255,255,0.5)', borderColor: 'rgba(255,255,255,0.2)' }} />
                     </Box>
                     <Typography color="text.secondary" sx={{ fontSize: '0.95rem', lineHeight: 1.7, maxWidth: 680 }}>{feature.body}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: feature.color, fontWeight: 700, fontSize: '0.9rem', flexShrink: 0 }}>
-                    Accéder <ArrowIcon sx={{ fontSize: 18 }} />
+                    {t('home.goTo')} <ArrowIcon sx={{ fontSize: 18 }} />
                   </Box>
                 </Paper>
               </Box>
@@ -286,7 +295,7 @@ function Home() {
       ══════════════════════════════════════════════════════════ */}
       <Box sx={{ py: { xs: 8, md: 10 }, background: 'radial-gradient(ellipse at 50% 100%, rgba(224,90,43,0.05) 0%, transparent 65%)' }}>
         <Container maxWidth="lg">
-          <SectionHeader tag="Vues de Mars" title="Mars en images" subtitle="Vues orbitales HiRISE, panoramas de surface et planète entière — galerie curratée depuis la bibliothèque d'images de la NASA." color="primary" />
+          <SectionHeader tag={t('home.carouselTag')} title={t('home.carouselTitle')} subtitle={t('home.carouselSubtitle')} color="primary" />
           <Box {...useReveal(0.1)}>
             <Suspense fallback={null}>
               <MarsPhotoCarousel />
@@ -294,7 +303,7 @@ function Home() {
           </Box>
           <Box {...useReveal(0.2)} sx={{ mt: 1.5, textAlign: 'center' }}>
             <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-              Source : NASA Image & Video Library · Vues orbitales HiRISE, surface Perseverance, globe · Domaine public NASA
+              {t('home.carouselSource')}
             </Typography>
           </Box>
         </Container>
@@ -305,7 +314,7 @@ function Home() {
       ══════════════════════════════════════════════════════════ */}
       <Box sx={{ py: { xs: 8, md: 12 }, background: 'radial-gradient(ellipse at 50% 50%, rgba(224,90,43,0.06) 0%, transparent 60%)' }}>
         <Container maxWidth="lg">
-          <SectionHeader tag="En chiffres" title="Mars vs Terre" subtitle="L'atmosphère martienne en perspective — pour chaque donnée, sa valeur sur Terre." color="primary" />
+          <SectionHeader tag={t('home.statsTag')} title={t('home.statsTitle')} subtitle={t('home.statsSubtitle')} color="primary" />
           <Grid container spacing={3} alignItems="stretch">
             {stats.map((stat, i) => (
               <Grid key={i} size={{ xs: 6, md: 3 }} sx={{ display: 'flex' }}>
@@ -321,7 +330,7 @@ function Home() {
       ══════════════════════════════════════════════════════════ */}
       <Box sx={{ py: { xs: 8, md: 12 }, borderTop: '1px solid rgba(56,189,248,0.06)' }}>
         <Container maxWidth="md">
-          <SectionHeader tag="Histoire spatiale" title="L'exploration de Mars" subtitle="De Mariner 4 à Perseverance — plus de 60 ans d'exploration robotique de la planète rouge." color="secondary" />
+          <SectionHeader tag={t('home.timelineTag')} title={t('home.timelineTitle')} subtitle={t('home.timelineSubtitle')} color="secondary" />
 
           {/* Ligne verticale absolue (desktop) */}
           <Box sx={{ position: 'relative' }}>
@@ -364,10 +373,10 @@ function Home() {
         <Container maxWidth="sm">
           <Box {...useReveal(0)}>
             <Typography variant="h5" sx={{ fontFamily: 'var(--font-display)', mb: 3, fontSize: { xs: '1.3rem', md: '1.6rem' } }}>
-              Prêt à explorer l'atmosphère de Mars ?
+              {t('home.ctaTitle')}
             </Typography>
             <Button variant="contained" size="large" component={Link} to="/explore" startIcon={<RocketIcon />} sx={{ px: 5, py: 1.5 }}>
-              Commencer
+              {t('home.ctaButton')}
             </Button>
           </Box>
         </Container>

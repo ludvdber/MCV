@@ -1,4 +1,5 @@
 import { Slider, Box, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Convertit un index de timestep (0-47) en heure locale martienne.
@@ -20,9 +21,10 @@ const marks = [7, 15, 23, 31, 39, 47].map(t => ({ value: t, label: formatTime(t)
  * @param {boolean} [disabled=false]
  */
 function TimeSelector({ value, onChange, disabled = false }) {
+  const { t } = useTranslation();
   return (
     <Box>
-      <Typography gutterBottom>Heure locale martienne</Typography>
+      <Typography gutterBottom>{t('selector.time.label')}</Typography>
       <Slider
         min={0}
         max={47}

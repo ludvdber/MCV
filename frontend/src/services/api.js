@@ -10,11 +10,18 @@
  * avec plusieurs frames NetCDF).
  */
 import axios from 'axios';
+import i18n from '../i18n';
 
 const api = axios.create({
   baseURL: '/api',
   timeout: 30000,
   headers: { 'Content-Type': 'application/json' }
+});
+
+/** Synchronise la langue frontend avec le backend via Accept-Language */
+api.interceptors.request.use(config => {
+  config.headers['Accept-Language'] = i18n.language.split('-')[0];
+  return config;
 });
 
 // ==================== CACHE ====================

@@ -1,31 +1,40 @@
 package com.mars.visualizer.exception;
 
+import lombok.Getter;
+
 /**
  * Exception levée lors d'erreurs de lecture NetCDF.
- * Utilisée pour encapsuler les IOException de la librairie ucar.nc2
- * et fournir un message d'erreur métier explicite.
+ * Porte une clé i18n et des arguments pour résolution via MessageSource.
  *
  * @author Ludo
- * @version 1.0
+ * @version 2.0
  */
+@Getter
 public class NetCDFException extends RuntimeException {
 
+    private final String messageKey;
+    private final Object[] messageArgs;
+
     /**
-     * Crée une exception avec un message d'erreur métier.
-     *
-     * @param message description de l'erreur
+     * @param messageKey clé i18n (ex: "error.netcdf.read.slice")
+     * @param messageArgs arguments pour les placeholders {0}, {1}, …
      */
-    public NetCDFException(String message) {
-        super(message);
+    public NetCDFException(String messageKey, Object... messageArgs) {
+        super(messageKey);
+        this.messageKey = messageKey;
+        this.messageArgs = messageArgs;
     }
 
     /**
-     * Crée une exception en encapsulant la cause technique originale.
+     * Avec cause technique. Throwable en PREMIER pour éviter l'ambiguïté varargs.
      *
-     * @param message description de l'erreur métier
-     * @param cause   exception technique d'origine (ex: IOException ucar.nc2)
+     * @param cause exception technique d'origine (ex: IOException)
+     * @param messageKey clé i18n
+     * @param messageArgs arguments pour les placeholders
      */
-    public NetCDFException(String message, Throwable cause) {
-        super(message, cause);
+    public NetCDFException(Throwable cause, String messageKey, Object... messageArgs) {
+        super(messageKey, cause);
+        this.messageKey = messageKey;
+        this.messageArgs = messageArgs;
     }
 }

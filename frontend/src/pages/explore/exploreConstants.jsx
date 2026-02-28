@@ -8,11 +8,11 @@ import {
 export { COLORSCALE_OPTIONS, RDBU_VARIABLES } from '../../utils/colorscales';
 
 export const VIZ_TYPES = [
-  { value: 'slice', label: 'Slice 2D', icon: <GridOnIcon fontSize="small" /> },
-  { value: 'timeseries', label: 'Serie temporelle', icon: <ShowChartIcon fontSize="small" /> },
-  { value: 'animation', label: 'Animation diurne', icon: <PlayCircleIcon fontSize="small" /> },
-  { value: 'profile', label: 'Profil vertical', icon: <BarChartIcon fontSize="small" /> },
-  { value: 'crosssection', label: 'Coupe verticale', icon: <LandscapeIcon fontSize="small" /> },
+  { value: 'slice', labelKey: 'explore.viz.slice', icon: <GridOnIcon fontSize="small" /> },
+  { value: 'timeseries', labelKey: 'explore.viz.timeseries', icon: <ShowChartIcon fontSize="small" /> },
+  { value: 'animation', labelKey: 'explore.viz.animation', icon: <PlayCircleIcon fontSize="small" /> },
+  { value: 'profile', labelKey: 'explore.viz.profile', icon: <BarChartIcon fontSize="small" /> },
+  { value: 'crosssection', labelKey: 'explore.viz.crosssection', icon: <LandscapeIcon fontSize="small" /> },
 ];
 
 export const MAX_TABS = 5;

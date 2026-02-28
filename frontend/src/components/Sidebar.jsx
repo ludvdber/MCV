@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box, Typography, List, ListItemButton,
   ListItemIcon, ListItemText, Drawer, IconButton,
@@ -16,6 +17,7 @@ import {
   Menu as MenuIcon,
   Close as CloseIcon
 } from '@mui/icons-material';
+import LanguageSwitcher from './LanguageSwitcher';
 
 /**
  * Sidebar de navigation — design glassmorphism spatial.
@@ -29,15 +31,15 @@ import {
 
 const SIDEBAR_WIDTH = 220;
 
-/** Liens de navigation */
+/** Liens de navigation — les labels sont des cles i18n resolues via t() */
 const NAV_ITEMS = [
-  { label: 'Accueil',           to: '/',           icon: HomeIcon },
-  { label: 'Slice 2D',          to: '/slice',      icon: SliceIcon },
-  { label: 'Serie temporelle',  to: '/timeseries', icon: TimeSeriesIcon },
-  { label: 'Animation',         to: '/animation',  icon: AnimationIcon },
-  { label: 'Coupe verticale',  to: '/crosssection', icon: CrossSectionIcon },
-  { label: 'Profil vertical',  to: '/profile', icon: ProfileIcon },
-  { label: 'Explorer',          to: '/explore',    icon: ExploreIcon },
+  { labelKey: 'nav.home',         to: '/',             icon: HomeIcon },
+  { labelKey: 'nav.slice',        to: '/slice',        icon: SliceIcon },
+  { labelKey: 'nav.timeseries',   to: '/timeseries',   icon: TimeSeriesIcon },
+  { labelKey: 'nav.animation',    to: '/animation',    icon: AnimationIcon },
+  { labelKey: 'nav.crosssection', to: '/crosssection', icon: CrossSectionIcon },
+  { labelKey: 'nav.profile',      to: '/profile',      icon: ProfileIcon },
+  { labelKey: 'nav.explore',      to: '/explore',      icon: ExploreIcon },
 ];
 
 /** Logo SVG cercle gradient Mars */
@@ -64,6 +66,8 @@ function MarsLogo() {
 
 /** Contenu commun de la sidebar (desktop et drawer mobile) */
 function SidebarContent({ onClose }) {
+  const { t } = useTranslation();
+
   return (
     <Box
       sx={{
@@ -109,7 +113,7 @@ function SidebarContent({ onClose }) {
 
       {/* --- Navigation --- */}
       <List sx={{ flex: 1, px: 1, pt: 1 }}>
-        {NAV_ITEMS.map(({ label, to, icon: Icon }) => (
+        {NAV_ITEMS.map(({ labelKey, to, icon: Icon }) => (
           <ListItemButton
             key={to}
             component={NavLink}
@@ -140,7 +144,7 @@ function SidebarContent({ onClose }) {
               <Icon fontSize="small" />
             </ListItemIcon>
             <ListItemText
-              primary={label}
+              primary={t(labelKey)}
               primaryTypographyProps={{
                 fontSize: '0.9rem',
                 fontWeight: 500,
@@ -155,8 +159,12 @@ function SidebarContent({ onClose }) {
         sx={{
           p: 2,
           borderTop: '1px solid rgba(56, 189, 248, 0.1)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1,
         }}
       >
+        <LanguageSwitcher />
         <Typography variant="caption" color="text.secondary" display="block">
           v1.0.0
         </Typography>
@@ -176,6 +184,7 @@ function Sidebar() {
       <>
         <IconButton
           onClick={() => setDrawerOpen(true)}
+          aria-label="Open navigation menu"
           sx={{
             position: 'fixed',
             top: 12,
@@ -214,6 +223,7 @@ function Sidebar() {
           <Box sx={{ position: 'relative' }}>
             <IconButton
               onClick={() => setDrawerOpen(false)}
+              aria-label="Close navigation menu"
               sx={{
                 position: 'absolute',
                 top: 8,

@@ -94,13 +94,13 @@ public class IndividualCatalogService {
 				long         dirLastModified = Files.getLastModifiedTime(individualRoot).toMillis();
 				CatalogCache cached          = objectMapper.readValue(cacheFile.toFile(), CatalogCache.class);
 
-				if (cached.getDirLastModified() == dirLastModified) {
-					this.yearInfos = Collections.unmodifiableList(cached.getYearInfos());
+				if (cached.dirLastModified() == dirLastModified) {
+					this.yearInfos = Collections.unmodifiableList(cached.yearInfos());
 					this.dirInfos  = Collections.unmodifiableList(
-						cached.getDirInfos().stream()
+						cached.dirInfos().stream()
 							.map(c -> new DirInfo(
-								c.getDirName(), Path.of(c.getDirPath()),
-								c.getLsMin(), c.getLsMax(), c.getMarsYear()))
+								c.dirName(), Path.of(c.dirPath()),
+								c.lsMin(), c.lsMax(), c.marsYear()))
 							.toList()
 					);
 					log.info("Catalogue INDIVIDUAL chargé depuis cache JSON ({} années, {} répertoires)",
@@ -109,7 +109,7 @@ public class IndividualCatalogService {
 				}
 				log.info("Cache JSON périmé (dossier individual/ modifié), rescan complet");
 
-			} catch (Exception e) {
+			} catch (IOException e) {
 				log.warn("Cache JSON illisible ou corrompu, rescan complet : {}", e.getMessage());
 			}
 		}
@@ -155,8 +155,7 @@ public class IndividualCatalogService {
 				.toList();
 
 		if (myDirs.isEmpty()) {
-			throw new ValidationException(
-					"Annee martienne MY" + marsYear + " non disponible dans les fichiers individuels.");
+			throw new ValidationException("error.individual.year.not.available", marsYear);
 		}
 
 		// Phase 1 : trouver le meilleur repertoire
@@ -178,8 +177,7 @@ public class IndividualCatalogService {
 		}
 
 		if (bestDir == null) {
-			throw new ValidationException(
-					"Aucun repertoire trouve pour MY" + marsYear + " Ls " + targetLs);
+			throw new ValidationException("error.individual.dir.not.found", marsYear, targetLs);
 		}
 
 		// Phase 2 : trouver le meilleur fichier dans le repertoire
@@ -198,8 +196,7 @@ public class IndividualCatalogService {
 			}
 
 			if (bestFile == null) {
-				throw new ValidationException(
-						"Aucun fichier individuel trouve pour MY" + marsYear + " Ls " + targetLs);
+				throw new ValidationException("error.individual.file.not.found", marsYear, targetLs);
 			}
 
 			Path result = bestDir.dirPath().resolve(bestFile);
@@ -209,8 +206,8 @@ public class IndividualCatalogService {
 			return result;
 
 		} catch (IOException e) {
-			throw new ValidationException(
-					"Erreur lecture repertoire " + bestDir.dirName() + " : " + e.getMessage());
+			throw new ValidationException("error.individual.dir.read",
+					bestDir.dirName(), e.getMessage());
 		}
 	}
 
@@ -288,7 +285,7 @@ public class IndividualCatalogService {
 						String.format("%.2f", lastLs),
 						ncFiles.size());
 
-			} catch (Exception e) {
+			} catch (IOException | NumberFormatException e) {
 				log.warn("Erreur traitement repertoire '{}' : {}", dirName, e.getMessage());
 			}
 		}
@@ -305,12 +302,7 @@ public class IndividualCatalogService {
 		for (DirInfo di : dirs) {
 			if (di.marsYear() != currentYear) {
 				if (currentYear >= 0) {
-					years.add(IndividualYearInfo.builder()
-							.marsYear(currentYear)
-							.lsMin(yearLsMin)
-							.lsMax(yearLsMax)
-							.directories(List.copyOf(yearDirs))
-							.build());
+					years.add(new IndividualYearInfo(currentYear, yearLsMin, yearLsMax, List.copyOf(yearDirs)));
 				}
 				currentYear = di.marsYear();
 				yearLsMin   = di.lsMin();
@@ -322,12 +314,7 @@ public class IndividualCatalogService {
 
 		// Derniere annee
 		if (currentYear >= 0) {
-			years.add(IndividualYearInfo.builder()
-					.marsYear(currentYear)
-					.lsMin(yearLsMin)
-					.lsMax(yearLsMax)
-					.directories(List.copyOf(yearDirs))
-					.build());
+			years.add(new IndividualYearInfo(currentYear, yearLsMin, yearLsMax, List.copyOf(yearDirs)));
 		}
 
 		this.yearInfos = Collections.unmodifiableList(years);
@@ -336,12 +323,12 @@ public class IndividualCatalogService {
 		log.info("Catalogue INDIVIDUAL : {} annees, {} repertoires scannes",
 				yearInfos.size(), dirInfos.size());
 		for (IndividualYearInfo y : yearInfos) {
-			boolean partiel = y.getLsMax() < 350;
+			boolean partiel = y.lsMax() < 350;
 			log.info("  MY{}: Ls {}° -> {}° ({} dossiers{})",
-					y.getMarsYear(),
-					String.format("%.2f", y.getLsMin()),
-					String.format("%.2f", y.getLsMax()),
-					y.getDirectories().size(),
+					y.marsYear(),
+					String.format("%.2f", y.lsMin()),
+					String.format("%.2f", y.lsMax()),
+					y.directories().size(),
 					partiel ? ", partiel" : "");
 		}
 	}
@@ -408,7 +395,7 @@ public class IndividualCatalogService {
 	private double parseLsFromFilename(String filename) {
 		Matcher m = LS_PATTERN.matcher(filename);
 		if (!m.find()) {
-			throw new IllegalArgumentException("Ls introuvable dans le nom de fichier : " + filename);
+			throw new ValidationException("error.individual.ls.parse", filename);
 		}
 		int aaa  = Integer.parseInt(m.group(1));
 		int bbbb = Integer.parseInt(m.group(2));
