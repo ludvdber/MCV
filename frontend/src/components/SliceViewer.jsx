@@ -57,35 +57,40 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
     let displayData = data;
     let logColorbarExtra = {};
     let logZMin = null, logZMax = null;
+    let logApplied = false;
 
     if (logScale) {
-      displayData = data.map(row => row.map(v => (v != null && v > 0) ? Math.log10(v) : null));
-      const rawStats = sliceData.stats;
-      if (rawStats?.min > 0 && rawStats?.max > 0) {
-        logZMin = Math.floor(Math.log10(rawStats.min));
-        logZMax = Math.ceil(Math.log10(rawStats.max));
-        if (logZMin === logZMax) { logZMin -= 1; logZMax += 1; }
-        const tickvals = [], ticktext = [];
-        for (let e = logZMin; e <= logZMax; e++) { tickvals.push(e); ticktext.push(`10^${e}`); }
-        logColorbarExtra = { tickvals, ticktext };
+      const hasPositive = data.some(row => row.some(v => v != null && v > 0));
+      if (hasPositive) {
+        logApplied = true;
+        displayData = data.map(row => row.map(v => (v != null && v > 0) ? Math.log10(v) : null));
+        const rawStats = sliceData.stats;
+        if (rawStats?.min > 0 && rawStats?.max > 0) {
+          logZMin = Math.floor(Math.log10(rawStats.min));
+          logZMax = Math.ceil(Math.log10(rawStats.max));
+          if (logZMin === logZMax) { logZMin -= 1; logZMax += 1; }
+          const tickvals = [], ticktext = [];
+          for (let e = logZMin; e <= logZMax; e++) { tickvals.push(e); ticktext.push(`10^${e}`); }
+          logColorbarExtra = { tickvals, ticktext };
+        }
       }
     }
 
     // ── Customdata + hover template ───────────────────────────────────────
-    const traceCustomdata = logScale
+    const traceCustomdata = logApplied
       ? data   // valeurs originales pour hover
       : (showDetailedTooltip ? computeHeatmapCustomData(data, latitudes, longitudes) : undefined);
 
-    const hoverTemplate = logScale
-      ? 'Lon: %{x}\u00b0<br>Lat: %{y}\u00b0<br>Valeur: %{customdata:.6g} ' + unit + '<br>log\u2081\u2080 = %{z:.3f}<extra></extra>'
+    const hoverTemplate = logApplied
+      ? `${t('viz.hover_lon')}: %{x}\u00b0<br>${t('viz.hover_lat')}: %{y}\u00b0<br>${t('viz.hover_value')}: %{customdata:.6g} ${unit}<br>log\u2081\u2080 = %{z:.3f}<extra></extra>`
       : showDetailedTooltip
-        ? 'Lon: %{x}\u00b0  Lat: %{y}\u00b0<br><b>%{z:.6g} ' + unit + '</b><br>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500<br>' +
-          'Anom. zonale: %{customdata[0]:+.6g}<br>' +
-          '\u2202/\u2202lat: %{customdata[1]:.2e} /\u00b0<br>' +
-          '\u2202/\u2202lon: %{customdata[2]:.2e} /\u00b0<br>' +
-          'Percentile: %{customdata[3]:.0f}%<br>' +
-          'POI: %{customdata[4]} (%{customdata[5]} km)<extra></extra>'
-        : 'Lon: %{x}\u00b0<br>Lat: %{y}\u00b0<br>Valeur: %{z:.6g} ' + unit + '<extra></extra>';
+        ? `${t('viz.hover_lon')}: %{x}\u00b0  ${t('viz.hover_lat')}: %{y}\u00b0<br><b>%{z:.6g} ${unit}</b><br>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500<br>` +
+          `${t('viz.hover_zonal_anom')}: %{customdata[0]:+.6g}<br>` +
+          `\u2202/\u2202lat: %{customdata[1]:.2e} /\u00b0<br>` +
+          `\u2202/\u2202lon: %{customdata[2]:.2e} /\u00b0<br>` +
+          `${t('viz.hover_percentile')}: %{customdata[3]:.0f}%<br>` +
+          `${t('viz.hover_poi')}: %{customdata[4]} (%{customdata[5]} km)<extra></extra>`
+        : `${t('viz.hover_lon')}: %{x}\u00b0<br>${t('viz.hover_lat')}: %{y}\u00b0<br>${t('viz.hover_value')}: %{z:.6g} ${unit}<extra></extra>`;
 
     const traces = [{
       type: 'heatmap',
@@ -94,7 +99,7 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
       z: displayData,
       colorscale: finalColorscale,
       reversescale: finalReverse,
-      ...(logScale
+      ...(logApplied
         ? (logZMin != null ? { zmin: logZMin, zmax: logZMax } : {})
         : { ...(customZMin != null ? { zmin: customZMin } : {}), ...(customZMax != null ? { zmax: customZMax } : {}) }),
       zsmooth: 'best',
@@ -103,7 +108,7 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
       ...(traceCustomdata ? { customdata: traceCustomdata } : {}),
       colorbar: {
         title: {
-          text: logScale ? `log\u2081\u2080(${variableLabel})` : `${variableLabel} (${unit})`,
+          text: logApplied ? `log\u2081\u2080(${variableLabel})` : `${variableLabel} (${unit})`,
           side: 'right',
           font: { color: fontColor },
         },
