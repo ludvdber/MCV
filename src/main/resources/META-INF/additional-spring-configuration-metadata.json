@@ -15,6 +15,12 @@
       "type": "java.lang.Integer",
       "description": "Première année martienne (MY) dans le dossier individual/. Les années suivantes sont détectées automatiquement.",
       "defaultValue": 34
+    },
+    {
+      "name": "app.version",
+      "type": "java.lang.String",
+      "description": "Version applicative exposée par le endpoint /api/health.",
+      "defaultValue": "3.0"
     }
   ]
 }
