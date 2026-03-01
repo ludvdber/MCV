@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Container, Paper, Typography, Button, CircularProgress, Alert, Box, Chip } from '@mui/material';
 import Grid from '@mui/material/Grid';
@@ -99,10 +99,10 @@ function TimeSeriesPage() {
       a.download = `timeseries_${selectedVariable}_lat${selectedLatitude}_lon${selectedLongitude}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-    }).catch(() => {});
+    }).catch(err => { console.error('CSV export failed:', err); });
   };
 
-  const handleCopyLink = () => {
+  const handleCopyLink = useCallback(() => {
     const p = new URLSearchParams();
     if (selectedDataset) p.set('ds', selectedDataset);
     if (selectedVariable) p.set('var', selectedVariable);
@@ -110,7 +110,7 @@ function TimeSeriesPage() {
     p.set('lon', String(selectedLongitude));
     p.set('alt', String(selectedAltitude));
     copyToClipboard(`${window.location.origin}/timeseries?${p.toString()}`);
-  };
+  }, [selectedDataset, selectedVariable, selectedLatitude, selectedLongitude, selectedAltitude, copyToClipboard]);
 
   const markDirty = () => { if (timeSeriesData) setIsDirty(true); };
 

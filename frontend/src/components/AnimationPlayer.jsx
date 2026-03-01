@@ -142,19 +142,19 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
       logZMin = logTicks.zMin;
       logZMax = logTicks.zMax;
       initCustomdata = frames[0];
-      hoverTemplate = 'Lon: %{x}\u00b0<br>Lat: %{y}\u00b0<br>Valeur: %{customdata:.6g} ' + unit + '<br>log\u2081\u2080 = %{z:.3f}<extra></extra>';
+      hoverTemplate = `${t('viz.hover_lon')}: %{x}\u00b0<br>${t('viz.hover_lat')}: %{y}\u00b0<br>${t('viz.hover_value')}: %{customdata:.6g} ${unit}<br>log\u2081\u2080 = %{z:.3f}<extra></extra>`;
     } else if (showDetailedTooltip) {
       if (!customDataCacheRef.current.has(0))
         customDataCacheRef.current.set(0, computeHeatmapCustomData(frames[0], latitudes, longitudes));
       initCustomdata = customDataCacheRef.current.get(0);
-      hoverTemplate = 'Lon: %{x}\u00b0  Lat: %{y}\u00b0<br><b>%{z:.6g} ' + unit + '</b><br>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500<br>' +
-        'Anom. zonale: %{customdata[0]:+.6g}<br>' +
-        '\u2202/\u2202lat: %{customdata[1]:.2e} /\u00b0<br>' +
-        '\u2202/\u2202lon: %{customdata[2]:.2e} /\u00b0<br>' +
-        'Percentile: %{customdata[3]:.0f}%<br>' +
-        'POI: %{customdata[4]} (%{customdata[5]} km)<extra></extra>';
+      hoverTemplate = `${t('viz.hover_lon')}: %{x}\u00b0  ${t('viz.hover_lat')}: %{y}\u00b0<br><b>%{z:.6g} ${unit}</b><br>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500<br>` +
+        `${t('viz.hover_zonal_anom')}: %{customdata[0]:+.6g}<br>` +
+        `\u2202/\u2202lat: %{customdata[1]:.2e} /\u00b0<br>` +
+        `\u2202/\u2202lon: %{customdata[2]:.2e} /\u00b0<br>` +
+        `${t('viz.hover_percentile')}: %{customdata[3]:.0f}%<br>` +
+        `${t('viz.hover_poi')}: %{customdata[4]} (%{customdata[5]} km)<extra></extra>`;
     } else {
-      hoverTemplate = 'Lon: %{x}\u00b0<br>Lat: %{y}\u00b0<br>Valeur: %{z:.6g} ' + unit + '<extra></extra>';
+      hoverTemplate = `${t('viz.hover_lon')}: %{x}\u00b0<br>${t('viz.hover_lat')}: %{y}\u00b0<br>${t('viz.hover_value')}: %{z:.6g} ${unit}<extra></extra>`;
     }
 
     const initTraces = [{
@@ -267,20 +267,20 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
       logZMin = logTicks.zMin;
       logZMax = logTicks.zMax;
       frameCustomdata = frames[currentFrame];
-      hoverTemplate = 'Lon: %{x}\u00b0<br>Lat: %{y}\u00b0<br>Valeur: %{customdata:.6g} ' + unit + '<br>log\u2081\u2080 = %{z:.3f}<extra></extra>';
+      hoverTemplate = `${t('viz.hover_lon')}: %{x}\u00b0<br>${t('viz.hover_lat')}: %{y}\u00b0<br>${t('viz.hover_value')}: %{customdata:.6g} ${unit}<br>log\u2081\u2080 = %{z:.3f}<extra></extra>`;
     } else if (showDetailedTooltip) {
       // Calcul du tooltip enrichi mis en cache par index de frame
       if (!customDataCacheRef.current.has(currentFrame))
         customDataCacheRef.current.set(currentFrame, computeHeatmapCustomData(frames[currentFrame], latitudes, longitudes));
       frameCustomdata = customDataCacheRef.current.get(currentFrame);
-      hoverTemplate = 'Lon: %{x}\u00b0  Lat: %{y}\u00b0<br><b>%{z:.6g} ' + unit + '</b><br>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500<br>' +
-        'Anom. zonale: %{customdata[0]:+.6g}<br>' +
-        '\u2202/\u2202lat: %{customdata[1]:.2e} /\u00b0<br>' +
-        '\u2202/\u2202lon: %{customdata[2]:.2e} /\u00b0<br>' +
-        'Percentile: %{customdata[3]:.0f}%<br>' +
-        'POI: %{customdata[4]} (%{customdata[5]} km)<extra></extra>';
+      hoverTemplate = `${t('viz.hover_lon')}: %{x}\u00b0  ${t('viz.hover_lat')}: %{y}\u00b0<br><b>%{z:.6g} ${unit}</b><br>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500<br>` +
+        `${t('viz.hover_zonal_anom')}: %{customdata[0]:+.6g}<br>` +
+        `\u2202/\u2202lat: %{customdata[1]:.2e} /\u00b0<br>` +
+        `\u2202/\u2202lon: %{customdata[2]:.2e} /\u00b0<br>` +
+        `${t('viz.hover_percentile')}: %{customdata[3]:.0f}%<br>` +
+        `${t('viz.hover_poi')}: %{customdata[4]} (%{customdata[5]} km)<extra></extra>`;
     } else {
-      hoverTemplate = 'Lon: %{x}\u00b0<br>Lat: %{y}\u00b0<br>Valeur: %{z:.6g} ' + unit + '<extra></extra>';
+      hoverTemplate = `${t('viz.hover_lon')}: %{x}\u00b0<br>${t('viz.hover_lat')}: %{y}\u00b0<br>${t('viz.hover_value')}: %{z:.6g} ${unit}<extra></extra>`;
     }
 
     const frameTraces = [{
@@ -426,7 +426,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
           <IconButton
             color="primary"
             onClick={() => setIsPlaying(p => !p)}
-            aria-label={isPlaying ? 'Pause animation' : 'Play animation'}
+            aria-label={isPlaying ? t('page.animation.pause') : t('page.animation.play')}
           >
             {isPlaying ? <Pause /> : <PlayArrow />}
           </IconButton>

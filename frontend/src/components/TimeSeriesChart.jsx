@@ -5,9 +5,10 @@ import { useTranslation } from 'react-i18next';
 import { VARIABLES_MAP } from './VariableSelector';
 import ExportMenu from './ExportMenu';
 import StatsBar from './StatsBar';
+import { MAX_TIMESTEPS } from '../constants';
 
 /** Axe X : heures locales martiennes en format hh:mm (00:30 a 24:00, 48 valeurs) */
-const HOURS = Array.from({ length: 48 }, (_, i) => {
+const HOURS = Array.from({ length: MAX_TIMESTEPS }, (_, i) => {
   const h = Math.floor((i + 1) * 0.5);
   const m = ((i + 1) * 0.5 % 1) * 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;

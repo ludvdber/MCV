@@ -4,6 +4,7 @@ import {
   FormControl, InputLabel, Select, MenuItem, TextField,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
+import { INDIVIDUAL_PREFIX } from '../constants';
 
 /**
  * Selecteur de fichier INDIVIDUAL.
@@ -83,7 +84,7 @@ function IndividualSelector({ years = [], onSelect, initialYear = null, initialL
 
   /* Le datasetId utilise la valeur precise du TextField (4 decimales) */
   const datasetId = selectedYear
-    ? `IND_MY${selectedYear}_LS${targetLs.toFixed(2)}`
+    ? `${INDIVIDUAL_PREFIX}MY${selectedYear}_LS${targetLs.toFixed(2)}`
     : null;
 
   const sliderMarks = useMemo(() => {

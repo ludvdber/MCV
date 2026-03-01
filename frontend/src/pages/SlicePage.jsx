@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Container, Paper, Typography, Button, CircularProgress,
@@ -100,7 +100,7 @@ function SlicePage() {
     );
   };
 
-  const handleCopyLink = () => {
+  const handleCopyLink = useCallback(() => {
     const p = new URLSearchParams();
     if (selectedDataset) p.set('ds', selectedDataset);
     if (selectedVariable) p.set('var', selectedVariable);
@@ -108,7 +108,7 @@ function SlicePage() {
     p.set('alt', String(selectedAltitude));
     if (colorscale !== 'auto') p.set('cs', colorscale);
     copyToClipboard(`${window.location.origin}/slice?${p.toString()}`);
-  };
+  }, [selectedDataset, selectedVariable, selectedTime, selectedAltitude, colorscale, copyToClipboard]);
 
   const markDirty = () => { if (sliceData) setIsDirty(true); };
 

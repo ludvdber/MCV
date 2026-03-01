@@ -6,6 +6,8 @@
   "nav.crosssection": "Coupe verticale",
   "nav.profile": "Profil vertical",
   "nav.explore": "Explorer",
+  "nav.openMenu": "Ouvrir le menu de navigation",
+  "nav.closeMenu": "Fermer le menu de navigation",
 
   "page.slice.title": "Visualisation 2D — Slice atmospherique",
   "page.slice.button": "Visualiser",
@@ -19,6 +21,8 @@
   "page.animation.button": "Charger l'animation",
   "page.animation.dirty": "Parametres modifies — rechargez l'animation",
   "page.animation.caption": "Charge 48 pas de temps consecutifs. Le chargement peut prendre plusieurs secondes selon votre connexion.",
+  "page.animation.play": "Lancer l'animation",
+  "page.animation.pause": "Mettre en pause",
 
   "page.crosssection.title": "Coupe verticale",
   "page.crosssection.button": "Visualiser",
@@ -58,6 +62,9 @@
   "page.notfound.description": "La page que vous recherchez s'est perdue dans l'espace martien. Elle a peut-etre ete deplacee, supprimee, ou n'a jamais existe dans cette galaxie.",
   "page.notfound.error": "ERREUR",
   "page.notfound.backHome": "Retour a l'accueil",
+
+  "error.boundary": "Une erreur est survenue.",
+  "error.backHome": "Retour a l'accueil",
 
   "selector.dataset.label": "Dataset",
   "selector.dataset.placeholder": "Selectionnez un dataset...",
@@ -115,6 +122,14 @@
   "viz.profile.empty": "Selectionnez un dataset, une variable, un point lat/lon et un pas de temps, puis cliquez sur Lancer.",
   "viz.crosssection.empty": "Selectionnez un dataset, une variable, un type de coupe et une coordonnee fixee, puis cliquez sur Lancer.",
   "viz.animation.empty": "Selectionnez un dataset, une variable et un niveau d'altitude, puis cliquez sur Charger l'animation.",
+  "viz.hover_value": "Valeur",
+  "viz.hover_zonal_anom": "Anom. zonale",
+  "viz.hover_percentile": "Percentile",
+  "viz.hover_poi": "POI",
+  "viz.hover_lat": "Lat",
+  "viz.hover_lon": "Lon",
+  "viz.hover_alt": "Alt",
+  "viz.hover_time": "Heure",
   "viz.martian_sol_note": "1 sol martien \u2248 24 h 37 min \u2014 axe temporel normalise sur 24 h",
 
   "variable.TT": "Temperature",
@@ -162,6 +177,10 @@
   "explore.toggle.tooltip": "Tooltip scientifique (anomalie, gradient, percentile, POI)",
   "explore.toggle.anomaly": "Mode anomalie zonale (ecart a la moyenne par latitude)",
   "explore.toggle.wind": "Vecteurs de vent (UU/VV)",
+  "explore.tab_profile_short": "Profil",
+  "explore.tab_meridional_short": "M\u00e9r.",
+  "explore.tab_zonal_short": "Zon",
+  "explore.close_tab": "Fermer l'onglet",
   "explore.toggle.log": "Echelle logarithmique (log10 — utile pour les variables a faibles valeurs comme la poussiere)",
 
   "home.learnMore": "En savoir plus",

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Container, Paper, Typography, Button, CircularProgress,
@@ -109,7 +109,7 @@ function CrossSectionPage() {
     );
   };
 
-  const handleCopyLink = () => {
+  const handleCopyLink = useCallback(() => {
     const p = new URLSearchParams();
     if (selectedDataset) p.set('ds', selectedDataset);
     if (selectedVariable) p.set('var', selectedVariable);
@@ -118,7 +118,7 @@ function CrossSectionPage() {
     p.set('fixed', String(fixedCoordinate));
     if (colorscale !== 'auto') p.set('cs', colorscale);
     copyToClipboard(`${window.location.origin}/crosssection?${p.toString()}`);
-  };
+  }, [selectedDataset, selectedVariable, selectedTime, csType, fixedCoordinate, colorscale, copyToClipboard]);
 
   const markDirty = () => { if (csData) setIsDirty(true); };
 

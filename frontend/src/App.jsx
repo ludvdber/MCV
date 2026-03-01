@@ -14,6 +14,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme, alpha } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { CircularProgress, Box, Typography, Button } from '@mui/material';
+import i18n from './i18n';
 import Home from './pages/Home';
 import { MarsProvider } from './context/MarsContext';
 import StarField from './components/StarField';
@@ -201,9 +202,9 @@ class ErrorBoundary extends Component {
     if (this.state.hasError) {
       return (
         <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="50vh" gap={2}>
-          <Typography variant="h5" color="error">Something went wrong.</Typography>
+          <Typography variant="h5" color="error">{i18n.t('error.boundary')}</Typography>
           <Button variant="contained" onClick={() => { this.setState({ hasError: false }); window.location.replace('/'); }}>
-            Back to home
+            {i18n.t('error.backHome')}
           </Button>
         </Box>
       );
@@ -217,20 +218,20 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <StarField />
-      <MarsProvider>
-        <BrowserRouter>
-          <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', minHeight: '100vh' }}>
-            <Sidebar />
-            <Box
-              component="main"
-              sx={{
-                flex: 1,
-                minHeight: '100vh',
-                ml: { xs: 0, md: `${SIDEBAR_WIDTH_PX}px` },
-                pt: { xs: 7, md: 0 },
-              }}
-            >
-              <ErrorBoundary>
+      <ErrorBoundary>
+        <MarsProvider>
+          <BrowserRouter>
+            <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', minHeight: '100vh' }}>
+              <Sidebar />
+              <Box
+                component="main"
+                sx={{
+                  flex: 1,
+                  minHeight: '100vh',
+                  ml: { xs: 0, md: `${SIDEBAR_WIDTH_PX}px` },
+                  pt: { xs: 7, md: 0 },
+                }}
+              >
                 <Suspense fallback={<Loading />}>
                   <Routes>
                     <Route path="/" element={<Home />} />
@@ -243,11 +244,11 @@ function App() {
                     <Route path="*" element={<NotFoundPage />} />
                   </Routes>
                 </Suspense>
-              </ErrorBoundary>
+              </Box>
             </Box>
-          </Box>
-        </BrowserRouter>
-      </MarsProvider>
+          </BrowserRouter>
+        </MarsProvider>
+      </ErrorBoundary>
     </ThemeProvider>
   );
 }

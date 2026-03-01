@@ -31,7 +31,9 @@ export function triggerApiDownload(promise, filename) {
     .then(res => {
       triggerDownload(URL.createObjectURL(res.data), filename);
     })
-    .catch(() => {});
+    .catch(error => {
+      console.error('Export CSV failed:', error);
+    });
 }
 
 /**

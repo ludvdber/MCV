@@ -177,6 +177,7 @@ function Sidebar() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const { t } = useTranslation();
 
   /* Mobile : bouton burger + Drawer */
   if (isMobile) {
@@ -184,7 +185,7 @@ function Sidebar() {
       <>
         <IconButton
           onClick={() => setDrawerOpen(true)}
-          aria-label="Open navigation menu"
+          aria-label={t('nav.openMenu')}
           sx={{
             position: 'fixed',
             top: 12,
@@ -223,7 +224,7 @@ function Sidebar() {
           <Box sx={{ position: 'relative' }}>
             <IconButton
               onClick={() => setDrawerOpen(false)}
-              aria-label="Close navigation menu"
+              aria-label={t('nav.closeMenu')}
               sx={{
                 position: 'absolute',
                 top: 8,

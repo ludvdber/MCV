@@ -6,6 +6,8 @@
   "nav.crosssection": "Cross Section",
   "nav.profile": "Vertical Profile",
   "nav.explore": "Explore",
+  "nav.openMenu": "Open navigation menu",
+  "nav.closeMenu": "Close navigation menu",
 
   "page.slice.title": "2D Visualization — Atmospheric Slice",
   "page.slice.button": "Visualize",
@@ -19,6 +21,8 @@
   "page.animation.button": "Load animation",
   "page.animation.dirty": "Parameters changed — reload animation",
   "page.animation.caption": "Loads 48 consecutive timesteps. Loading may take several seconds depending on your connection.",
+  "page.animation.play": "Play animation",
+  "page.animation.pause": "Pause animation",
 
   "page.crosssection.title": "Cross Section",
   "page.crosssection.button": "Visualize",
@@ -58,6 +62,9 @@
   "page.notfound.description": "The page you are looking for has been lost in Martian space. It may have been moved, deleted, or never existed in this galaxy.",
   "page.notfound.error": "ERROR",
   "page.notfound.backHome": "Back to home",
+
+  "error.boundary": "Something went wrong.",
+  "error.backHome": "Back to home",
 
   "selector.dataset.label": "Dataset",
   "selector.dataset.placeholder": "Select a dataset...",
@@ -115,6 +122,14 @@
   "viz.profile.empty": "Select a dataset, a variable, a lat/lon point and a timestep, then click Launch.",
   "viz.crosssection.empty": "Select a dataset, a variable, a section type and a fixed coordinate, then click Launch.",
   "viz.animation.empty": "Select a dataset, a variable and an altitude level, then click Load animation.",
+  "viz.hover_value": "Value",
+  "viz.hover_zonal_anom": "Zonal anom.",
+  "viz.hover_percentile": "Percentile",
+  "viz.hover_poi": "POI",
+  "viz.hover_lat": "Lat",
+  "viz.hover_lon": "Lon",
+  "viz.hover_alt": "Alt",
+  "viz.hover_time": "Time",
   "viz.martian_sol_note": "1 Martian sol \u2248 24 h 37 min \u2014 time axis normalized to 24 h",
 
   "variable.TT": "Temperature",
@@ -162,6 +177,10 @@
   "explore.toggle.tooltip": "Scientific tooltip (anomaly, gradient, percentile, POI)",
   "explore.toggle.anomaly": "Zonal anomaly mode (deviation from latitudinal mean)",
   "explore.toggle.wind": "Wind vectors (UU/VV)",
+  "explore.tab_profile_short": "Profile",
+  "explore.tab_meridional_short": "Merid.",
+  "explore.tab_zonal_short": "Zonal",
+  "explore.close_tab": "Close tab",
   "explore.toggle.log": "Logarithmic scale (log10 — useful for low-value variables like dust)",
 
   "home.learnMore": "Learn more",

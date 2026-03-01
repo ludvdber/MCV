@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Container, Paper, Typography, Button, CircularProgress, Alert, Box, Chip } from '@mui/material';
 import Grid from '@mui/material/Grid';
@@ -100,10 +100,10 @@ function ProfilePage() {
       a.download = `profile_${selectedVariable}_lat${selectedLatitude}_lon${selectedLongitude}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-    }).catch(() => {});
+    }).catch(err => { console.error('CSV export failed:', err); });
   };
 
-  const handleCopyLink = () => {
+  const handleCopyLink = useCallback(() => {
     const p = new URLSearchParams();
     if (selectedDataset) p.set('ds', selectedDataset);
     if (selectedVariable) p.set('var', selectedVariable);
@@ -111,7 +111,7 @@ function ProfilePage() {
     p.set('lat', String(selectedLatitude));
     p.set('lon', String(selectedLongitude));
     copyToClipboard(`${window.location.origin}/profile?${p.toString()}`);
-  };
+  }, [selectedDataset, selectedVariable, selectedTime, selectedLatitude, selectedLongitude, copyToClipboard]);
 
   const markDirty = () => { if (profileData) setIsDirty(true); };
 

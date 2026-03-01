@@ -62,9 +62,6 @@ function cachedGet(endpoint, params, signal) {
 
 // ==================== ENDPOINTS ====================
 
-/** GET /api/health — verification que le backend est operationnel */
-export const healthCheck = () => api.get('/health');
-
 /** GET /api/catalog — liste des datasets NetCDF MEAN disponibles */
 export const getCatalog = () => api.get('/catalog');
 

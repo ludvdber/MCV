@@ -46,7 +46,7 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
     let displayData = data;
     let logColorbarExtra = {};
     let logZMin = null, logZMax = null;
-    let hoverTemplate = `${isMeridional ? 'Lat' : 'Lon'}: %{x}°<br>Alt: %{y:.1f} km<br>Valeur: %{z:.6g} ${unit}<extra></extra>`;
+    let hoverTemplate = `${isMeridional ? t('viz.hover_lat') : t('viz.hover_lon')}: %{x}°<br>${t('viz.hover_alt')}: %{y:.1f} km<br>${t('viz.hover_value')}: %{z:.6g} ${unit}<extra></extra>`;
 
     if (logScale) {
       displayData = data.map(row => row.map(v => (v != null && v > 0) ? Math.log10(v) : null));
@@ -59,7 +59,7 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
         for (let e = logZMin; e <= logZMax; e++) { tickvals.push(e); ticktext.push(`10^${e}`); }
         logColorbarExtra = { tickvals, ticktext };
       }
-      hoverTemplate = `${isMeridional ? 'Lat' : 'Lon'}: %{x}°<br>Alt: %{y:.1f} km<br>log\u2081\u2080: %{z:.3f}<br>Valeur: %{customdata:.6g} ${unit}<extra></extra>`;
+      hoverTemplate = `${isMeridional ? t('viz.hover_lat') : t('viz.hover_lon')}: %{x}°<br>${t('viz.hover_alt')}: %{y:.1f} km<br>log\u2081\u2080: %{z:.3f}<br>${t('viz.hover_value')}: %{customdata:.6g} ${unit}<extra></extra>`;
     }
 
     Plotly.newPlot(el, [{

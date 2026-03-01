@@ -5,7 +5,6 @@ import {
   BarChart as BarChartIcon,
   Landscape as LandscapeIcon,
 } from '@mui/icons-material';
-export { COLORSCALE_OPTIONS, RDBU_VARIABLES } from '../../utils/colorscales';
 
 export const VIZ_TYPES = [
   { value: 'slice', labelKey: 'explore.viz.slice', icon: <GridOnIcon fontSize="small" /> },

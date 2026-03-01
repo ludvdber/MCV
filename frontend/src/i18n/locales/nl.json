@@ -6,6 +6,8 @@
   "nav.crosssection": "Verticale doorsnede",
   "nav.profile": "Verticaal profiel",
   "nav.explore": "Verkennen",
+  "nav.openMenu": "Navigatiemenu openen",
+  "nav.closeMenu": "Navigatiemenu sluiten",
 
   "page.slice.title": "2D-visualisatie — Atmosferische slice",
   "page.slice.button": "Visualiseren",
@@ -19,6 +21,8 @@
   "page.animation.button": "Animatie laden",
   "page.animation.dirty": "Parameters gewijzigd — herlaad de animatie",
   "page.animation.caption": "Laadt 48 opeenvolgende tijdstappen. Het laden kan enkele seconden duren afhankelijk van uw verbinding.",
+  "page.animation.play": "Animatie afspelen",
+  "page.animation.pause": "Animatie pauzeren",
 
   "page.crosssection.title": "Verticale doorsnede",
   "page.crosssection.button": "Visualiseren",
@@ -58,6 +62,9 @@
   "page.notfound.description": "De pagina die u zoekt is verdwaald in de Martiaanse ruimte. Ze is mogelijk verplaatst, verwijderd, of heeft nooit bestaan in dit sterrenstelsel.",
   "page.notfound.error": "FOUT",
   "page.notfound.backHome": "Terug naar startpagina",
+
+  "error.boundary": "Er is iets misgegaan.",
+  "error.backHome": "Terug naar startpagina",
 
   "selector.dataset.label": "Dataset",
   "selector.dataset.placeholder": "Selecteer een dataset...",
@@ -115,6 +122,14 @@
   "viz.profile.empty": "Selecteer een dataset, een variabele, een lat/lon-punt en een tijdstap, klik dan op Starten.",
   "viz.crosssection.empty": "Selecteer een dataset, een variabele, een doorsnedetype en een vaste co\u00f6rdinaat, klik dan op Starten.",
   "viz.animation.empty": "Selecteer een dataset, een variabele en een hoogte niveau, klik dan op Animatie laden.",
+  "viz.hover_value": "Waarde",
+  "viz.hover_zonal_anom": "Zon. anomalie",
+  "viz.hover_percentile": "Percentiel",
+  "viz.hover_poi": "POI",
+  "viz.hover_lat": "Lat",
+  "viz.hover_lon": "Lon",
+  "viz.hover_alt": "Alt",
+  "viz.hover_time": "Tijd",
   "viz.martian_sol_note": "1 Martiaanse sol \u2248 24 u 37 min \u2014 tijdas genormaliseerd op 24 u",
 
   "variable.TT": "Temperatuur",
@@ -162,6 +177,10 @@
   "explore.toggle.tooltip": "Wetenschappelijke tooltip (anomalie, gradi\u00ebnt, percentiel, POI)",
   "explore.toggle.anomaly": "Zonale anomaliemodus (afwijking van breedtegraadgemiddelde)",
   "explore.toggle.wind": "Windvectoren (UU/VV)",
+  "explore.tab_profile_short": "Profiel",
+  "explore.tab_meridional_short": "Merid.",
+  "explore.tab_zonal_short": "Zonaal",
+  "explore.close_tab": "Tabblad sluiten",
   "explore.toggle.log": "Logaritmische schaal (log10 — nuttig voor variabelen met lage waarden zoals stof)",
 
   "home.learnMore": "Meer informatie",

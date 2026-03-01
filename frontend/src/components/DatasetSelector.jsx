@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Autocomplete, TextField, Box, Typography, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import IndividualSelector from './IndividualSelector';
+import { INDIVIDUAL_PREFIX } from '../constants';
 
 /**
  * Selecteur de dataset Mars avec toggle MEAN / INDIVIDUAL.
@@ -28,7 +29,7 @@ function DatasetSelector({ datasets, value, onChange, disabled = false, individu
 
   /** Basculer automatiquement en mode INDIVIDUAL si value est un IND_ (restore permalien) */
   useEffect(() => {
-    if (value?.startsWith('IND_') && showToggle) setMode('individual');
+    if (value?.startsWith(INDIVIDUAL_PREFIX) && showToggle) setMode('individual');
   }, [value, showToggle]);
 
   /** Revenir en mode MEAN quand le toggle n'est pas disponible (pages legacy sans individualYears) */

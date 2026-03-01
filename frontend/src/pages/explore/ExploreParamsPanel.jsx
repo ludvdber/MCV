@@ -18,6 +18,7 @@ import {
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../../context/MarsContext';
+import { INDIVIDUAL_PREFIX } from '../../constants';
 import { COLORSCALE_OPTIONS } from '../../utils/colorscales';
 import { useExploreState, useExploreDispatch, A } from './ExploreContext.jsx';
 import {
@@ -55,7 +56,7 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
     resultsById, activeResult,
   } = state;
 
-  const isIndividual   = selectedDataset?.startsWith('IND_');
+  const isIndividual   = selectedDataset?.startsWith(INDIVIDUAL_PREFIX);
   const needsTime      = ['slice', 'profile', 'crosssection'].includes(vizType);
   const needsLatLon    = ['timeseries', 'profile'].includes(vizType);
   const needsAltitude  = ['slice', 'timeseries', 'animation'].includes(vizType);

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Container, Paper, Typography, Button, CircularProgress,
@@ -91,14 +91,14 @@ function AnimationPage() {
     setTimeout(handleCharger, 0);
   }
 
-  const handleCopyLink = () => {
+  const handleCopyLink = useCallback(() => {
     const p = new URLSearchParams();
     if (selectedDataset) p.set('ds', selectedDataset);
     if (selectedVariable) p.set('var', selectedVariable);
     p.set('alt', String(selectedAltitude));
     if (colorscale !== 'auto') p.set('cs', colorscale);
     copyToClipboard(`${window.location.origin}/animation?${p.toString()}`);
-  };
+  }, [selectedDataset, selectedVariable, selectedAltitude, colorscale, copyToClipboard]);
 
   /** Export CSV client-side : stats par frame (min/max/mean sur lat×lon) */
   const handleExportCSV = () => {

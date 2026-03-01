@@ -139,6 +139,7 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV }) {
                   <Typography variant="body2" noWrap sx={{ maxWidth: 160 }}>{r.label}</Typography>
                   <IconButton
                     size="small"
+                    aria-label={t('explore.close_tab')}
                     onClick={e => { e.stopPropagation(); onRemoveResult(r.id); }}
                     sx={{ ml: 0.5, p: 0.3 }}
                   >

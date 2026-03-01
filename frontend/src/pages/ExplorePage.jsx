@@ -24,6 +24,7 @@ import {
 import { ExploreProvider, useExploreState, useExploreDispatch, A } from './explore/ExploreContext.jsx';
 import { largeDataStore } from './explore/largeDataStore.js';
 import { VIZ_TYPES, MAX_TABS, ALTITUDE_REQUIRED_TYPES } from './explore/exploreConstants.jsx';
+import { INDIVIDUAL_PREFIX } from '../constants';
 import ExploreParamsPanel from './explore/ExploreParamsPanel.jsx';
 import ExploreResultsPanel from './explore/ExploreResultsPanel.jsx';
 import { formatTime } from '../components/TimeSelector';
@@ -41,9 +42,9 @@ function genLabel(type, params, t) {
     case 'animation':
       return `${varLabel} alt${params.altitude}`;
     case 'profile':
-      return `Profil ${varLabel} (${params.lat}°, ${params.lon}°)`;
+      return `${t('explore.tab_profile_short')} ${varLabel} (${params.lat}°, ${params.lon}°)`;
     case 'crosssection': {
-      const dir   = params.crossSectionType === 'meridional' ? 'Mer' : 'Zon';
+      const dir   = params.crossSectionType === 'meridional' ? t('explore.tab_meridional_short') : t('explore.tab_zonal_short');
       const fixed = params.crossSectionType === 'meridional'
         ? `lon${params.lon}°` : `lat${params.lat}°`;
       return `${dir} ${varLabel} ${fixed}`;
@@ -78,7 +79,7 @@ function ExplorePageContent() {
   const { vizType, crossSectionType, colorscale, zMinInput, zMaxInput,
     resultsById, resultOrder, loading, pendingAutoLaunch } = state;
 
-  const isIndividual = selectedDataset?.startsWith('IND_');
+  const isIndividual = selectedDataset?.startsWith(INDIVIDUAL_PREFIX);
 
   // Optimisation R3 : depend de resultsById[activeResult] (reference stable
   // quand d'autres onglets sont ajoutes/supprimes) et non du tableau entier.
@@ -92,6 +93,11 @@ function ExplorePageContent() {
     return v?.altitudeType === null;
   }, [selectedVariable]);
 
+  /* ── Nettoyage du largeDataStore au demontage ──────────────────────────── */
+  useEffect(() => {
+    return () => { largeDataStore.clear(); };
+  }, []);
+
   /* ── Restauration de l'URL (permalien) ─────────────────────────────────── */
   useEffect(() => {
     if (catalogLoading || hasRestoredUrl.current) return;
@@ -101,7 +107,7 @@ function ExplorePageContent() {
     if (!ds) return;
 
     setSelectedDataset(ds);
-    if (ds.startsWith('IND_')) {
+    if (ds.startsWith(INDIVIDUAL_PREFIX)) {
       const m = ds.match(/IND_MY(\d+)_LS([\d.]+)/);
       if (m) {
         setSelectedIndividualMY(Number(m[1]));
@@ -130,7 +136,7 @@ function ExplorePageContent() {
     const lon = searchParams.get('lon');
     if (lon != null) {
       const parsed = parseFloat(lon);
-      if (!isNaN(parsed)) setSelectedLongitude(Math.max(-180, Math.min(360, parsed)));
+      if (!isNaN(parsed)) setSelectedLongitude(Math.max(-180, Math.min(180, parsed)));
     }
     const cs = searchParams.get('cs');
     if (cs) dispatch({ type: A.SET_COLORSCALE, value: cs });
@@ -242,7 +248,7 @@ function ExplorePageContent() {
   /** Auto-lance après restauration de l'URL. */
   useEffect(() => {
     if (!pendingAutoLaunch || loading) return;
-    const isInd = selectedDataset?.startsWith('IND_');
+    const isInd = selectedDataset?.startsWith(INDIVIDUAL_PREFIX);
     if (!isInd && !dataset) return;
     dispatch({ type: A.SET_PENDING_AUTO, value: false });
     handleLancerRef.current();
@@ -264,7 +270,7 @@ function ExplorePageContent() {
     const { dataset: ds, time, altitude } = activeResultObj.params;
     const controller = new AbortController();
     getWind(
-      { dataset: ds, time: ds?.startsWith('IND_') ? 0 : time, altitudeIndex: altitude },
+      { dataset: ds, time: ds?.startsWith(INDIVIDUAL_PREFIX) ? 0 : time, altitudeIndex: altitude },
       controller.signal,
     )
       .then(res => dispatch({ type: A.SET_WIND_DATA, value: res.data }))
