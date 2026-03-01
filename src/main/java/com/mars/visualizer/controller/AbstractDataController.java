@@ -42,7 +42,7 @@ public abstract class AbstractDataController {
      */
     protected String buildDatasetLabel(String dataset) {
         if (datasetResolver.isIndividualDataset(dataset)) {
-            return dataset.replace("IND_", "").replace("_", " ");
+            return dataset.replace(DatasetResolver.INDIVIDUAL_PREFIX, "").replace("_", " ");
         }
         return dataset;
     }

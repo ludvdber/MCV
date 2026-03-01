@@ -24,6 +24,9 @@ public class DatasetResolver {
 	/** Pattern pour parser un dataset INDIVIDUAL : IND_MY{nn}_LS{dd.dd} */
 	private static final Pattern IND_PATTERN = Pattern.compile("IND_MY(\\d+)_LS([\\d.]+)");
 
+	/** Prefixe identifiant un dataset INDIVIDUAL. */
+	public static final String INDIVIDUAL_PREFIX = "IND_";
+
 	private final CatalogService           catalogService;
 	private final IndividualCatalogService individualCatalogService;
 
@@ -37,7 +40,7 @@ public class DatasetResolver {
 	 * Detecte si le dataset est un identifiant INDIVIDUAL (prefixe IND_).
 	 */
 	public boolean isIndividualDataset(String dataset) {
-		return dataset != null && dataset.startsWith("IND_");
+		return dataset != null && dataset.startsWith(INDIVIDUAL_PREFIX);
 	}
 
 	/**
@@ -55,7 +58,7 @@ public class DatasetResolver {
 	 * Parse un identifiant IND_MY{nn}_LS{dd.dd} et retourne le chemin absolu
 	 * du fichier .nc le plus proche.
 	 */
-	public String resolveIndividualFile(String dataset) {
+	private String resolveIndividualFile(String dataset) {
 		Matcher m = IND_PATTERN.matcher(dataset);
 		if (!m.matches()) {
 			throw new ValidationException("error.dataset.individual.format", dataset);

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import com.mars.visualizer.config.DataPathConfig;
 import com.mars.visualizer.exception.NetCDFException;
+import com.mars.visualizer.util.MarsConstants;
 
 import lombok.extern.slf4j.Slf4j;
 import ucar.nc2.NetcdfFile;
@@ -51,6 +52,7 @@ public class NetCDFReaderService {
 	private static final String COORD_LON = "lon";
 	private static final String VAR_UU    = "UU";
 	private static final String VAR_VV    = "VV";
+	private static final int WIND_SUBSAMPLE_STEP = 3;
 
 	private final DataPathConfig pathConfig;
 
@@ -120,7 +122,7 @@ public class NetCDFReaderService {
 	 * @param allowedRoot répertoire racine autorisé
 	 * @throws NetCDFException si le chemin sort du répertoire autorisé
 	 */
-	private void assertPathSafe(Path file, Path allowedRoot) {
+	void assertPathSafe(Path file, Path allowedRoot) {
 		Path normalizedFile = file.normalize().toAbsolutePath();
 		Path normalizedRoot = allowedRoot.normalize().toAbsolutePath();
 		if (!normalizedFile.startsWith(normalizedRoot)) {
@@ -130,17 +132,14 @@ public class NetCDFReaderService {
 	}
 
 	/**
-	 * Liste les variables disponibles dans un fichier MEAN.
+	 * Recherche une variable dans le fichier NetCDF et lève une exception si absente.
 	 */
-	public List<String> listVariables(String filename) throws IOException {
-		List<String> variableNames = new ArrayList<>();
-		try (NetcdfFile ncfile = openMeanFile(filename)) {
-			for (ucar.nc2.Variable var : ncfile.getVariables()) {
-				variableNames.add(var.getShortName());
-			}
+	private ucar.nc2.Variable requireVariable(NetcdfFile ncfile, String variableName) {
+		ucar.nc2.Variable v = ncfile.findVariable(variableName);
+		if (v == null) {
+			throw new NetCDFException("error.netcdf.variable.not.found", variableName);
 		}
-		log.info("Variables trouvées : {} variables", variableNames.size());
-		return variableNames;
+		return v;
 	}
 
 	// =========================================================================
@@ -160,10 +159,7 @@ public class NetCDFReaderService {
 				filename, variableName, timeIndex, altitudeIndex);
 
 		try (NetcdfFile ncfile = openMeanFile(filename)) {
-			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
-			if (variable == null) {
-				throw new NetCDFException("error.netcdf.variable.not.found", variableName);
-			}
+			ucar.nc2.Variable variable = requireVariable(ncfile, variableName);
 
 			int[]     varShape  = variable.getShape();
 			boolean   isSurface = (varShape.length == 3);
@@ -212,10 +208,7 @@ public class NetCDFReaderService {
 				filename, variableName, latitude, longitude, altitudeIndex);
 
 		try (NetcdfFile ncfile = openMeanFile(filename)) {
-			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
-			if (variable == null) {
-				throw new NetCDFException("error.netcdf.variable.not.found", variableName);
-			}
+			ucar.nc2.Variable variable = requireVariable(ncfile, variableName);
 
 			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
 			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
@@ -258,10 +251,7 @@ public class NetCDFReaderService {
 				filename, variableName, altitudeIndex);
 
 		try (NetcdfFile ncfile = openMeanFile(filename)) {
-			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
-			if (variable == null) {
-				throw new NetCDFException("error.netcdf.variable.not.found", variableName);
-			}
+			ucar.nc2.Variable variable = requireVariable(ncfile, variableName);
 
 			int[]   varShape  = variable.getShape();
 			boolean isSurface = (varShape.length == 3);
@@ -314,10 +304,7 @@ public class NetCDFReaderService {
 				filename, variableName, timeIndex, latitude, longitude);
 
 		try (NetcdfFile ncfile = openMeanFile(filename)) {
-			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
-			if (variable == null) {
-				throw new NetCDFException("error.netcdf.variable.not.found", variableName);
-			}
+			ucar.nc2.Variable variable = requireVariable(ncfile, variableName);
 
 			int[] varShape = variable.getShape();
 			if (varShape.length == 3) {
@@ -364,10 +351,7 @@ public class NetCDFReaderService {
 				filename, variableName, timeIndex, type, fixedCoordinate);
 
 		try (NetcdfFile ncfile = openMeanFile(filename)) {
-			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
-			if (variable == null) {
-				throw new NetCDFException("error.netcdf.variable.not.found", variableName);
-			}
+			ucar.nc2.Variable variable = requireVariable(ncfile, variableName);
 
 			int[] varShape = variable.getShape();
 			if (varShape.length == 3) {
@@ -387,7 +371,7 @@ public class NetCDFReaderService {
 			float[][] section;
 			double    actualFixed;
 
-			if ("meridional".equals(type)) {
+			if (MarsConstants.CROSS_SECTION_MERIDIONAL.equals(type)) {
 				int lonIdx = findNearestIndex(longitudes, fixedCoordinate);
 				actualFixed = longitudes[lonIdx];
 
@@ -405,7 +389,7 @@ public class NetCDFReaderService {
 					}
 				}
 
-			} else if ("zonal".equals(type)) {
+			} else if (MarsConstants.CROSS_SECTION_ZONAL.equals(type)) {
 				int latIdx = findNearestIndex(latitudes, fixedCoordinate);
 				actualFixed = latitudes[latIdx];
 
@@ -471,9 +455,8 @@ public class NetCDFReaderService {
 			ucar.ma2.Index uIdx = uData.getIndex();
 			ucar.ma2.Index vIdx = vData.getIndex();
 
-			int step = 3;
-			int cLat = 0; for (int la = 0; la < nLat; la += step) cLat++;
-			int cLon = 0; for (int lo = 0; lo < nLon; lo += step) cLon++;
+			int cLat = 0; for (int la = 0; la < nLat; la += WIND_SUBSAMPLE_STEP) cLat++;
+			int cLon = 0; for (int lo = 0; lo < nLon; lo += WIND_SUBSAMPLE_STEP) cLon++;
 			int total = cLat * cLon;
 
 			double[] latsArr = new double[total];
@@ -482,8 +465,8 @@ public class NetCDFReaderService {
 			double[] vArr    = new double[total];
 
 			int k = 0;
-			for (int la = 0; la < nLat; la += step) {
-				for (int lo = 0; lo < nLon; lo += step) {
+			for (int la = 0; la < nLat; la += WIND_SUBSAMPLE_STEP) {
+				for (int lo = 0; lo < nLon; lo += WIND_SUBSAMPLE_STEP) {
 					uIdx.set(0, 0, la, lo);
 					vIdx.set(0, 0, la, lo);
 					latsArr[k] = latCoords[la];
@@ -494,7 +477,7 @@ public class NetCDFReaderService {
 				}
 			}
 
-			log.info("Champ de vent extrait : {} vecteurs ({}x{} grid, step={})", k, cLat, cLon, step);
+			log.info("Champ de vent extrait : {} vecteurs ({}x{} grid, step={})", k, cLat, cLon, WIND_SUBSAMPLE_STEP);
 			return new WindFieldData(latsArr, lonsArr, uArr, vArr);
 
 		} catch (IOException e) {

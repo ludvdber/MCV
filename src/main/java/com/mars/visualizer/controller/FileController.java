@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,6 +31,7 @@ import com.mars.visualizer.service.NetCDFReaderService.SliceData;
 import com.mars.visualizer.service.NetCDFReaderService.WindFieldData;
 import com.mars.visualizer.service.ValidationService;
 import com.mars.visualizer.util.DatasetResolver;
+import com.mars.visualizer.util.MarsConstants;
 import com.mars.visualizer.util.StatsCalculator;
 
 import lombok.extern.slf4j.Slf4j;
@@ -53,17 +55,20 @@ public class FileController extends AbstractDataController {
 	private final NetCDFReaderService      netcdfService;
 	private final CatalogService           catalogService;
 	private final IndividualCatalogService individualCatalogService;
+	private final String                   appVersion;
 
 	public FileController(NetCDFReaderService netcdfService,
 						  CatalogService catalogService,
 						  ValidationService validationService,
 						  IndividualCatalogService individualCatalogService,
-						  DatasetResolver datasetResolver) {
+						  DatasetResolver datasetResolver,
+						  @Value("${app.version:3.0}") String appVersion) {
 		super(validationService, datasetResolver);
 		this.netcdfService             = netcdfService;
 		this.catalogService            = catalogService;
 		this.individualCatalogService  = individualCatalogService;
-		log.info("FileController initialise");
+		this.appVersion                = appVersion;
+		log.info("FileController initialise (v{})", appVersion);
 	}
 
 	// =========================================================================
@@ -76,7 +81,7 @@ public class FileController extends AbstractDataController {
 		return ResponseEntity.ok(Map.of(
 				"status", "OK",
 				"service", "Mars Visualizer API",
-				"version", "3.0"));
+				"version", appVersion));
 	}
 
 	@GetMapping("/catalog")
@@ -241,9 +246,9 @@ public class FileController extends AbstractDataController {
 		time = resolved.time();
 		validationService.validateTimestep(time);
 
-		if ("meridional".equals(type)) {
+		if (MarsConstants.CROSS_SECTION_MERIDIONAL.equals(type)) {
 			validationService.validateLongitude(fixedCoordinate);
-		} else if ("zonal".equals(type)) {
+		} else if (MarsConstants.CROSS_SECTION_ZONAL.equals(type)) {
 			validationService.validateLatitude(fixedCoordinate);
 		}
 

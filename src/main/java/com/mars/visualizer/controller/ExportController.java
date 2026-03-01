@@ -19,6 +19,7 @@ import com.mars.visualizer.service.NetCDFReaderService.ProfileData;
 import com.mars.visualizer.service.NetCDFReaderService.SliceData;
 import com.mars.visualizer.service.ValidationService;
 import com.mars.visualizer.util.DatasetResolver;
+import com.mars.visualizer.util.MarsConstants;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -161,16 +162,20 @@ public class ExportController extends AbstractDataController {
         time = resolved.time();
         validationService.validateTimestep(time);
 
-        if ("meridional".equals(type)) {
+        if (!MarsConstants.CROSS_SECTION_MERIDIONAL.equals(type) && !MarsConstants.CROSS_SECTION_ZONAL.equals(type)) {
+            throw new ValidationException("error.netcdf.crosssection.type", type);
+        }
+
+        if (MarsConstants.CROSS_SECTION_MERIDIONAL.equals(type)) {
             validationService.validateLongitude(fixedCoordinate);
-        } else if ("zonal".equals(type)) {
+        } else {
             validationService.validateLatitude(fixedCoordinate);
         }
 
         CrossSectionData csData = netcdfService.extractCrossSection(
                 resolved.filename(), variable, time, type, fixedCoordinate);
 
-        String horizLabel = "meridional".equals(type) ? "latitude" : "longitude";
+        String horizLabel = MarsConstants.CROSS_SECTION_MERIDIONAL.equals(type) ? "latitude" : "longitude";
         StringBuilder sb = new StringBuilder("altitude_km,").append(horizLabel).append(",value\n");
 
         for (int a = 0; a < csData.data().length; a++) {

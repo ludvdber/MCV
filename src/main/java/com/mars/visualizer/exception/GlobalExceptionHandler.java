@@ -11,7 +11,6 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -53,21 +52,6 @@ public class GlobalExceptionHandler {
         String error   = messageSource.getMessage("error.category.validation", null, locale);
         String message = messageSource.getMessage(ex.getMessageKey(), ex.getMessageArgs(), locale);
         log.warn("Validation [{}]: {}", ex.getMessageKey(), message);
-
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(buildErrorBody(error, message));
-    }
-
-    @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex) {
-        Locale locale = LocaleContextHolder.getLocale();
-        String error   = messageSource.getMessage("error.category.validation", null, locale);
-        String message = ex.getConstraintViolations().stream()
-                .findFirst()
-                .map(v -> v.getMessage())
-                .orElse(ex.getMessage());
-        log.warn("ConstraintViolation: {}", message);
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)

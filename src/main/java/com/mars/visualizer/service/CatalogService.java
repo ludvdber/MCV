@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import com.mars.visualizer.config.DataPathConfig;
 import com.mars.visualizer.dto.response.DatasetMetadata;
+import com.mars.visualizer.util.MarsConstants;
 
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -113,32 +114,6 @@ public class CatalogService {
     }
 
     /**
-     * Recherche un dataset par son identifiant.
-     *
-     * @param id identifiant du dataset (nom du fichier sans extension)
-     * @return Optional contenant le dataset si trouvé
-     */
-    public Optional<DatasetMetadata> getDatasetById(String id) {
-        log.debug("Recherche dataset : {}", id);
-        return catalog.stream()
-                .filter(d -> d.id().equals(id))
-                .findFirst();
-    }
-
-    /**
-     * Vérifie l'existence d'un dataset.
-     *
-     * @param id identifiant du dataset
-     * @return true si le dataset existe dans le catalogue
-     */
-    public boolean datasetExists(String id) {
-        boolean exists = getDatasetById(id).isPresent();
-        log.debug("Dataset '{}' existe : {}", id, exists);
-        return exists;
-    }
-
-
-    /**
      * Construit les métadonnées complètes d'un fichier MEAN en une seule ouverture.
      * Variables et dimensions sont extraites dans le même try-with-resources
      * pour réduire les accès disque au démarrage.
@@ -156,7 +131,9 @@ public class CatalogService {
         // lsEnd calculé à partir de lsStart (pas parsé depuis le nom de fichier)
         Integer lsEnd = null;
         if (lsStart != null) {
-            lsEnd = (lsStart == 330) ? 360 : lsStart + 30;
+            lsEnd = (lsStart == MarsConstants.LS_MAX - MarsConstants.LS_PERIOD)
+                    ? MarsConstants.LS_MAX
+                    : lsStart + MarsConstants.LS_PERIOD;
         }
 
         // Une seule ouverture pour variables + dimensions
