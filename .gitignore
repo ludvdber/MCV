@@ -62,8 +62,8 @@ application-prod.properties
 # ===== DONNÉES =====
 *.nc
 *.nc4
-data/
-mars-data/
+/data/
+/mars-data/
 
 # ===== UPLOADS =====
 uploads/
