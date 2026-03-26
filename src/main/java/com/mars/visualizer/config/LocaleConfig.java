@@ -10,7 +10,7 @@ import org.springframework.web.servlet.i18n.AcceptHeaderLocaleResolver;
 
 /**
  * Configuration du LocaleResolver basé sur l'en-tête Accept-Language.
- * Langues supportées : EN (défaut), FR, NL.
+ * Langues supportées : EN (défaut), FR, NL, ES, DE.
  */
 @Configuration
 public class LocaleConfig {
@@ -22,7 +22,9 @@ public class LocaleConfig {
         resolver.setSupportedLocales(List.of(
                 Locale.ENGLISH,
                 Locale.FRENCH,
-                Locale.forLanguageTag("nl")
+                Locale.forLanguageTag("nl"),
+                Locale.forLanguageTag("es"),
+                Locale.GERMAN
         ));
         return resolver;
     }

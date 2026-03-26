@@ -3,6 +3,7 @@ package com.mars.visualizer.exception;
 import java.time.Instant;
 import java.util.Locale;
 
+import org.apache.catalina.connector.ClientAbortException;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
@@ -10,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -64,11 +66,23 @@ public class GlobalExceptionHandler {
         String error   = messageSource.getMessage("error.category.validation", null, locale);
         String message = messageSource.getMessage("error.parameter.missing",
                 new Object[]{ex.getParameterName()}, locale);
-        log.warn("Missing parameter: {}", ex.getParameterName());
+        log.warn("Missing parameter: {}", sanitizeLog(ex.getParameterName()));
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(buildErrorBody(error, message));
+    }
+
+    @ExceptionHandler(ClientAbortException.class)
+    public void handleClientAbort(ClientAbortException ex) {
+        log.debug("Client disconnected: {}", ex.getMessage());
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResource(NoResourceFoundException ex) {
+        log.debug("Static resource not found: {}", ex.getResourcePath());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(buildErrorBody("Not Found", "The requested resource was not found"));
     }
 
     @ExceptionHandler(Exception.class)
@@ -85,5 +99,10 @@ public class GlobalExceptionHandler {
 
     private ErrorResponse buildErrorBody(String error, String message) {
         return new ErrorResponse(error, message, Instant.now().toString());
+    }
+
+    /** Prevent log injection by stripping CR/LF from user-supplied values. */
+    private static String sanitizeLog(String input) {
+        return input == null ? "" : input.replaceAll("[\\r\\n]", " ");
     }
 }
