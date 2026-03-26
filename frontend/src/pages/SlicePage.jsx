@@ -1,12 +1,11 @@
-import { useState, useRef, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   Container, Paper, Typography, Button, CircularProgress,
-  Alert, Box, Chip
+  Alert, Box, Chip, LinearProgress,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
-import { Place as PlaceIcon, Map as MapIcon, Functions as LogIcon } from '@mui/icons-material';
-import { getSlice, exportSliceCSV } from '../services/api';
+import { Place as PlaceIcon, Map as MapIcon, Functions as LogIcon, Air as WindIcon } from '@mui/icons-material';
+import { getSlice, getWind, exportSliceCSV, exportSliceNetCDF } from '../services/api';
 import DatasetSelector from '../components/DatasetSelector';
 import VariableSelector from '../components/VariableSelector';
 import TimeSelector from '../components/TimeSelector';
@@ -17,23 +16,20 @@ import VisuToggle from '../components/VisuToggle';
 import PermalienButton from '../components/PermalienButton';
 import ColorscaleSelector from '../components/ColorscaleSelector';
 import LocationsLegend from '../components/LocationsLegend';
+import ChartOrTable from '../components/ChartOrTable';
+import ChartSkeleton from '../components/ChartSkeleton';
+import FullscreenButton from '../components/FullscreenButton';
 import PageLoader from '../components/PageLoader';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { triggerApiDownload } from '../utils/exportUtils';
-import { usePlotRef } from '../hooks/usePlotRef';
-import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
-
-/**
- * Page de visualisation 2D (UC2).
- * Supporte les permaliens : ?ds=&var=&t=&alt=&cs=
- */
+import { useVisualizationPage } from '../hooks/useVisualizationPage';
+import { gridToTable } from '../utils/dataToTable';
 
 function SlicePage() {
   const {
-    datasets, catalogLoading,
-    selectedDataset, setSelectedDataset,
+    datasets, selectedDataset, setSelectedDataset,
     selectedVariable, handleVariableChange,
     selectedTime, setSelectedTime,
     selectedAltitude, setSelectedAltitude,
@@ -41,57 +37,61 @@ function SlicePage() {
   } = useMars();
   const { t } = useTranslation();
 
-  const [sliceData, setSliceData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [showLocations, setShowLocations] = useState(false);
   const [showSurface, setShowSurface] = useState(false);
+  const [showWind, setShowWind] = useState(false);
+  const [windData, setWindData] = useState(null);
   const [logScale, setLogScale] = useState(false);
   const [colorscale, setColorscale] = useState('auto');
-  const [isDirty, setIsDirty] = useState(false);
 
-  const [viewerContainerRef, exportPlotRef] = usePlotRef();
-  const [linkCopied, copyToClipboard] = useCopyToClipboard();
-  const [searchParams] = useSearchParams();
-  const hasRestoredUrl = useRef(false);
-  const pendingAutoLaunch = useRef(false);
-
-  if (!catalogLoading && !hasRestoredUrl.current) {
-    hasRestoredUrl.current = true;
-    const ds = searchParams.get('ds');
-    if (ds) {
+  const {
+    data: sliceData, loading, error, isDirty, markDirty,
+    viewerContainerRef, exportPlotRef, linkCopied,
+    handleLaunch, handleCopyLink, catalogLoading,
+  } = useVisualizationPage({
+    route: '/slice',
+    restoreUrl: (sp) => {
+      const ds = sp.get('ds');
+      if (!ds) return false;
       setSelectedDataset(ds);
-      const v = searchParams.get('var');
-      if (v) handleVariableChange(v);
-      const t = searchParams.get('t');
-      if (t != null) setSelectedTime(parseInt(t, 10));
-      const alt = searchParams.get('alt');
-      if (alt != null) setSelectedAltitude(parseInt(alt, 10));
-      const cs = searchParams.get('cs');
-      if (cs) setColorscale(cs);
-      pendingAutoLaunch.current = true;
-    }
-  }
+      const v = sp.get('var'); if (v) handleVariableChange(v);
+      const ti = sp.get('t'); if (ti != null) setSelectedTime(parseInt(ti, 10));
+      const alt = sp.get('alt'); if (alt != null) setSelectedAltitude(parseInt(alt, 10));
+      const cs = sp.get('cs'); if (cs) setColorscale(cs);
+      return true;
+    },
+    fetchData: useCallback(() =>
+      getSlice({ dataset: selectedDataset, variable: selectedVariable, time: selectedTime, altitude: selectedAltitude }),
+    [selectedDataset, selectedVariable, selectedTime, selectedAltitude]),
+    buildPermalink: useCallback(() => {
+      const p = new URLSearchParams();
+      if (selectedDataset) p.set('ds', selectedDataset);
+      if (selectedVariable) p.set('var', selectedVariable);
+      p.set('t', String(selectedTime));
+      p.set('alt', String(selectedAltitude));
+      if (colorscale !== 'auto') p.set('cs', colorscale);
+      return `${window.location.origin}/slice?${p.toString()}`;
+    }, [selectedDataset, selectedVariable, selectedTime, selectedAltitude, colorscale]),
+    buildHistoryEntry: useCallback(() => ({
+      page: '/slice', dataset: selectedDataset, variable: selectedVariable,
+      params: { time: selectedTime, altitude: selectedAltitude },
+      label: `${selectedVariable} t${selectedTime} alt${selectedAltitude}`,
+    }), [selectedDataset, selectedVariable, selectedTime, selectedAltitude]),
+    canLaunch: useCallback(() => !!selectedDataset && !!selectedVariable, [selectedDataset, selectedVariable]),
+  });
 
-  // Utilise la variable de la donnée affichée (pas du formulaire) pour éviter
-  // que la palette change avant d'avoir cliqué sur "Analyser".
   const resolvedColorscale = useResolvedColorscale(colorscale, sliceData?.variable, selectedVariable);
 
-  const handleVisualiser = () => {
-    if (!selectedDataset || !selectedVariable) return;
-    setLoading(true);
-    setError(null);
-    setIsDirty(false);
-    getSlice({ dataset: selectedDataset, variable: selectedVariable, time: selectedTime, altitude: selectedAltitude })
-      .then(res => setSliceData(res.data))
-      .catch(err => setError(err.response?.data?.message || err.message))
-      .finally(() => setLoading(false));
-  };
-
-  if (pendingAutoLaunch.current && dataset && !loading) {
-    pendingAutoLaunch.current = false;
-    setTimeout(handleVisualiser, 0);
-  }
+  // Fetch wind data when toggle is ON and slice is loaded
+  const isWindVariable = ['UU', 'VV'].includes(selectedVariable);
+  useEffect(() => {
+    if (!showWind || !sliceData || isWindVariable) { setWindData(null); return; }
+    const controller = new AbortController();
+    getWind({ dataset: selectedDataset, time: selectedTime, altitudeIndex: selectedAltitude }, controller.signal)
+      .then(res => setWindData(res.data))
+      .catch(() => { if (!controller.signal.aborted) setWindData(null); });
+    return () => controller.abort();
+  }, [showWind, sliceData, selectedDataset, selectedTime, selectedAltitude, isWindVariable]);
 
   const handleExportCSV = () => {
     triggerApiDownload(
@@ -100,17 +100,24 @@ function SlicePage() {
     );
   };
 
-  const handleCopyLink = useCallback(() => {
-    const p = new URLSearchParams();
-    if (selectedDataset) p.set('ds', selectedDataset);
-    if (selectedVariable) p.set('var', selectedVariable);
-    p.set('t', String(selectedTime));
-    p.set('alt', String(selectedAltitude));
-    if (colorscale !== 'auto') p.set('cs', colorscale);
-    copyToClipboard(`${window.location.origin}/slice?${p.toString()}`);
-  }, [selectedDataset, selectedVariable, selectedTime, selectedAltitude, colorscale, copyToClipboard]);
+  const handleExportNetCDF = () => {
+    triggerApiDownload(
+      exportSliceNetCDF({ dataset: selectedDataset, variable: selectedVariable, time: selectedTime, altitude: selectedAltitude }),
+      `slice_${selectedVariable}_t${selectedTime}_a${selectedAltitude}.nc`,
+    );
+  };
 
-  const markDirty = () => { if (sliceData) setIsDirty(true); };
+  const pdfMeta = sliceData ? {
+    title: `${datasetLabel} — ${selectedVariable} — t=${selectedTime} — alt=${selectedAltitude}`,
+    dataset: datasetLabel,
+    variable: selectedVariable,
+    params: { time: selectedTime, altitude: selectedAltitude },
+    stats: sliceData.stats,
+  } : null;
+
+  const tableData = useMemo(() =>
+    sliceData ? gridToTable(sliceData.data, sliceData.latitudes, sliceData.longitudes, selectedVariable) : null,
+  [sliceData, selectedVariable]);
 
   if (catalogLoading) return <PageLoader />;
 
@@ -139,13 +146,12 @@ function SlicePage() {
               variableCode={selectedVariable} />
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
-            <ColorscaleSelector value={colorscale}
-              onChange={setColorscale} />
+            <ColorscaleSelector value={colorscale} onChange={setColorscale} />
           </Grid>
         </Grid>
 
         <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          <Button variant="contained" onClick={handleVisualiser}
+          <Button variant="contained" onClick={handleLaunch}
             disabled={!selectedDataset || !selectedVariable || loading}>
             {loading ? <CircularProgress size={20} color="inherit" /> : t('page.slice.button')}
           </Button>
@@ -153,43 +159,48 @@ function SlicePage() {
             <>
               <VisuToggle value={showLocations} onChange={setShowLocations} icon={<PlaceIcon />}>{t('common.toggleLocations')}</VisuToggle>
               <VisuToggle value={showSurface} onChange={setShowSurface} icon={<MapIcon />}>{t('common.toggleSurface')}</VisuToggle>
+              {!isWindVariable && (
+                <VisuToggle value={showWind} onChange={setShowWind} icon={<WindIcon />}>{t('explore.toggle.wind')}</VisuToggle>
+              )}
               <VisuToggle value={logScale} onChange={setLogScale} icon={<LogIcon />} title={t('common.toggleLog')}>{'Log\u2081\u2080'}</VisuToggle>
             </>
           )}
-          {isDirty && (
-            <Chip label={t('page.slice.dirty')} color="warning" size="small" />
-          )}
+          {isDirty && <Chip label={t('page.slice.dirty')} color="warning" size="small" />}
         </Box>
 
         <LocationsLegend visible={showLocations && !!sliceData} />
 
-        {sliceData && (
-          <Box sx={{ mt: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-            <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
-            <ExportMenu
-              plotRef={exportPlotRef}
-              filename={`mars_slice_${selectedVariable || 'plot'}`}
-              onCSV={handleExportCSV}
-            />
-          </Box>
-        )}
       </Paper>
 
+      {loading && <LinearProgress color="primary" sx={{ mb: 2, borderRadius: 1 }} />}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {loading && !sliceData && <ChartSkeleton variant="heatmap" />}
 
-      <Box ref={viewerContainerRef}>
-        <SliceViewer
-          sliceData={sliceData}
-          variableCode={selectedVariable}
-          datasetLabel={datasetLabel}
-          showLocations={showLocations}
-          showSurface={showSurface}
-          colorscaleName={resolvedColorscale.name}
-          reverseColorscale={resolvedColorscale.reverse}
-          logScale={logScale}
-          noExportMenu
-        />
-      </Box>
+      <ChartOrTable tableData={tableData}>
+        {(showTable, TableButton) => (
+          <>
+            {sliceData && (
+              <Box sx={{ mb: 1, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
+                <ExportMenu plotRef={exportPlotRef} filename={`mars_slice_${selectedVariable || 'plot'}`} onCSV={handleExportCSV} onNetCDF={handleExportNetCDF} pdfMeta={pdfMeta} />
+                <TableButton />
+                <FullscreenButton containerRef={viewerContainerRef} />
+              </Box>
+            )}
+            {!showTable && (
+              <Box ref={viewerContainerRef} sx={{ position: 'relative' }}>
+                <SliceViewer
+                  sliceData={sliceData} variableCode={selectedVariable} datasetLabel={datasetLabel}
+                  showLocations={showLocations} showSurface={showSurface}
+                  windData={showWind ? windData : null}
+                  colorscaleName={resolvedColorscale.name} reverseColorscale={resolvedColorscale.reverse}
+                  logScale={logScale} noExportMenu
+                />
+              </Box>
+            )}
+          </>
+        )}
+      </ChartOrTable>
     </Container>
   );
 }

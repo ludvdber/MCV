@@ -3,7 +3,7 @@ import { Select, MenuItem, Box } from '@mui/material';
 import { Language as LanguageIcon } from '@mui/icons-material';
 
 /**
- * Selecteur de langue (EN / FR / NL).
+ * Selecteur de langue (EN / FR / NL / ES / DE).
  * Utilise i18next pour changer la langue et la persister dans localStorage.
  * Place dans le pied de la sidebar, juste au-dessus du numero de version.
  */
@@ -12,6 +12,8 @@ const LANGUAGES = [
   { code: 'en', label: 'EN' },
   { code: 'fr', label: 'FR' },
   { code: 'nl', label: 'NL' },
+  { code: 'es', label: 'ES' },
+  { code: 'de', label: 'DE' },
 ];
 
 function LanguageSwitcher() {

@@ -56,13 +56,13 @@ function parseItems(data, tagKey) {
       const d     = item.data?.[0];
       const thumb = item.links?.find(l => l.rel === 'preview')?.href;
       if (!thumb || !d) return null;
-      /* Construire URLs haute résolution depuis l'URL du thumbnail */
+      /* Construire URLs depuis l'URL du thumbnail.
+       * ~medium.jpg is more reliable than ~large.jpg (NASA blocks some large images with 403). */
       const base   = thumb.replace(/~thumb\.(jpg|jpeg|png)$/i, '');
-      const large  = `${base}~large.jpg`;
       const medium = `${base}~medium.jpg`;
       return {
-        url:       large,
-        fallback1: medium,
+        url:       medium,
+        fallback1: thumb,
         fallback2: thumb,
         title:     d.title ?? '',
         date:      (d.date_created ?? '').slice(0, 10),
@@ -199,7 +199,7 @@ export default function MarsPhotoCarousel() {
         borderRadius: 3,
         overflow: 'hidden',
         border: '1px solid rgba(56,189,248,0.12)',
-        background: '#020818',
+        background: 'var(--bg-space)',
         aspectRatio: { xs: '4/3', md: '16/7' },
         cursor: 'pointer',
       }}
@@ -251,7 +251,7 @@ export default function MarsPhotoCarousel() {
             <Typography sx={{
               fontFamily: "'Rajdhani', sans-serif",
               fontSize: { xs: '0.88rem', md: '1.02rem' },
-              color: 'rgba(255,255,255,0.92)',
+              color: 'var(--text-primary)',
               fontWeight: 600, lineHeight: 1.35,
               overflow: 'hidden',
               display: '-webkit-box',
@@ -262,7 +262,7 @@ export default function MarsPhotoCarousel() {
             </Typography>
             {photo.date && (
               <Typography sx={{
-                fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)',
+                fontSize: '0.72rem', color: 'var(--text-secondary)',
                 fontFamily: "'Rajdhani', sans-serif", mt: 0.3,
               }}>
                 {photo.date}
@@ -299,7 +299,7 @@ export default function MarsPhotoCarousel() {
             aria-label="Previous photo"
             sx={{
               position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
-              backgroundColor: 'rgba(13,27,64,0.8)', border: '1px solid rgba(56,189,248,0.2)',
+              backgroundColor: 'var(--bg-surface)', border: '1px solid rgba(56,189,248,0.2)',
               color: '#38bdf8',
               '&:hover': { backgroundColor: 'rgba(56,189,248,0.15)' },
             }}
@@ -312,7 +312,7 @@ export default function MarsPhotoCarousel() {
             aria-label="Next photo"
             sx={{
               position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-              backgroundColor: 'rgba(13,27,64,0.8)', border: '1px solid rgba(56,189,248,0.2)',
+              backgroundColor: 'var(--bg-surface)', border: '1px solid rgba(56,189,248,0.2)',
               color: '#38bdf8',
               '&:hover': { backgroundColor: 'rgba(56,189,248,0.15)' },
             }}

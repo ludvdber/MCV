@@ -5,69 +5,80 @@ import { useTranslation } from 'react-i18next';
 import { VARIABLES_MAP } from './VariableSelector';
 import ExportMenu from './ExportMenu';
 import StatsBar from './StatsBar';
+import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
+
+const COLORS = ['#38bdf8', '#e05a2b', '#a855f7', '#4ade80'];
 
 /**
- * Affiche un profil vertical Plotly (valeur en X, altitude en Y).
- * Y = altitude en km (surface en bas, sommet en haut).
+ * Unified vertical profile viewer — renders 1 to N profiles on a single Plotly chart.
  *
- * @param {Object|null} profileData - reponse de GET /api/data/profile
- *   { dataset, variable, timeIndex, latitude, longitude, altitudes[], values[], stats }
- * @param {string|null} variableCode - code variable pour le titre de l'axe X
+ * @param {Array|null} profiles       - array of ProfileResponse objects (1-4)
+ * @param {string|null} variableCode  - variable code for X axis title
+ * @param {string} datasetLabel       - dataset display label
  */
-function ProfileViewer({ profileData, variableCode, datasetLabel, onExportCSV = null, noExportMenu = false, externalPlotRef = null }) {
+function ProfileViewer({ profiles, variableCode, datasetLabel, onExportCSV = null, noExportMenu = false, externalPlotRef = null }) {
   const { t, i18n } = useTranslation();
+  const { fontColor, gridColor, paperBg, plotBg, titleSize, margin: responsiveMargin } = usePlotlyTheme();
   const internalPlotRef = useRef(null);
   const plotRef = externalPlotRef ?? internalPlotRef;
 
   useEffect(() => {
     const el = plotRef.current;
-    if (!el || !profileData) return;
+    if (!el || !profiles || profiles.length === 0) return;
 
-    const { latitude, longitude, altitudes, values } = profileData;
     const varInfo = VARIABLES_MAP.get(variableCode);
     const variableLabel = varInfo ? t(`variable.${variableCode}`) : variableCode;
     const unit = varInfo?.unit || '';
 
-    const fontColor = 'rgba(255,255,255,0.85)';
-
-    Plotly.newPlot(el, [{
-      x: values,
-      y: altitudes,
+    const single = profiles.length === 1;
+    const traces = profiles.map((p, i) => ({
+      x: p.values,
+      y: p.altitudes,
       mode: 'lines+markers',
-      line: { color: '#38bdf8', width: 2.5 },
-      marker: { color: '#38bdf8', size: 4 },
-      hovertemplate: '%{x:.6g} ' + unit + '<br>Alt: %{y:.1f} km<extra></extra>'
-    }], {
-      title: {
-        text: `${datasetLabel || ''} — ${variableLabel} — Lat ${latitude}°, Lon ${longitude}°`,
-        font: { size: 16, color: fontColor }
-      },
+      line: { color: COLORS[i % COLORS.length], width: 2.5 },
+      marker: { color: COLORS[i % COLORS.length], size: 4 },
+      name: `(${p.latitude}°, ${p.longitude}°)`,
+      showlegend: !single,
+      hovertemplate: '%{x:.6g} ' + unit + '<br>Alt: %{y:.1f} km<extra>' +
+        (single ? '' : `(${p.latitude}°, ${p.longitude}°)`) + '</extra>',
+    }));
+
+    const titleText = single
+      ? `${datasetLabel || ''} — ${variableLabel} — Lat ${profiles[0].latitude}°, Lon ${profiles[0].longitude}°`
+      : `${datasetLabel || ''} — ${variableLabel} — ${t('page.profile.title')}`;
+
+    Plotly.newPlot(el, traces, {
+      title: { text: titleText, font: { size: titleSize, color: fontColor } },
       font: { color: fontColor },
       xaxis: {
         title: `${variableLabel} (${unit})`,
         color: fontColor,
-        gridcolor: 'rgba(56, 189, 248, 0.08)',
-        zeroline: false
+        gridcolor: gridColor,
+        zeroline: false,
       },
       yaxis: {
         title: t('viz.altitude'),
         color: fontColor,
-        gridcolor: 'rgba(56, 189, 248, 0.08)',
+        gridcolor: gridColor,
         zeroline: false,
-        autorange: true
+        autorange: true,
       },
-      margin: { t: 80, r: 30, b: 50, l: 70 },
-      paper_bgcolor: 'rgba(0,0,0,0)',
-      plot_bgcolor: 'rgba(0,0,0,0)'
+      legend: single ? undefined : {
+        font: { color: fontColor, size: 12 },
+        bgcolor: paperBg,
+      },
+      margin: responsiveMargin,
+      paper_bgcolor: paperBg,
+      plot_bgcolor: plotBg,
     }, {
       responsive: true,
-      displaylogo: false
+      displaylogo: false,
     });
 
     return () => Plotly.purge(el);
-  }, [profileData, variableCode, datasetLabel, i18n.language]);
+  }, [profiles, variableCode, datasetLabel, i18n.language, fontColor, gridColor, paperBg, plotBg, titleSize, responsiveMargin]);
 
-  if (!profileData) {
+  if (!profiles || profiles.length === 0) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
         <Typography color="text.secondary">
@@ -77,8 +88,8 @@ function ProfileViewer({ profileData, variableCode, datasetLabel, onExportCSV = 
     );
   }
 
-  const { stats } = profileData;
   const exportFilename = `mars_profile_${variableCode || 'plot'}`;
+  const stats = profiles[0]?.stats;
 
   return (
     <Box>
@@ -88,9 +99,9 @@ function ProfileViewer({ profileData, variableCode, datasetLabel, onExportCSV = 
         </Box>
       )}
       <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        <div ref={plotRef} style={{ width: '100%' }} />
+        <div ref={plotRef} role="img" aria-label={t('viz.aria.profile')} style={{ width: '100%' }} />
       </Paper>
-      <StatsBar stats={stats} />
+      {stats && <StatsBar stats={stats} />}
     </Box>
   );
 }

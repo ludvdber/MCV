@@ -1,8 +1,7 @@
-import { useState, useRef, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState, useCallback, useMemo } from 'react';
 import {
   Container, Paper, Typography, Button, CircularProgress,
-  Alert, Box, FormControl, InputLabel, Select, MenuItem, TextField, Chip
+  Alert, Box, FormControl, InputLabel, Select, MenuItem, TextField, Chip, LinearProgress,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import { Functions as LogIcon } from '@mui/icons-material';
@@ -15,14 +14,17 @@ import ExportMenu from '../components/ExportMenu';
 import VisuToggle from '../components/VisuToggle';
 import PermalienButton from '../components/PermalienButton';
 import ColorscaleSelector from '../components/ColorscaleSelector';
+import ChartSkeleton from '../components/ChartSkeleton';
+import FullscreenButton from '../components/FullscreenButton';
 import PageLoader from '../components/PageLoader';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { triggerApiDownload } from '../utils/exportUtils';
-import { usePlotRef } from '../hooks/usePlotRef';
-import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
+import { useVisualizationPage } from '../hooks/useVisualizationPage';
 import { isSurfaceVariable as checkIsSurface } from '../utils/variableUtils';
+import ChartOrTable from '../components/ChartOrTable';
+import { grid2DToTable } from '../utils/dataToTable';
 
 /**
  * Page coupe verticale (meridionale / zonale).
@@ -31,7 +33,7 @@ import { isSurfaceVariable as checkIsSurface } from '../utils/variableUtils';
 
 function CrossSectionPage() {
   const {
-    datasets, catalogLoading,
+    datasets,
     selectedDataset, setSelectedDataset,
     selectedVariable, handleVariableChange,
     selectedTime, setSelectedTime,
@@ -41,66 +43,59 @@ function CrossSectionPage() {
   } = useMars();
   const { t } = useTranslation();
 
-  const [csData, setCsData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [csType, setCsType] = useState('meridional');
   const [colorscale, setColorscale] = useState('auto');
   const [logScale, setLogScale] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
 
-  const [viewerContainerRef, exportPlotRef] = usePlotRef();
-  const [linkCopied, copyToClipboard] = useCopyToClipboard();
-  const [searchParams] = useSearchParams();
-  const hasRestoredUrl = useRef(false);
-  const pendingAutoLaunch = useRef(false);
+  const isSurfaceVariable = checkIsSurface(selectedVariable);
+  const fixedCoordinate = csType === 'meridional' ? selectedLongitude : selectedLatitude;
 
-  if (!catalogLoading && !hasRestoredUrl.current) {
-    hasRestoredUrl.current = true;
-    const ds = searchParams.get('ds');
-    if (ds) {
+  const {
+    data: csData, loading, error, isDirty, markDirty,
+    viewerContainerRef, exportPlotRef, linkCopied,
+    handleLaunch, handleCopyLink, catalogLoading,
+  } = useVisualizationPage({
+    route: '/crosssection',
+    restoreUrl: (sp) => {
+      const ds = sp.get('ds');
+      if (!ds) return false;
       setSelectedDataset(ds);
-      const v = searchParams.get('var');
-      if (v) handleVariableChange(v);
-      const t = searchParams.get('t');
-      if (t != null) setSelectedTime(parseInt(t, 10));
-      const type = searchParams.get('type');
-      if (type) setCsType(type);
-      const fixed = searchParams.get('fixed');
+      const v = sp.get('var'); if (v) handleVariableChange(v);
+      const ti = sp.get('t'); if (ti != null) setSelectedTime(parseInt(ti, 10));
+      const type = sp.get('type'); if (type) setCsType(type);
+      const fixed = sp.get('fixed');
       if (fixed != null) {
         const val = parseFloat(fixed);
         if ((type || 'meridional') === 'meridional') setSelectedLongitude(val);
         else setSelectedLatitude(val);
       }
-      const cs = searchParams.get('cs');
-      if (cs) setColorscale(cs);
-      pendingAutoLaunch.current = true;
-    }
-  }
-
-  const isSurfaceVariable = checkIsSurface(selectedVariable);
+      const cs = sp.get('cs'); if (cs) setColorscale(cs);
+      return true;
+    },
+    fetchData: useCallback(() =>
+      getCrossSection({ dataset: selectedDataset, variable: selectedVariable, time: selectedTime, type: csType, fixedCoordinate }),
+    [selectedDataset, selectedVariable, selectedTime, csType, fixedCoordinate]),
+    buildPermalink: useCallback(() => {
+      const p = new URLSearchParams();
+      if (selectedDataset) p.set('ds', selectedDataset);
+      if (selectedVariable) p.set('var', selectedVariable);
+      p.set('t', String(selectedTime));
+      p.set('type', csType);
+      p.set('fixed', String(fixedCoordinate));
+      if (colorscale !== 'auto') p.set('cs', colorscale);
+      return `${window.location.origin}/crosssection?${p.toString()}`;
+    }, [selectedDataset, selectedVariable, selectedTime, csType, fixedCoordinate, colorscale]),
+    buildHistoryEntry: useCallback(() => ({
+      page: '/crosssection', dataset: selectedDataset, variable: selectedVariable,
+      params: { time: selectedTime, type: csType, fixedCoordinate },
+      label: `${selectedVariable} ${csType} ${fixedCoordinate}°`,
+    }), [selectedDataset, selectedVariable, selectedTime, csType, fixedCoordinate]),
+    canLaunch: useCallback(() => !!selectedDataset && !!selectedVariable && !isSurfaceVariable, [selectedDataset, selectedVariable, isSurfaceVariable]),
+  });
 
   // Utilise la variable de la donnée affichée (pas du formulaire) pour éviter
   // que la palette change avant d'avoir cliqué sur "Analyser".
   const resolvedColorscale = useResolvedColorscale(colorscale, csData?.variable, selectedVariable);
-
-  const fixedCoordinate = csType === 'meridional' ? selectedLongitude : selectedLatitude;
-
-  const handleVisualiser = () => {
-    if (!selectedDataset || !selectedVariable) return;
-    setLoading(true);
-    setError(null);
-    setIsDirty(false);
-    getCrossSection({ dataset: selectedDataset, variable: selectedVariable, time: selectedTime, type: csType, fixedCoordinate })
-      .then(res => setCsData(res.data))
-      .catch(err => setError(err.response?.data?.message || err.message))
-      .finally(() => setLoading(false));
-  };
-
-  if (pendingAutoLaunch.current && dataset && !loading) {
-    pendingAutoLaunch.current = false;
-    setTimeout(handleVisualiser, 0);
-  }
 
   const handleExportCSV = () => {
     triggerApiDownload(
@@ -109,18 +104,9 @@ function CrossSectionPage() {
     );
   };
 
-  const handleCopyLink = useCallback(() => {
-    const p = new URLSearchParams();
-    if (selectedDataset) p.set('ds', selectedDataset);
-    if (selectedVariable) p.set('var', selectedVariable);
-    p.set('t', String(selectedTime));
-    p.set('type', csType);
-    p.set('fixed', String(fixedCoordinate));
-    if (colorscale !== 'auto') p.set('cs', colorscale);
-    copyToClipboard(`${window.location.origin}/crosssection?${p.toString()}`);
-  }, [selectedDataset, selectedVariable, selectedTime, csType, fixedCoordinate, colorscale, copyToClipboard]);
-
-  const markDirty = () => { if (csData) setIsDirty(true); };
+  const tableData = useMemo(() =>
+    csData ? grid2DToTable(csData.data, csData.altitudes, csData.horizontalCoords, 'Altitude (km)', csType === 'meridional' ? 'Latitude (\u00b0)' : 'Longitude (\u00b0)', selectedVariable) : null,
+  [csData, csType, selectedVariable]);
 
   if (catalogLoading) return <PageLoader />;
 
@@ -180,7 +166,7 @@ function CrossSectionPage() {
         )}
 
         <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          <Button variant="contained" onClick={handleVisualiser}
+          <Button variant="contained" onClick={handleLaunch}
             disabled={!selectedDataset || !selectedVariable || loading || isSurfaceVariable}>
             {loading ? <CircularProgress size={20} color="inherit" /> : t('page.crosssection.button')}
           </Button>
@@ -192,31 +178,44 @@ function CrossSectionPage() {
           )}
         </Box>
 
-        {csData && (
-          <Box sx={{ mt: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-            <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
-            <ExportMenu
-              plotRef={exportPlotRef}
-              filename={`mars_crosssection_${selectedVariable || 'plot'}`}
-              onCSV={handleExportCSV}
-            />
-          </Box>
-        )}
       </Paper>
 
+      {loading && <LinearProgress color="primary" sx={{ mb: 2, borderRadius: 1 }} />}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <Box ref={viewerContainerRef}>
-        <CrossSectionViewer
-          crossSectionData={csData}
-          variableCode={selectedVariable}
-          datasetLabel={datasetLabel}
-          colorscaleName={resolvedColorscale.name}
-          reverseColorscale={resolvedColorscale.reverse}
-          logScale={logScale}
-          noExportMenu
-        />
-      </Box>
+      {loading && !csData && <ChartSkeleton variant="heatmap" />}
+
+      <ChartOrTable tableData={tableData}>
+        {(showTable, TableButton) => (
+          <>
+            {csData && (
+              <Box sx={{ mb: 1, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
+                <ExportMenu
+                  plotRef={exportPlotRef}
+                  filename={`mars_crosssection_${selectedVariable || 'plot'}`}
+                  onCSV={handleExportCSV}
+                />
+                <TableButton />
+                <FullscreenButton containerRef={viewerContainerRef} />
+              </Box>
+            )}
+            {!showTable && (
+              <Box ref={viewerContainerRef} sx={{ position: 'relative' }}>
+                <CrossSectionViewer
+                  crossSectionData={csData}
+                  variableCode={selectedVariable}
+                  datasetLabel={datasetLabel}
+                  colorscaleName={resolvedColorscale.name}
+                  reverseColorscale={resolvedColorscale.reverse}
+                  logScale={logScale}
+                  noExportMenu
+                />
+              </Box>
+            )}
+          </>
+        )}
+      </ChartOrTable>
     </Container>
   );
 }

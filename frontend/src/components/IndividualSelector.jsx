@@ -90,8 +90,8 @@ function IndividualSelector({ years = [], onSelect, initialYear = null, initialL
   const sliderMarks = useMemo(() => {
     if (!yearInfo) return [];
     const marks = [];
-    const start = Math.ceil(yearInfo.lsMin / 30) * 30;
-    for (let v = start; v <= yearInfo.lsMax; v += 30) {
+    const start = Math.ceil(yearInfo.lsMin / 90) * 90;
+    for (let v = start; v <= yearInfo.lsMax; v += 90) {
       marks.push({ value: v, label: `${v}°` });
     }
     return marks;
@@ -141,7 +141,7 @@ function IndividualSelector({ years = [], onSelect, initialYear = null, initialL
             {/* TextField : saisie precise a 4 decimales */}
             <TextField
               size="small"
-              label="Ls (°)"
+              label={t('selector.individual.ls')}
               type="number"
               value={textValue}
               onChange={handleTextChange}
@@ -161,7 +161,7 @@ function IndividualSelector({ years = [], onSelect, initialYear = null, initialL
               label={datasetId}
               size="small"
               sx={{
-                bgcolor: 'rgba(0,188,212,0.15)',
+                bgcolor: 'var(--cyan-highlight)',
                 color: 'var(--cyan-accent)',
                 border: '1px solid var(--cyan-accent)',
                 fontFamily: 'var(--font-body)',

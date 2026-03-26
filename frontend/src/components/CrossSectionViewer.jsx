@@ -6,6 +6,7 @@ import { VARIABLES_MAP } from './VariableSelector';
 import { RDBU_VARIABLES } from '../utils/colorscales';
 import ExportMenu from './ExportMenu';
 import StatsBar from './StatsBar';
+import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
 
 /**
  * Affiche un heatmap Plotly d'une coupe verticale (meridionale ou zonale).
@@ -18,6 +19,7 @@ import StatsBar from './StatsBar';
  */
 function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colorscaleName, reverseColorscale, customZMin, customZMax, onExportCSV = null, noExportMenu = false, externalPlotRef = null, logScale = false }) {
   const { t, i18n } = useTranslation();
+  const { fontColor, paperBg, plotBg, titleSize, margin: responsiveMargin } = usePlotlyTheme();
   const internalPlotRef = useRef(null);
   const plotRef = externalPlotRef ?? internalPlotRef;
 
@@ -40,7 +42,6 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
       ? `Lon ${fixedCoordinate}°`
       : `Lat ${fixedCoordinate}°`;
 
-    const fontColor = 'rgba(255,255,255,0.85)';
 
     // ── Log scale transform ───────────────────────────────────────────────
     let displayData = data;
@@ -91,7 +92,7 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
     }], {
       title: {
         text: `${datasetLabel || ''} — ${variableLabel} — ${fixedLabel}`,
-        font: { size: 16, color: fontColor }
+        font: { size: titleSize, color: fontColor }
       },
       font: { color: fontColor },
       xaxis: {
@@ -107,9 +108,9 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
         zeroline: false,
         autorange: true
       },
-      margin: { t: 80, r: 120, b: 50, l: 70 },
-      paper_bgcolor: 'rgba(0,0,0,0)',
-      plot_bgcolor: 'rgba(0,0,0,0)'
+      margin: { ...responsiveMargin, r: 120 },
+      paper_bgcolor: paperBg,
+      plot_bgcolor: plotBg
     }, {
       responsive: true,
       displaylogo: false,
@@ -117,7 +118,7 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
     });
 
     return () => Plotly.purge(el);
-  }, [crossSectionData, variableCode, datasetLabel, colorscaleName, reverseColorscale, customZMin, customZMax, logScale, i18n.language]);
+  }, [crossSectionData, variableCode, datasetLabel, colorscaleName, reverseColorscale, customZMin, customZMax, logScale, i18n.language, fontColor, paperBg, plotBg, titleSize, responsiveMargin]);
 
   if (!crossSectionData) {
     return (
@@ -140,7 +141,7 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
         </Box>
       )}
       <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        <div ref={plotRef} style={{ width: '100%' }} />
+        <div ref={plotRef} role="img" aria-label={t('viz.aria.crosssection')} style={{ width: '100%' }} />
       </Paper>
       <StatsBar stats={stats} />
     </Box>

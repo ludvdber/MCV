@@ -113,7 +113,7 @@ function MarsProvider({ children }) {
     selectedAltitude, selectedLatitude, selectedLongitude,
     individualYears, individualLoading,
     selectedIndividualMY, selectedIndividualLs,
-    dataset, datasetLabel, handleVariableChange, t,
+    dataset, datasetLabel, handleVariableChange,
   ]);
 
   return (

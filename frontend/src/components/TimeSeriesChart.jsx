@@ -5,7 +5,10 @@ import { useTranslation } from 'react-i18next';
 import { VARIABLES_MAP } from './VariableSelector';
 import ExportMenu from './ExportMenu';
 import StatsBar from './StatsBar';
+import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
 import { MAX_TIMESTEPS } from '../constants';
+
+const COLORS = ['#38bdf8', '#e05a2b', '#a855f7', '#4ade80'];
 
 /** Axe X : heures locales martiennes en format hh:mm (00:30 a 24:00, 48 valeurs) */
 const HOURS = Array.from({ length: MAX_TIMESTEPS }, (_, i) => {
@@ -15,80 +18,92 @@ const HOURS = Array.from({ length: MAX_TIMESTEPS }, (_, i) => {
 });
 
 /**
- * Affiche un line chart Plotly de la serie temporelle diurne (48 pas de temps).
- * Utilise Plotly.js directement via useRef (meme pattern que SliceViewer,
- * pas de wrapper react-plotly.js car incompatible avec Plotly v3).
+ * Unified time series chart — renders 1 to N series on a single Plotly chart.
  *
- * Le graphique est recree a chaque changement de timeSeriesData ou variableCode
- * via useEffect + Plotly.newPlot(). Le cleanup appelle Plotly.purge() pour
- * liberer la memoire.
- *
- * @param {Object|null} timeSeriesData - reponse de GET /api/data/timeseries
- *   { dataset, variable, latitude, longitude, altitudeIndex, values: number[], stats }
+ * @param {Array|Object|null} series - single TimeSeriesResponse or array of them (1-4)
  * @param {string|null} variableCode - code variable pour le titre de l'axe Y
+ * @param {string} datasetLabel - dataset display label
  */
-function TimeSeriesChart({ timeSeriesData, variableCode, datasetLabel, onExportCSV = null, noExportMenu = false, externalPlotRef = null }) {
+function TimeSeriesChart({ series, timeSeriesData, variableCode, datasetLabel, onExportCSV = null, noExportMenu = false, externalPlotRef = null }) {
   const { t, i18n } = useTranslation();
+  const { fontColor, gridColor, paperBg, plotBg, titleSize, margin: responsiveMargin, accentColor, subtleTextColor } = usePlotlyTheme();
   const internalPlotRef = useRef(null);
   const plotRef = externalPlotRef ?? internalPlotRef;
 
+  // Normalize to array — supports both new `series` prop and legacy `timeSeriesData` prop
+  const input = series ?? timeSeriesData;
+  const seriesArray = Array.isArray(input) ? input : (input ? [input] : null);
+
   useEffect(() => {
     const el = plotRef.current;
-    if (!el || !timeSeriesData) return;
+    if (!el || !seriesArray || seriesArray.length === 0) return;
 
-    const { latitude, longitude, altitudeIndex, altitudeValue, values } = timeSeriesData;
     const varInfo = VARIABLES_MAP.get(variableCode);
     const variableLabel = varInfo ? t(`variable.${variableCode}`) : variableCode;
     const unit = varInfo?.unit || '';
-    const altitudeText = altitudeValue != null
-      ? `~${Number(altitudeValue).toFixed(1)} km`
-      : `${t('selector.altitude.level')} ${altitudeIndex}`;
 
-    const fontColor = 'rgba(255,255,255,0.85)';
+    const single = seriesArray.length === 1;
+    const first = seriesArray[0];
+    const altitudeText = first.altitudeValue != null
+      ? `~${Number(first.altitudeValue).toFixed(1)} km`
+      : `${t('selector.altitude.level')} ${first.altitudeIndex}`;
 
-    Plotly.newPlot(el, [{
+    const traces = seriesArray.map((s, i) => ({
       x: HOURS,
-      y: values,
+      y: s.values,
       mode: 'lines+markers',
-      line: { color: '#e05a2b', width: 2.5 },
-      marker: { color: '#ff7043', size: 5 },
-      hovertemplate: '%{x} : %{y:.6g}<extra></extra>'
-    }], {
-      title: { text: `${datasetLabel || ''} — ${variableLabel} — Lat ${latitude}°, Lon ${longitude}° — ${altitudeText}`, font: { size: 16, color: fontColor } },
+      line: { color: single ? accentColor : COLORS[i % COLORS.length], width: 2.5 },
+      marker: { color: single ? accentColor : COLORS[i % COLORS.length], size: 4 },
+      name: `(${s.latitude}°, ${s.longitude}°)`,
+      showlegend: !single,
+      hovertemplate: '%{x} : %{y:.6g} ' + unit +
+        '<extra>' + (single ? '' : `(${s.latitude}°, ${s.longitude}°)`) + '</extra>',
+    }));
+
+    const titleText = single
+      ? `${datasetLabel || ''} — ${variableLabel} — Lat ${first.latitude}°, Lon ${first.longitude}° — ${altitudeText}`
+      : `${datasetLabel || ''} — ${variableLabel} — ${altitudeText}`;
+
+    Plotly.newPlot(el, traces, {
+      title: { text: titleText, font: { size: titleSize, color: fontColor } },
       font: { color: fontColor },
       xaxis: {
         title: t('viz.localTime'),
         type: 'category',
         color: fontColor,
-        gridcolor: 'rgba(56, 189, 248, 0.08)',
-        zeroline: false
+        gridcolor: gridColor,
+        zeroline: false,
       },
       yaxis: {
         title: `${variableLabel} (${unit})`,
         color: fontColor,
-        gridcolor: 'rgba(56, 189, 248, 0.08)',
-        zeroline: false
+        gridcolor: gridColor,
+        zeroline: false,
+      },
+      legend: single ? undefined : {
+        font: { color: fontColor, size: 12 },
+        bgcolor: paperBg,
       },
       annotations: [{
         text: t('viz.martian_sol_note'),
         xref: 'paper', yref: 'paper',
         x: 1, y: -0.28,
         showarrow: false,
-        font: { size: 11, color: 'rgba(255,255,255,0.7)' },
-        xanchor: 'right'
+        font: { size: 11, color: subtleTextColor },
+        xanchor: 'right',
       }],
-      margin: { t: 80, r: 30, b: 80, l: 70 },
-      paper_bgcolor: 'rgba(0,0,0,0)',
-      plot_bgcolor: 'rgba(0,0,0,0)'
+      margin: { ...responsiveMargin, b: 80 },
+      paper_bgcolor: paperBg,
+      plot_bgcolor: plotBg,
     }, {
       responsive: true,
-      displaylogo: false
+      displaylogo: false,
     });
 
     return () => Plotly.purge(el);
-  }, [timeSeriesData, variableCode, datasetLabel, i18n.language]);
+  }, [seriesArray, variableCode, datasetLabel, i18n.language, fontColor, gridColor, paperBg, plotBg, titleSize, responsiveMargin, accentColor, subtleTextColor]);
 
-  if (!timeSeriesData) {
+  if (!seriesArray || seriesArray.length === 0) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
         <Typography color="text.secondary">
@@ -98,20 +113,19 @@ function TimeSeriesChart({ timeSeriesData, variableCode, datasetLabel, onExportC
     );
   }
 
-  const { stats } = timeSeriesData;
-  const exportFilename = `mars_timeseries_${variableCode || 'plot'}`;
+  const stats = seriesArray[0]?.stats;
 
   return (
     <Box>
       {!noExportMenu && (
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
-          <ExportMenu plotRef={plotRef} filename={exportFilename} onCSV={onExportCSV} />
+          <ExportMenu plotRef={plotRef} filename={`mars_timeseries_${variableCode || 'plot'}`} onCSV={onExportCSV} />
         </Box>
       )}
       <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        <div ref={plotRef} style={{ width: '100%' }} />
+        <div ref={plotRef} role="img" aria-label={t('viz.aria.timeseries')} style={{ width: '100%' }} />
       </Paper>
-      <StatsBar stats={stats} />
+      {stats && <StatsBar stats={stats} />}
     </Box>
   );
 }

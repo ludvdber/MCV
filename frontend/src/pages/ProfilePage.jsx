@@ -1,26 +1,42 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Container, Paper, Typography, Button, CircularProgress, Alert, Box, Chip } from '@mui/material';
+import {
+  Container, Paper, Typography, Button, CircularProgress,
+  Alert, Box, Chip, IconButton, LinearProgress,
+} from '@mui/material';
 import Grid from '@mui/material/Grid';
+import { Add as AddIcon, Close as RemoveIcon } from '@mui/icons-material';
 import { getProfile, exportProfileCSV } from '../services/api';
-import PermalienButton from '../components/PermalienButton';
 import DatasetSelector from '../components/DatasetSelector';
 import VariableSelector from '../components/VariableSelector';
 import TimeSelector from '../components/TimeSelector';
 import LatLonSelector from '../components/LatLonSelector';
 import ProfileViewer from '../components/ProfileViewer';
 import ExportMenu from '../components/ExportMenu';
+import PermalienButton from '../components/PermalienButton';
+import ChartSkeleton from '../components/ChartSkeleton';
+import MiniMarsMap from '../components/MiniMarsMap';
+import FullscreenButton from '../components/FullscreenButton';
 import PageLoader from '../components/PageLoader';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
+import { useToast } from '../context/ToastContext';
+import { triggerApiDownload } from '../utils/exportUtils';
 import { usePlotRef } from '../hooks/usePlotRef';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { useRecentHistory } from '../hooks/useRecentHistory';
 import { isSurfaceVariable as checkIsSurface } from '../utils/variableUtils';
+import ChartOrTable from '../components/ChartOrTable';
+import { profileToTable } from '../utils/dataToTable';
+import { VARIABLES_MAP } from '../components/VariableSelector';
+
+const MAX_POINTS = 4;
 
 /**
- * Page profil vertical (UC) — affiche la valeur d'une variable sur tous les niveaux
- * d'altitude en un point geographique et un pas de temps donne.
- * Supporte les permaliens : ?ds=&var=&t=&lat=&lon=
+ * Unified vertical profile page — 1 to 4 comparison points on a single chart.
+ * Supports permalinks: ?ds=&var=&t=&pts=[{lat,lon},...]
+ * Backward compatible with old single-point links: ?ds=&var=&t=&lat=&lon=
  */
 function ProfilePage() {
   const {
@@ -28,13 +44,13 @@ function ProfilePage() {
     selectedDataset, setSelectedDataset,
     selectedVariable, handleVariableChange,
     selectedTime, setSelectedTime,
-    selectedLatitude, setSelectedLatitude,
-    selectedLongitude, setSelectedLongitude,
     dataset, datasetLabel,
   } = useMars();
   const { t } = useTranslation();
 
-  const [profileData, setProfileData] = useState(null);
+  const [profiles, setProfiles] = useState(null);
+  const nextId = useRef(1);
+  const [points, setPoints] = useState([{ id: 0, lat: 0, lon: 0 }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isDirty, setIsDirty] = useState(false);
@@ -44,7 +60,10 @@ function ProfilePage() {
   const [searchParams] = useSearchParams();
   const hasRestoredUrl = useRef(false);
   const pendingAutoLaunch = useRef(false);
+  const showToast = useToast();
+  const { addEntry } = useRecentHistory();
 
+  // Restore from permalink (supports both new ?pts= and old ?lat=&lon= format)
   if (!catalogLoading && !hasRestoredUrl.current) {
     hasRestoredUrl.current = true;
     const ds = searchParams.get('ds');
@@ -52,55 +71,89 @@ function ProfilePage() {
       setSelectedDataset(ds);
       const v = searchParams.get('var');
       if (v) handleVariableChange(v);
-      const t = searchParams.get('t');
-      if (t != null) setSelectedTime(parseInt(t, 10));
-      const lat = searchParams.get('lat');
-      if (lat != null) setSelectedLatitude(parseFloat(lat));
-      const lon = searchParams.get('lon');
-      if (lon != null) setSelectedLongitude(parseFloat(lon));
+      const time = searchParams.get('t');
+      if (time != null) setSelectedTime(parseInt(time, 10));
+      const pts = searchParams.get('pts');
+      if (pts) {
+        try {
+          const parsed = JSON.parse(pts);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const withIds = parsed.map((p, i) => ({ ...p, id: p.id ?? i }));
+            nextId.current = withIds.length;
+            setPoints(withIds);
+          }
+        } catch { /* ignore */ }
+      } else {
+        // Backward compat: old single-point permalink ?lat=&lon=
+        const lat = searchParams.get('lat');
+        const lon = searchParams.get('lon');
+        if (lat != null && lon != null) {
+          setPoints([{ lat: parseFloat(lat), lon: parseFloat(lon) }]);
+        }
+      }
       pendingAutoLaunch.current = true;
     }
   }
 
   const isSurfaceVariable = checkIsSurface(selectedVariable);
 
-  const handleAnalyser = () => {
-    if (!selectedDataset || !selectedVariable) return;
+  const handleAnalyze = () => {
+    if (!selectedDataset || !selectedVariable || points.length === 0) return;
     setLoading(true);
     setError(null);
     setIsDirty(false);
-    getProfile({
-      dataset: selectedDataset,
-      variable: selectedVariable,
-      time: selectedTime,
-      latitude: selectedLatitude,
-      longitude: selectedLongitude,
-    })
-      .then(res => setProfileData(res.data))
+
+    Promise.all(
+      points.map(p =>
+        getProfile({
+          dataset: selectedDataset,
+          variable: selectedVariable,
+          time: selectedTime,
+          latitude: p.lat,
+          longitude: p.lon,
+        }).then(res => res.data)
+      )
+    )
+      .then(results => {
+        setProfiles(results);
+        const p = new URLSearchParams();
+        if (selectedDataset) p.set('ds', selectedDataset);
+        if (selectedVariable) p.set('var', selectedVariable);
+        p.set('t', String(selectedTime));
+        p.set('pts', JSON.stringify(points));
+        addEntry({
+          page: '/profile',
+          permalink: `/profile?${p.toString()}`,
+          dataset: selectedDataset,
+          variable: selectedVariable,
+          params: { time: selectedTime, points },
+          label: `${selectedVariable} (${points.map(pt => `${pt.lat},${pt.lon}`).join(' | ')})`,
+        });
+      })
       .catch(err => setError(err.response?.data?.message || err.message))
       .finally(() => setLoading(false));
   };
 
   if (pendingAutoLaunch.current && dataset && !loading) {
     pendingAutoLaunch.current = false;
-    setTimeout(handleAnalyser, 0);
+    setTimeout(handleAnalyze, 0);
   }
 
-  const handleExportCSV = () => {
-    exportProfileCSV({
-      dataset: selectedDataset,
-      variable: selectedVariable,
-      time: selectedTime,
-      latitude: selectedLatitude,
-      longitude: selectedLongitude,
-    }).then(res => {
-      const url = URL.createObjectURL(res.data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `profile_${selectedVariable}_lat${selectedLatitude}_lon${selectedLongitude}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }).catch(err => { console.error('CSV export failed:', err); });
+  const addPoint = () => {
+    if (points.length < MAX_POINTS) {
+      setPoints(prev => [...prev, { id: nextId.current++, lat: 0, lon: 0 }]);
+      markDirty();
+    }
+  };
+
+  const removePoint = (idx) => {
+    setPoints(prev => prev.filter((_, i) => i !== idx));
+    markDirty();
+  };
+
+  const updatePoint = (idx, field, value) => {
+    setPoints(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p));
+    markDirty();
   };
 
   const handleCopyLink = useCallback(() => {
@@ -108,12 +161,43 @@ function ProfilePage() {
     if (selectedDataset) p.set('ds', selectedDataset);
     if (selectedVariable) p.set('var', selectedVariable);
     p.set('t', String(selectedTime));
-    p.set('lat', String(selectedLatitude));
-    p.set('lon', String(selectedLongitude));
+    p.set('pts', JSON.stringify(points));
     copyToClipboard(`${window.location.origin}/profile?${p.toString()}`);
-  }, [selectedDataset, selectedVariable, selectedTime, selectedLatitude, selectedLongitude, copyToClipboard]);
+    showToast(t('toast.linkCopied'));
+  }, [selectedDataset, selectedVariable, selectedTime, points, copyToClipboard, showToast, t]);
 
-  const markDirty = () => { if (profileData) setIsDirty(true); };
+  const shortcuts = useMemo(() => ({
+    Enter: () => { if (!loading && selectedDataset && selectedVariable && !isSurfaceVariable) handleAnalyze(); },
+    f: () => {
+      if (viewerContainerRef.current) {
+        if (!document.fullscreenElement) viewerContainerRef.current.requestFullscreen?.();
+        else document.exitFullscreen?.();
+      }
+    },
+  }), [loading, selectedDataset, selectedVariable, isSurfaceVariable]);
+  useKeyboardShortcuts(shortcuts);
+
+  const handleExportCSV = () => {
+    if (points.length > 0) {
+      triggerApiDownload(
+        exportProfileCSV({
+          dataset: selectedDataset,
+          variable: selectedVariable,
+          time: selectedTime,
+          latitude: points[0].lat,
+          longitude: points[0].lon,
+        }),
+        `mars_profile_${selectedVariable || 'plot'}.csv`,
+      );
+    }
+  };
+
+  const markDirty = () => { if (profiles) setIsDirty(true); };
+
+  const varUnit = VARIABLES_MAP.get(selectedVariable)?.unit || '';
+  const tableData = useMemo(() =>
+    profiles?.length > 0 ? profileToTable(profiles[0].values, profiles[0].altitudes, varUnit) : null,
+  [profiles, varUnit]);
 
   if (catalogLoading) return <PageLoader />;
 
@@ -132,17 +216,9 @@ function ProfilePage() {
               onChange={v => { handleVariableChange(v); markDirty(); }}
               availableVariables={dataset?.variables} />
           </Grid>
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TimeSelector value={selectedTime}
               onChange={v => { setSelectedTime(v); markDirty(); }} />
-          </Grid>
-          <Grid size={{ xs: 12 }}>
-            <LatLonSelector
-              latitude={selectedLatitude}
-              longitude={selectedLongitude}
-              onLatChange={v => { setSelectedLatitude(v); markDirty(); }}
-              onLonChange={v => { setSelectedLongitude(v); markDirty(); }}
-            />
           </Grid>
         </Grid>
 
@@ -152,8 +228,55 @@ function ProfilePage() {
           </Alert>
         )}
 
+        {/* Comparison points */}
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            {t('page.profile.pointsLabel')} ({points.length}/{MAX_POINTS})
+          </Typography>
+          {points.map((pt, idx) => (
+            <Box key={pt.id} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 2, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
+              <Chip
+                size="small"
+                label={`${t('page.profile.point')} ${idx + 1}`}
+                sx={{
+                  mt: 1,
+                  flexShrink: 0,
+                  backgroundColor: ['var(--cyan-accent)', 'var(--mars-orange)', '#a855f7', '#22c55e'][idx],
+                  color: '#fff',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                  fontWeight: 600,
+                  fontSize: '0.7rem',
+                  height: 22,
+                }}
+              />
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <LatLonSelector
+                  latitude={pt.lat}
+                  longitude={pt.lon}
+                  onLatChange={v => updatePoint(idx, 'lat', v)}
+                  onLonChange={v => updatePoint(idx, 'lon', v)}
+                />
+              </Box>
+              {points.length > 1 && (
+                <IconButton size="small" onClick={() => removePoint(idx)} color="error" sx={{ mt: 0.5 }}>
+                  <RemoveIcon fontSize="small" />
+                </IconButton>
+              )}
+            </Box>
+          ))}
+          <Button
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={addPoint}
+            disabled={points.length >= MAX_POINTS}
+            sx={{ mt: 0.5 }}
+          >
+            {t('page.profile.addPoint')}
+          </Button>
+        </Box>
+
         <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          <Button variant="contained" onClick={handleAnalyser}
+          <Button variant="contained" onClick={handleAnalyze}
             disabled={!selectedDataset || !selectedVariable || loading || isSurfaceVariable}>
             {loading ? <CircularProgress size={20} color="inherit" /> : t('page.profile.button')}
           </Button>
@@ -162,28 +285,42 @@ function ProfilePage() {
           )}
         </Box>
 
-        {profileData && (
-          <Box sx={{ mt: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-            <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
-            <ExportMenu
-              plotRef={exportPlotRef}
-              filename={`mars_profile_${selectedVariable || 'plot'}`}
-              onCSV={handleExportCSV}
-            />
-          </Box>
-        )}
       </Paper>
 
+      {loading && <LinearProgress color="primary" sx={{ mb: 2, borderRadius: 1 }} />}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <Box ref={viewerContainerRef}>
-        <ProfileViewer
-          profileData={profileData}
-          variableCode={selectedVariable}
-          datasetLabel={datasetLabel}
-          noExportMenu
-        />
-      </Box>
+      {loading && !profiles && <ChartSkeleton variant="line" />}
+
+      <ChartOrTable tableData={tableData}>
+        {(showTable, TableButton) => (
+          <>
+            {profiles && (
+              <Box sx={{ mb: 1, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                <MiniMarsMap lat={points[0]?.lat} lon={points[0]?.lon} size={100} />
+                <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
+                <ExportMenu
+                  plotRef={exportPlotRef}
+                  filename={`mars_profile_${selectedVariable || 'plot'}`}
+                  onCSV={handleExportCSV}
+                />
+                <TableButton />
+                <FullscreenButton containerRef={viewerContainerRef} />
+              </Box>
+            )}
+            {!showTable && (
+              <Box ref={viewerContainerRef} sx={{ position: 'relative' }}>
+                <ProfileViewer
+                  profiles={profiles}
+                  variableCode={selectedVariable}
+                  datasetLabel={datasetLabel}
+                  noExportMenu
+                />
+              </Box>
+            )}
+          </>
+        )}
+      </ChartOrTable>
     </Container>
   );
 }

@@ -97,7 +97,7 @@ function NotFoundPage() {
           mb: 4,
           p: 1.5,
           borderRadius: 2,
-          background: 'rgba(13,27,64,0.5)',
+          background: 'var(--bg-surface)',
           border: '1px solid rgba(56,189,248,0.12)',
           backdropFilter: 'blur(8px)',
         }}

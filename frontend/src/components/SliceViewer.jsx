@@ -9,6 +9,7 @@ import { computeHeatmapCustomData } from '../utils/heatmapAnalysis';
 import { RDBU_VARIABLES } from '../utils/colorscales';
 import ExportMenu from './ExportMenu';
 import StatsBar from './StatsBar';
+import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
 
 /**
  * Affiche une heatmap 2D latitude/longitude d'une variable atmospherique.
@@ -28,6 +29,7 @@ import StatsBar from './StatsBar';
 
 function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = false, showSurface = false, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip = false, windData = null, onExportCSV = null, noExportMenu = false, externalPlotRef = null, logScale = false }) {
   const { t, i18n } = useTranslation();
+  const { fontColor, paperBg, plotBg, titleSize, margin: responsiveMargin } = usePlotlyTheme();
   const internalPlotRef = useRef(null);
   const plotRef = externalPlotRef ?? internalPlotRef;
 
@@ -48,7 +50,6 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
     const latMin = Math.min(...latitudes);
     const latMax = Math.max(...latitudes);
 
-    const fontColor = 'rgba(255,255,255,0.85)';
     const useRdBu = RDBU_VARIABLES.includes(variableCode);
     const finalColorscale = colorscaleName || (useRdBu ? 'RdBu' : 'Viridis');
     const finalReverse = reverseColorscale != null ? reverseColorscale : useRdBu;
@@ -164,7 +165,7 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
         x: xLines,
         y: yLines,
         mode: 'lines',
-        line: { color: 'rgba(255,255,255,0.65)', width: 1.2 },
+        line: { color: fontColor, width: 1.2 },
         hoverinfo: 'none',
         showlegend: false,
       });
@@ -172,7 +173,7 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
 
     const dataIs0to360 = longitudes.some(l => l > 180);
     const layout = {
-      title: { text: `${datasetLabel || ''} — ${variableLabel} — ${formatTime(timeIndex)} — ${altitudeText}`, font: { size: 16, color: fontColor } },
+      title: { text: `${datasetLabel || ''} — ${variableLabel} — ${formatTime(timeIndex)} — ${altitudeText}`, font: { size: titleSize, color: fontColor } },
       font: { color: fontColor },
       xaxis: {
         title: t('viz.longitude'),
@@ -190,9 +191,9 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
         autorange: false,
         color: fontColor
       },
-      margin: { t: 80, r: 120, b: 50, l: 70 },
-      paper_bgcolor: 'rgba(0,0,0,0)',
-      plot_bgcolor: 'rgba(0,0,0,0)'
+      margin: { ...responsiveMargin, r: 120 },
+      paper_bgcolor: paperBg,
+      plot_bgcolor: plotBg
     };
 
     if (showSurface) {
@@ -217,7 +218,7 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
     });
 
     return () => Plotly.purge(el);
-  }, [sliceData, variableCode, datasetLabel, showLocations, showSurface, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip, windData, logScale, i18n.language]);
+  }, [sliceData, variableCode, datasetLabel, showLocations, showSurface, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip, windData, logScale, i18n.language, fontColor, paperBg, plotBg, titleSize, responsiveMargin]);
 
   if (!sliceData) {
     return (
@@ -240,7 +241,7 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
         </Box>
       )}
       <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        <div ref={plotRef} style={{ width: '100%' }} />
+        <div ref={plotRef} role="img" aria-label={t('viz.aria.slice')} style={{ width: '100%' }} />
       </Paper>
       <StatsBar stats={stats} />
     </Box>

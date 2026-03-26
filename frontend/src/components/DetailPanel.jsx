@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import Plotly from 'plotly.js-dist-min';
 import { Paper, Box } from '@mui/material';
 import { VARIABLES_MAP } from './VariableSelector';
+import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
 
 /**
  * Panneau de details pour les resultats heatmap (slice / animation).
@@ -20,6 +21,7 @@ import { VARIABLES_MAP } from './VariableSelector';
  */
 function DetailPanel({ resultData, resultType, variableCode }) {
   const { t, i18n } = useTranslation();
+  const { fontColor, paperBg, plotBg } = usePlotlyTheme();
   const histRef = useRef(null);
   const zonalRef = useRef(null);
 
@@ -87,8 +89,6 @@ function DetailPanel({ resultData, resultType, variableCode }) {
     const el = histRef.current;
     if (!el || flatValues.length === 0) return;
 
-    const fontColor = 'rgba(255,255,255,0.85)';
-
     Plotly.newPlot(el, [{
       type: 'histogram',
       x: flatValues,
@@ -103,21 +103,19 @@ function DetailPanel({ resultData, resultType, variableCode }) {
       yaxis: { title: t('viz.detail.frequency'), color: fontColor },
       font: { color: fontColor },
       margin: { t: 40, r: 20, b: 50, l: 60 },
-      paper_bgcolor: 'rgba(0,0,0,0)',
-      plot_bgcolor: 'rgba(0,0,0,0)',
+      paper_bgcolor: paperBg,
+      plot_bgcolor: plotBg,
       bargap: 0.02,
       height: 230,
     }, { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['lasso2d', 'select2d'] });
 
     return () => Plotly.purge(el);
-  }, [flatValues, variableLabel, unit, i18n.language]);
+  }, [flatValues, variableLabel, unit, i18n.language, fontColor, paperBg, plotBg]);
 
   // Profil de moyenne zonale
   useEffect(() => {
     const el = zonalRef.current;
     if (!el || zonalMean.length === 0) return;
-
-    const fontColor = 'rgba(255,255,255,0.85)';
 
     Plotly.newPlot(el, [{
       type: 'scatter',
@@ -131,13 +129,13 @@ function DetailPanel({ resultData, resultType, variableCode }) {
       yaxis: { title: t('viz.latitude'), color: fontColor },
       font: { color: fontColor },
       margin: { t: 40, r: 20, b: 50, l: 60 },
-      paper_bgcolor: 'rgba(0,0,0,0)',
-      plot_bgcolor: 'rgba(0,0,0,0)',
+      paper_bgcolor: paperBg,
+      plot_bgcolor: plotBg,
       height: 230,
     }, { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['lasso2d', 'select2d'] });
 
     return () => Plotly.purge(el);
-  }, [zonalMean, latitudes, variableLabel, unit, i18n.language]);
+  }, [zonalMean, latitudes, variableLabel, unit, i18n.language, fontColor, paperBg, plotBg]);
 
   if (!resultData || (resultType !== 'slice' && resultType !== 'animation')) {
     return null;

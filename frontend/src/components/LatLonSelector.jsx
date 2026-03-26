@@ -34,11 +34,12 @@ const lonMarks = [
  * @param {function} onLonChange - callback appelee avec la nouvelle longitude
  * @param {boolean} [disabled=false]
  */
-function LatLonSelector({ latitude, longitude, onLatChange, onLonChange, disabled = false }) {
+function LatLonSelector({ latitude, longitude, onLatChange, onLonChange, disabled = false, layout = 'column' }) {
   const { t } = useTranslation();
+  const isRow = layout === 'row';
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Box>
+    <Box sx={{ display: 'flex', flexDirection: isRow ? { xs: 'column', md: 'row' } : 'column', gap: 2 }}>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography gutterBottom>{t('selector.latlon.latitude')}</Typography>
         <Slider
           min={-88}
@@ -52,7 +53,7 @@ function LatLonSelector({ latitude, longitude, onLatChange, onLonChange, disable
           marks={latMarks}
         />
       </Box>
-      <Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography gutterBottom>{t('selector.latlon.longitude')}</Typography>
         <Slider
           min={-176}

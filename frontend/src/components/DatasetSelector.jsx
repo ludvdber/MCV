@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Autocomplete, TextField, Box, Typography, ToggleButtonGroup, ToggleButton } from '@mui/material';
+import { Autocomplete, TextField, Box, Typography, ToggleButtonGroup, ToggleButton, Tooltip } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import IndividualSelector from './IndividualSelector';
 import { INDIVIDUAL_PREFIX } from '../constants';
@@ -20,12 +20,20 @@ import { INDIVIDUAL_PREFIX } from '../constants';
  * @param {number|null} [initialIndividualMY=null] - MY pre-selectionnee (restore permalien)
  * @param {number|null} [initialIndividualLs=null] - Ls pre-selectionnee (restore permalien)
  */
-function DatasetSelector({ datasets, value, onChange, disabled = false, individualYears = [], initialIndividualMY = null, initialIndividualLs = null }) {
+function DatasetSelector({ datasets, value, onChange, disabled = false, individualYears = [], initialIndividualMY = null, initialIndividualLs = null, disableIndividual = false, disableIndividualReason = '' }) {
   const { t } = useTranslation();
   const [mode, setMode] = useState('mean');
   const selected = datasets.find(ds => ds.id === value) || null;
 
   const showToggle = individualYears.length > 0;
+
+  /** Revenir en mode MEAN si INDIVIDUAL est desactive (vizType incompatible) */
+  useEffect(() => {
+    if (disableIndividual && mode === 'individual') {
+      setMode('mean');
+      onChange(null);
+    }
+  }, [disableIndividual]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Basculer automatiquement en mode INDIVIDUAL si value est un IND_ (restore permalien) */
   useEffect(() => {
@@ -60,18 +68,22 @@ function DatasetSelector({ datasets, value, onChange, disabled = false, individu
               fontFamily: 'var(--font-body)',
               fontWeight: 600,
               fontSize: '0.85rem',
-              color: 'rgba(255,255,255,0.6)',
-              borderColor: 'rgba(255,255,255,0.2)',
+              color: 'var(--text-secondary)',
+              borderColor: 'var(--glass-border)',
               '&.Mui-selected': {
                 color: 'var(--cyan-accent)',
-                bgcolor: 'rgba(0,188,212,0.15)',
+                bgcolor: 'var(--cyan-highlight)',
                 borderColor: 'var(--cyan-accent)',
               },
             },
           }}
         >
           <ToggleButton value="mean">MEAN</ToggleButton>
-          <ToggleButton value="individual">INDIVIDUAL</ToggleButton>
+          <Tooltip title={disableIndividual ? disableIndividualReason : ''} placement="top" arrow>
+            <span>
+              <ToggleButton value="individual" disabled={disableIndividual}>INDIVIDUAL</ToggleButton>
+            </span>
+          </Tooltip>
         </ToggleButtonGroup>
       )}
 

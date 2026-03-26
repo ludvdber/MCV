@@ -1,8 +1,7 @@
-import { useState, useRef, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState, useCallback, useMemo } from 'react';
 import {
   Container, Paper, Typography, Button, CircularProgress,
-  Alert, Box, Chip
+  Alert, Box, Chip, LinearProgress,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import { Place as PlaceIcon, Map as MapIcon, Functions as LogIcon } from '@mui/icons-material';
@@ -16,14 +15,17 @@ import VisuToggle from '../components/VisuToggle';
 import PermalienButton from '../components/PermalienButton';
 import ColorscaleSelector from '../components/ColorscaleSelector';
 import LocationsLegend from '../components/LocationsLegend';
+import ChartSkeleton from '../components/ChartSkeleton';
+import FullscreenButton from '../components/FullscreenButton';
 import PageLoader from '../components/PageLoader';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { downloadAnimationCSV } from '../utils/exportUtils';
-import { usePlotRef } from '../hooks/usePlotRef';
-import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
+import { useVisualizationPage } from '../hooks/useVisualizationPage';
 import { isSurfaceVariable } from '../utils/variableUtils';
+import ChartOrTable from '../components/ChartOrTable';
+import { animationToTable } from '../utils/dataToTable';
 
 /**
  * Page d'animation (UC4).
@@ -32,7 +34,7 @@ import { isSurfaceVariable } from '../utils/variableUtils';
 
 function AnimationPage() {
   const {
-    datasets, catalogLoading,
+    datasets,
     selectedDataset, setSelectedDataset,
     selectedVariable, handleVariableChange,
     selectedAltitude, setSelectedAltitude,
@@ -40,65 +42,52 @@ function AnimationPage() {
   } = useMars();
   const { t } = useTranslation();
 
-  const [animationData, setAnimationData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [showLocations, setShowLocations] = useState(false);
   const [showSurface, setShowSurface] = useState(false);
   const [logScale, setLogScale] = useState(false);
   const [colorscale, setColorscale] = useState('auto');
-  const [isDirty, setIsDirty] = useState(false);
 
-  const [viewerContainerRef, exportPlotRef] = usePlotRef();
-  const [linkCopied, copyToClipboard] = useCopyToClipboard();
-  const [searchParams] = useSearchParams();
-  const hasRestoredUrl = useRef(false);
-  const pendingAutoLaunch = useRef(false);
-
-  if (!catalogLoading && !hasRestoredUrl.current) {
-    hasRestoredUrl.current = true;
-    const ds = searchParams.get('ds');
-    if (ds) {
+  const {
+    data: animationData, loading, error, isDirty, markDirty,
+    viewerContainerRef, exportPlotRef, linkCopied,
+    handleLaunch, handleCopyLink, catalogLoading,
+  } = useVisualizationPage({
+    route: '/animation',
+    restoreUrl: (sp) => {
+      const ds = sp.get('ds');
+      if (!ds) return false;
       setSelectedDataset(ds);
-      const v = searchParams.get('var');
-      if (v) handleVariableChange(v);
-      const alt = searchParams.get('alt');
-      if (alt != null) setSelectedAltitude(parseInt(alt, 10));
-      const cs = searchParams.get('cs');
-      if (cs) setColorscale(cs);
-      pendingAutoLaunch.current = true;
-    }
-  }
+      const v = sp.get('var'); if (v) handleVariableChange(v);
+      const alt = sp.get('alt'); if (alt != null) setSelectedAltitude(parseInt(alt, 10));
+      const cs = sp.get('cs'); if (cs) setColorscale(cs);
+      return true;
+    },
+    fetchData: useCallback(() => {
+      const altitudeToSend = isSurfaceVariable(selectedVariable) ? 0 : selectedAltitude;
+      return getAnimation({ dataset: selectedDataset, variable: selectedVariable, altitude: altitudeToSend });
+    }, [selectedDataset, selectedVariable, selectedAltitude]),
+    buildPermalink: useCallback(() => {
+      const p = new URLSearchParams();
+      if (selectedDataset) p.set('ds', selectedDataset);
+      if (selectedVariable) p.set('var', selectedVariable);
+      p.set('alt', String(selectedAltitude));
+      if (colorscale !== 'auto') p.set('cs', colorscale);
+      return `${window.location.origin}/animation?${p.toString()}`;
+    }, [selectedDataset, selectedVariable, selectedAltitude, colorscale]),
+    buildHistoryEntry: useCallback(() => {
+      const altitudeToSend = isSurfaceVariable(selectedVariable) ? 0 : selectedAltitude;
+      return {
+        page: '/animation', dataset: selectedDataset, variable: selectedVariable,
+        params: { altitude: altitudeToSend },
+        label: `${selectedVariable} alt${altitudeToSend}`,
+      };
+    }, [selectedDataset, selectedVariable, selectedAltitude]),
+    canLaunch: useCallback(() => !!selectedDataset && !!selectedVariable, [selectedDataset, selectedVariable]),
+  });
 
   // Utilise la variable de la donnée affichée (pas du formulaire) pour éviter
   // que la palette change avant d'avoir cliqué sur "Charger".
   const resolvedColorscale = useResolvedColorscale(colorscale, animationData?.variable, selectedVariable);
-
-  const handleCharger = () => {
-    if (!selectedDataset || !selectedVariable) return;
-    setLoading(true);
-    setError(null);
-    setIsDirty(false);
-    const altitudeToSend = isSurfaceVariable(selectedVariable) ? 0 : selectedAltitude;
-    getAnimation({ dataset: selectedDataset, variable: selectedVariable, altitude: altitudeToSend })
-      .then(res => setAnimationData(res.data))
-      .catch(err => setError(err.response?.data?.message || err.message))
-      .finally(() => setLoading(false));
-  };
-
-  if (pendingAutoLaunch.current && dataset && !loading) {
-    pendingAutoLaunch.current = false;
-    setTimeout(handleCharger, 0);
-  }
-
-  const handleCopyLink = useCallback(() => {
-    const p = new URLSearchParams();
-    if (selectedDataset) p.set('ds', selectedDataset);
-    if (selectedVariable) p.set('var', selectedVariable);
-    p.set('alt', String(selectedAltitude));
-    if (colorscale !== 'auto') p.set('cs', colorscale);
-    copyToClipboard(`${window.location.origin}/animation?${p.toString()}`);
-  }, [selectedDataset, selectedVariable, selectedAltitude, colorscale, copyToClipboard]);
 
   /** Export CSV client-side : stats par frame (min/max/mean sur lat×lon) */
   const handleExportCSV = () => {
@@ -106,7 +95,9 @@ function AnimationPage() {
     downloadAnimationCSV(animationData.frames, selectedVariable, selectedAltitude);
   };
 
-  const markDirty = () => { if (animationData) setIsDirty(true); };
+  const tableData = useMemo(() =>
+    animationData?.frames?.length > 0 ? animationToTable(animationData.frames, animationData.latitudes, animationData.longitudes, selectedVariable) : null,
+  [animationData, selectedVariable]);
 
   if (catalogLoading) return <PageLoader />;
 
@@ -137,7 +128,7 @@ function AnimationPage() {
         </Grid>
 
         <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          <Button variant="contained" onClick={handleCharger}
+          <Button variant="contained" onClick={handleLaunch}
             disabled={!selectedDataset || !selectedVariable || loading}>
             {loading ? <CircularProgress size={20} color="inherit" /> : t('page.animation.button')}
           </Button>
@@ -159,33 +150,46 @@ function AnimationPage() {
 
         <LocationsLegend visible={showLocations && !!animationData} />
 
-        {animationData && (
-          <Box sx={{ mt: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-            <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
-            <ExportMenu
-              plotRef={exportPlotRef}
-              filename={`mars_animation_${selectedVariable || 'plot'}`}
-              onCSV={handleExportCSV}
-            />
-          </Box>
-        )}
       </Paper>
 
+      {loading && <LinearProgress color="primary" sx={{ mb: 2, borderRadius: 1 }} />}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <Box ref={viewerContainerRef}>
-        <AnimationPlayer
-          animationData={animationData}
-          variableCode={selectedVariable}
-          datasetLabel={datasetLabel}
-          showLocations={showLocations}
-          showSurface={showSurface}
-          colorscaleName={resolvedColorscale.name}
-          reverseColorscale={resolvedColorscale.reverse}
-          logScale={logScale}
-          noExportMenu
-        />
-      </Box>
+      {loading && !animationData && <ChartSkeleton variant="heatmap" />}
+
+      <ChartOrTable tableData={tableData}>
+        {(showTable, TableButton) => (
+          <>
+            {animationData && (
+              <Box sx={{ mb: 1, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
+                <ExportMenu
+                  plotRef={exportPlotRef}
+                  filename={`mars_animation_${selectedVariable || 'plot'}`}
+                  onCSV={handleExportCSV}
+                />
+                <TableButton />
+                <FullscreenButton containerRef={viewerContainerRef} />
+              </Box>
+            )}
+            {!showTable && (
+              <Box ref={viewerContainerRef} sx={{ position: 'relative' }}>
+                <AnimationPlayer
+                  animationData={animationData}
+                  variableCode={selectedVariable}
+                  datasetLabel={datasetLabel}
+                  showLocations={showLocations}
+                  showSurface={showSurface}
+                  colorscaleName={resolvedColorscale.name}
+                  reverseColorscale={resolvedColorscale.reverse}
+                  logScale={logScale}
+                  noExportMenu
+                />
+              </Box>
+            )}
+          </>
+        )}
+      </ChartOrTable>
     </Container>
   );
 }

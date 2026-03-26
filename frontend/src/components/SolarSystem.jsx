@@ -236,8 +236,8 @@ function SolarSystemScene({ isPausedRef, selectedIndex, onSelectPlanet, onSelect
 function InfoRow({ label, value }) {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-      <Typography sx={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)', fontFamily: "'Rajdhani',sans-serif" }}>{label}</Typography>
-      <Typography sx={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.92)', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{value}</Typography>
+      <Typography sx={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: "'Rajdhani',sans-serif" }}>{label}</Typography>
+      <Typography sx={{ fontSize: '0.75rem', color: 'var(--text-primary)', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{value}</Typography>
     </Box>
   );
 }
@@ -255,7 +255,7 @@ function PlanetInfoPanel({ index, isSun, onPrev, onNext, onClose, t }) {
       position: 'absolute',
       right: 0, top: 0, bottom: 0,
       width: { xs: '100%', sm: 250 },
-      background: 'rgba(2, 8, 24, 0.92)',
+      background: 'var(--bg-surface)',
       backdropFilter: 'blur(16px)',
       WebkitBackdropFilter: 'blur(16px)',
       borderLeft: '1px solid rgba(56,189,248,0.15)',
@@ -271,18 +271,18 @@ function PlanetInfoPanel({ index, isSun, onPrev, onNext, onClose, t }) {
           size="small"
           onClick={onPrev}
           aria-label={t('solar.prev')}
-          sx={{ color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.15)', '&:hover': { color: '#38bdf8', borderColor: 'rgba(56,189,248,0.4)' } }}
+          sx={{ color: 'var(--text-secondary)', border: '1px solid var(--glass-border)', '&:hover': { color: '#38bdf8', borderColor: 'rgba(56,189,248,0.4)' } }}
         >
           <PrevIcon fontSize="small" />
         </IconButton>
-        <Typography sx={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.3)', fontFamily: "'Rajdhani',sans-serif", letterSpacing: '0.08em' }}>
+        <Typography sx={{ fontSize: '0.68rem', color: 'var(--text-secondary)', fontFamily: "'Rajdhani',sans-serif", letterSpacing: '0.08em' }}>
           {isSun ? '☀' : `${index + 1} / ${PLANETS.length}`}
         </Typography>
         <IconButton
           size="small"
           onClick={onNext}
           aria-label={t('solar.next')}
-          sx={{ color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.15)', '&:hover': { color: '#38bdf8', borderColor: 'rgba(56,189,248,0.4)' } }}
+          sx={{ color: 'var(--text-secondary)', border: '1px solid var(--glass-border)', '&:hover': { color: '#38bdf8', borderColor: 'rgba(56,189,248,0.4)' } }}
         >
           <NextIcon fontSize="small" />
         </IconButton>
@@ -351,7 +351,7 @@ function PlanetInfoPanel({ index, isSun, onPrev, onNext, onClose, t }) {
           size="small"
           onClick={onClose}
           aria-label={t('solar.close')}
-          sx={{ color: 'rgba(255,255,255,0.35)', '&:hover': { color: 'rgba(255,255,255,0.7)' } }}
+          sx={{ color: 'var(--text-secondary)', '&:hover': { color: 'var(--text-primary)' } }}
         >
           <CloseIcon fontSize="small" />
         </IconButton>
@@ -508,7 +508,7 @@ export default function SolarSystem() {
             size="small"
             onClick={handlePause}
             aria-label={isPaused ? t('solar.resume') : t('solar.pause')}
-            sx={{ backgroundColor: 'rgba(13,27,64,0.85)', border: '1px solid rgba(56,189,248,0.2)', color: '#38bdf8', '&:hover': { backgroundColor: 'rgba(56,189,248,0.15)' } }}
+            sx={{ backgroundColor: 'var(--bg-surface)', border: '1px solid rgba(56,189,248,0.2)', color: '#38bdf8', '&:hover': { backgroundColor: 'rgba(56,189,248,0.15)' } }}
           >
             {isPaused ? <PlayIcon fontSize="small" /> : <PauseIcon fontSize="small" />}
           </IconButton>
@@ -518,7 +518,7 @@ export default function SolarSystem() {
             size="small"
             onClick={handleFullscreen}
             aria-label={isFullscreen ? t('solar.exitFullscreen') : t('solar.fullscreen')}
-            sx={{ backgroundColor: 'rgba(13,27,64,0.85)', border: '1px solid rgba(56,189,248,0.2)', color: '#38bdf8', '&:hover': { backgroundColor: 'rgba(56,189,248,0.15)' } }}
+            sx={{ backgroundColor: 'var(--bg-surface)', border: '1px solid rgba(56,189,248,0.2)', color: '#38bdf8', '&:hover': { backgroundColor: 'rgba(56,189,248,0.15)' } }}
           >
             {isFullscreen ? <FullscreenExitIcon fontSize="small" /> : <FullscreenIcon fontSize="small" />}
           </IconButton>

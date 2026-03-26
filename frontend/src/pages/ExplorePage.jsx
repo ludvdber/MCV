@@ -10,16 +10,19 @@
  * L'état partagé dataset/variable/time vient de MarsContext (useGlobal),
  * l'état propre à l'exploration (onglets, toggles, palette…) vient d'ExploreContext.
  */
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
+import { useToast } from '../context/ToastContext';
 import { VARIABLES_MAP } from '../components/VariableSelector';
 import { triggerApiDownload, downloadAnimationCSV } from '../utils/exportUtils';
 import {
   getSlice, getTimeSeries, getAnimation, getProfile, getCrossSection, getWind,
-  exportSliceCSV, exportTimeSeriesCSV, exportProfileCSV, exportCrossSectionCSV,
+  getHovmoller, getZonalMean, getWindRose, getDifference, getTemporalProfile,
+  exportSliceCSV, exportSliceNetCDF, exportTimeSeriesCSV, exportProfileCSV, exportCrossSectionCSV,
+  exportHovmollerCSV, exportZonalMeanCSV, exportWindRoseCSV, exportDifferenceCSV, exportTemporalProfileCSV,
 } from '../services/api';
 import { ExploreProvider, useExploreState, useExploreDispatch, A } from './explore/ExploreContext.jsx';
 import { largeDataStore } from './explore/largeDataStore.js';
@@ -49,6 +52,16 @@ function genLabel(type, params, t) {
         ? `lon${params.lon}°` : `lat${params.lat}°`;
       return `${dir} ${varLabel} ${fixed}`;
     }
+    case 'hovmoller':
+      return `${t('explore.tab_hovmoller_short')} ${varLabel} alt${params.altitude}`;
+    case 'zonalmean':
+      return `${t('explore.tab_zonalmean_short')} ${varLabel} ${formatTime(params.time)}`;
+    case 'windrose':
+      return `${t('explore.tab_windrose_short')} (${params.lat}°, ${params.lon}°)`;
+    case 'difference':
+      return `Δ ${varLabel}`;
+    case 'temporalprofile':
+      return `T-Prof ${varLabel} (${params.lat}°, ${params.lon}°)`;
     default: return varLabel;
   }
 }
@@ -57,6 +70,7 @@ function genLabel(type, params, t) {
 
 function ExplorePageContent() {
   const { t } = useTranslation();
+  const showToast = useToast();
   const state    = useExploreState();
   const dispatch = useExploreDispatch();
 
@@ -76,8 +90,8 @@ function ExplorePageContent() {
   const [searchParams] = useSearchParams();
   const hasRestoredUrl = useRef(false);
 
-  const { vizType, crossSectionType, colorscale, zMinInput, zMaxInput,
-    resultsById, resultOrder, loading, pendingAutoLaunch } = state;
+  const { vizType, crossSectionType, hovmollerType, colorscale, zMinInput, zMaxInput,
+    resultsById, resultOrder, loading, pendingAutoLaunch, datasetB } = state;
 
   const isIndividual = selectedDataset?.startsWith(INDIVIDUAL_PREFIX);
 
@@ -146,6 +160,8 @@ function ExplorePageContent() {
     if (zmax) dispatch({ type: A.SET_Z_MAX, value: zmax });
     const cstype = searchParams.get('cstype');
     if (cstype) dispatch({ type: A.SET_CROSS_SECTION, value: cstype });
+    const hovtype = searchParams.get('hovtype');
+    if (hovtype) dispatch({ type: A.SET_HOVMOLLER_TYPE, value: hovtype });
 
     dispatch({ type: A.SET_PENDING_AUTO, value: true });
   }, [catalogLoading]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -159,7 +175,7 @@ function ExplorePageContent() {
       dispatch({ type: A.SET_ERROR, value: t('page.explore.tabLimit', { max: MAX_TABS }) });
       return;
     }
-    if (isIndividual && ['timeseries', 'animation'].includes(vizType)) {
+    if (isIndividual && ['timeseries', 'animation', 'hovmoller', 'windrose'].includes(vizType)) {
       dispatch({ type: A.SET_ERROR, value: t('page.explore.individualError') });
       return;
     }
@@ -178,7 +194,9 @@ function ExplorePageContent() {
     const params = {
       dataset: selectedDataset, variable: selectedVariable,
       time: timeToSend, altitude: altitudeToSend,
-      lat: selectedLatitude, lon: selectedLongitude, crossSectionType,
+      lat: selectedLatitude, lon: selectedLongitude,
+      crossSectionType, hovmollerType: hovmollerType || 'latitude',
+      datasetB: datasetB || undefined,
     };
 
     try {
@@ -198,6 +216,26 @@ function ExplorePageContent() {
           break;
         case 'crosssection':
           data = (await getCrossSection({ dataset: selectedDataset, variable: selectedVariable, time: timeToSend, type: crossSectionType, fixedCoordinate: crossSectionType === 'meridional' ? selectedLongitude : selectedLatitude })).data;
+          break;
+        case 'hovmoller':
+          data = (await getHovmoller({ dataset: selectedDataset, variable: selectedVariable, altitude: altitudeToSend, type: state.hovmollerType || 'latitude' })).data;
+          break;
+        case 'zonalmean':
+          data = (await getZonalMean({ dataset: selectedDataset, variable: selectedVariable, time: timeToSend })).data;
+          break;
+        case 'windrose':
+          data = (await getWindRose({ dataset: selectedDataset, latitude: selectedLatitude, longitude: selectedLongitude, altitude: altitudeToSend })).data;
+          break;
+        case 'temporalprofile':
+          data = (await getTemporalProfile({ dataset: selectedDataset, variable: selectedVariable, latitude: selectedLatitude, longitude: selectedLongitude })).data;
+          break;
+        case 'difference':
+          if (!datasetB || selectedDataset === datasetB) {
+            dispatch({ type: A.SET_LOADING, value: false });
+            dispatch({ type: A.SET_ERROR, value: t('page.difference.sameDataset') });
+            return;
+          }
+          data = (await getDifference({ datasetA: selectedDataset, datasetB, variable: selectedVariable, time: timeToSend, altitude: altitudeToSend })).data;
           break;
       }
 
@@ -237,8 +275,8 @@ function ExplorePageContent() {
     }
   }, [ // eslint-disable-line react-hooks/exhaustive-deps
     selectedDataset, selectedVariable, selectedTime, selectedAltitude,
-    selectedLatitude, selectedLongitude, vizType, crossSectionType,
-    resultOrder.length, isIndividual, isSurfaceVariable, datasetLabel, dispatch,
+    selectedLatitude, selectedLongitude, vizType, crossSectionType, hovmollerType,
+    resultOrder.length, isIndividual, isSurfaceVariable, datasetLabel, datasetB, dispatch,
   ]);
 
   /* Ref pour éviter les closures périmées dans l'effet d'auto-launch */
@@ -328,7 +366,48 @@ function ExplorePageContent() {
         downloadAnimationCSV(animData.frames, params.variable, params.altitude);
         break;
       }
+      case 'hovmoller':
+        triggerApiDownload(
+          exportHovmollerCSV({ dataset: params.dataset, variable: params.variable, altitude: altitudeToSend, type: params.hovmollerType || 'latitude' }),
+          `hovmoller_${params.variable}_alt${params.altitude}.csv`,
+        );
+        break;
+      case 'zonalmean':
+        triggerApiDownload(
+          exportZonalMeanCSV({ dataset: params.dataset, variable: params.variable, time: params.time }),
+          `zonalmean_${params.variable}_t${params.time}.csv`,
+        );
+        break;
+      case 'windrose':
+        triggerApiDownload(
+          exportWindRoseCSV({ dataset: params.dataset, latitude: params.lat, longitude: params.lon, altitude: altitudeToSend }),
+          `windrose_lat${params.lat}_lon${params.lon}.csv`,
+        );
+        break;
+      case 'difference':
+        triggerApiDownload(
+          exportDifferenceCSV({ datasetA: params.dataset, datasetB: params.datasetB, variable: params.variable, time: params.time, altitude: altitudeToSend }),
+          `difference_${params.variable}_t${params.time}.csv`,
+        );
+        break;
+      case 'temporalprofile':
+        triggerApiDownload(
+          exportTemporalProfileCSV({ dataset: params.dataset, variable: params.variable, latitude: params.lat, longitude: params.lon }),
+          `temporalprofile_${params.variable}_lat${params.lat}_lon${params.lon}.csv`,
+        );
+        break;
     }
+  }, [activeResultObj]);
+
+  const handleExportNetCDF = useCallback(() => {
+    if (!activeResultObj || activeResultObj.type !== 'slice') return;
+    const { params } = activeResultObj;
+    const variable = VARIABLES_MAP.get(params.variable);
+    const altitudeToSend = variable?.altitudeType === null ? 0 : params.altitude;
+    triggerApiDownload(
+      exportSliceNetCDF({ dataset: params.dataset, variable: params.variable, time: params.time, altitude: altitudeToSend }),
+      `slice_${params.variable}_t${params.time}_a${params.altitude}.nc`,
+    );
   }, [activeResultObj]);
 
   const handleCopyLink = useCallback(() => {
@@ -344,6 +423,7 @@ function ExplorePageContent() {
     if (zMinInput) p.set('zmin', zMinInput);
     if (zMaxInput) p.set('zmax', zMaxInput);
     if (vizType === 'crosssection') p.set('cstype', crossSectionType);
+    if (vizType === 'hovmoller') p.set('hovtype', hovmollerType || 'latitude');
 
     navigator.clipboard.writeText(`${window.location.origin}/explore?${p.toString()}`)
       .then(() => {
@@ -351,7 +431,66 @@ function ExplorePageContent() {
         setTimeout(() => dispatch({ type: A.SET_LINK_COPIED, value: false }), 2000);
       })
       .catch(() => {});
-  }, [selectedDataset, selectedVariable, vizType, selectedTime, selectedAltitude, selectedLatitude, selectedLongitude, colorscale, zMinInput, zMaxInput, crossSectionType, dispatch]);
+  }, [selectedDataset, selectedVariable, vizType, selectedTime, selectedAltitude, selectedLatitude, selectedLongitude, colorscale, zMinInput, zMaxInput, crossSectionType, hovmollerType, dispatch]);
+
+  /* ── Drill-down: click on heatmap → launch related viz using ACTIVE result's params ── */
+
+  const handleDrillDown = useCallback(async ({ type, lat, lon }) => {
+    // Use the active result's params, NOT the left panel params
+    const activeObj = resultsById[state.activeResult];
+    if (!activeObj) return;
+
+    if (resultOrder.length >= MAX_TABS) {
+      showToast(t('page.explore.tabLimit', { max: MAX_TABS }), 'warning');
+      return;
+    }
+
+    const { dataset, variable, time, altitude } = activeObj.params;
+    if (!dataset || !variable) return;
+
+    dispatch({ type: A.SET_LOADING, value: true });
+    dispatch({ type: A.CLEAR_ERROR });
+
+    try {
+      let data;
+      const params = { dataset, variable, time, altitude, lat, lon, crossSectionType: 'meridional' };
+
+      switch (type) {
+        case 'timeseries':
+          data = (await getTimeSeries({ dataset, variable, latitude: lat, longitude: lon, altitude })).data;
+          break;
+        case 'profile':
+          data = (await getProfile({ dataset, variable, time, latitude: lat, longitude: lon })).data;
+          break;
+        case 'crosssection':
+          data = (await getCrossSection({ dataset, variable, time, type: 'meridional', fixedCoordinate: lon })).data;
+          break;
+        case 'temporalprofile':
+          data = (await getTemporalProfile({ dataset, variable, latitude: lat, longitude: lon })).data;
+          break;
+        default: return;
+      }
+
+      const id = Date.now().toString();
+      const vizLabels = { timeseries: 'Série', profile: 'Profil', crosssection: 'Coupe', temporalprofile: 'T-Profil' };
+      const result = {
+        id,
+        type,
+        label: `${vizLabels[type] || type} (${lat}°, ${lon}°)`,
+        params,
+        data,
+        datasetLabel: activeObj.datasetLabel,
+      };
+      dispatch({ type: A.ADD_RESULT, result });
+      dispatch({ type: A.SET_ACTIVE_RESULT, value: id });
+      showToast(`${vizLabels[type] || type} (${lat}°, ${lon}°)`, 'success');
+    } catch (err) {
+      dispatch({ type: A.SET_ERROR, value: err.response?.data?.message || err.message });
+      showToast(err.response?.data?.message || err.message, 'error');
+    } finally {
+      dispatch({ type: A.SET_LOADING, value: false });
+    }
+  }, [resultsById, state.activeResult, resultOrder.length, dispatch, showToast, t]);
 
   /* ── Rendu ─────────────────────────────────────────────────────────────── */
 
@@ -363,11 +502,38 @@ function ExplorePageContent() {
     );
   }
 
+  const [panelVisible, setPanelVisible] = useState(true);
+
+  const togglePanel = useCallback(() => {
+    setPanelVisible(v => !v);
+    // Trigger Plotly resize after CSS transition
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 250);
+  }, []);
+
   return (
-    <Box sx={{ display: 'flex', height: '100vh', gap: 2, p: 1.5, boxSizing: 'border-box' }}>
-      <ExploreParamsPanel onLancer={handleLancer} onCopyLink={handleCopyLink} />
+    <Box sx={{
+      display: 'flex',
+      flexDirection: { xs: 'column', sm: 'row' },
+      height: { xs: 'auto', sm: '100vh' },
+      minHeight: { xs: '100vh', sm: 'auto' },
+      gap: panelVisible ? 1.5 : 0,
+      p: 1.5,
+      boxSizing: 'border-box',
+    }}>
+      {panelVisible && (
+        <Box sx={{ width: { xs: '100%', sm: 300, md: 330 }, flexShrink: 0, overflow: 'auto' }}>
+          <ExploreParamsPanel onLancer={handleLancer} onCopyLink={handleCopyLink} />
+        </Box>
+      )}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <ExploreResultsPanel onRemoveResult={handleRemoveResult} onExportCSV={handleExportCSV} />
+        <ExploreResultsPanel
+          onRemoveResult={handleRemoveResult}
+          onExportCSV={handleExportCSV}
+          onExportNetCDF={handleExportNetCDF}
+          panelVisible={panelVisible}
+          onTogglePanel={togglePanel}
+          onDrillDown={handleDrillDown}
+        />
       </Box>
     </Box>
   );

@@ -11,6 +11,7 @@ import { RDBU_VARIABLES } from '../utils/colorscales';
 import { downloadAnimationCSV } from '../utils/exportUtils';
 import ExportMenu from './ExportMenu';
 import StatsBar from './StatsBar';
+import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
 
 /** Duree de base d'une frame en ms (vitesse 1x = ~3.3 fps) */
 const BASE_FRAME_MS = 300;
@@ -48,6 +49,7 @@ const scrubMarks = [0, 7, 15, 23, 31, 39, 47].map(t => ({
  */
 function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocations = false, showSurface = false, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip = false, noExportMenu = false, externalPlotRef = null, logScale = false }) {
   const { t, i18n } = useTranslation();
+  const { fontColor, paperBg, plotBg, titleSize, margin: responsiveMargin } = usePlotlyTheme();
   const internalPlotRef = useRef(null);
   const plotRef = externalPlotRef ?? internalPlotRef;
   const rafRef = useRef(null);
@@ -57,9 +59,6 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
-
-  /** Couleur de texte pour les graphiques Plotly en dark mode */
-  const fontColor = 'rgba(255,255,255,0.85)';
 
   /** Unite physique de la variable (ex: 'K', 'Pa', 'm/s') */
   const unit = VARIABLES_MAP.get(variableCode)?.unit || '';
@@ -75,7 +74,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
   /** Titre Plotly statique (sans l'heure qui change) */
   const plotTitle = {
     text: `${datasetLabel || ''} — ${variableLabel} — ${altitudeText}`,
-    font: { size: 16 }
+    font: { size: titleSize }
   };
 
   /** Arrete l'animation en cours */
@@ -166,7 +165,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
       reversescale: finalReverse,
       ...(logScale
         ? (logZMin != null ? { zmin: logZMin, zmax: logZMax } : {})
-        : { ...(customZMin != null ? { zmin: customZMin } : {}), ...(customZMax != null ? { zmax: customZMax } : {}) }),
+        : { zmin: customZMin ?? animationData.stats?.min ?? undefined, zmax: customZMax ?? animationData.stats?.max ?? undefined }),
       ...(initCustomdata ? { customdata: initCustomdata } : {}),
       zsmooth: 'best',
       connectgaps: true,
@@ -207,9 +206,9 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
         autorange: false,
         color: fontColor
       },
-      margin: { t: 80, r: 120, b: 50, l: 70 },
-      paper_bgcolor: 'rgba(0,0,0,0)',
-      plot_bgcolor: 'rgba(0,0,0,0)'
+      margin: { ...responsiveMargin, r: 120 },
+      paper_bgcolor: paperBg,
+      plot_bgcolor: plotBg
     };
 
     if (showSurface) {
@@ -235,7 +234,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
 
     return () => Plotly.purge(el);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [animationData, variableCode, unit, stopAnimation, logScale, i18n.language]);
+  }, [animationData, variableCode, unit, stopAnimation, logScale, i18n.language, fontColor, paperBg, plotBg, titleSize, responsiveMargin]);
 
   /** Mise a jour du graphique quand la frame change (Plotly.react = update performant) */
   useEffect(() => {
@@ -292,7 +291,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
       reversescale: finalReverse,
       ...(logScale
         ? (logZMin != null ? { zmin: logZMin, zmax: logZMax } : {})
-        : { ...(customZMin != null ? { zmin: customZMin } : {}), ...(customZMax != null ? { zmax: customZMax } : {}) }),
+        : { zmin: customZMin ?? animationData.stats?.min ?? undefined, zmax: customZMax ?? animationData.stats?.max ?? undefined }),
       ...(frameCustomdata ? { customdata: frameCustomdata } : {}),
       zsmooth: 'best',
       connectgaps: true,
@@ -333,9 +332,9 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
         autorange: false,
         color: fontColor
       },
-      margin: { t: 80, r: 120, b: 50, l: 70 },
-      paper_bgcolor: 'rgba(0,0,0,0)',
-      plot_bgcolor: 'rgba(0,0,0,0)'
+      margin: { ...responsiveMargin, r: 120 },
+      paper_bgcolor: paperBg,
+      plot_bgcolor: plotBg
     };
 
     if (showSurface) {
@@ -355,7 +354,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
 
     Plotly.react(plotRef.current, frameTraces, layout);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentFrame, animationData, variableCode, unit, datasetLabel, showLocations, showSurface, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip, logScale, i18n.language]);
+  }, [currentFrame, animationData, variableCode, unit, datasetLabel, showLocations, showSurface, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip, logScale, i18n.language, fontColor, paperBg, plotBg, titleSize, responsiveMargin]);
 
   /** Duree effective d'une frame selon la vitesse choisie */
   const frameDuration = BASE_FRAME_MS / speed;
@@ -417,7 +416,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
         </Box>
       )}
       <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        <div ref={plotRef} style={{ width: '100%' }} />
+        <div ref={plotRef} role="img" aria-label={t('viz.aria.animation')} style={{ width: '100%' }} />
       </Paper>
 
       {/* Controles : Play/Pause + Vitesse + Slider scrub */}
@@ -438,7 +437,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
             size="small"
           >
             {SPEED_OPTIONS.map(s => (
-              <ToggleButton key={s} value={s} sx={{ px: 1.2, py: 0.3, fontSize: '0.75rem' }}>
+              <ToggleButton key={s} value={s} sx={{ px: 1.5, py: 0.6, fontSize: '0.8rem' }}>
                 {s}x
               </ToggleButton>
             ))}

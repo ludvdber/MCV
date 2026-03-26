@@ -1,4 +1,4 @@
-import { Slider, Box, Typography } from '@mui/material';
+import { Slider, Box, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 
 /**
@@ -9,8 +9,9 @@ import { useTranslation } from 'react-i18next';
  */
 export const formatTime = (timestep) => `${(timestep + 1) * 0.5}h`;
 
-/** Reperes affiches sur le slider toutes les 4 heures martiennes */
+/** Reperes affiches sur le slider — version complete et compacte */
 const marks = [7, 15, 23, 31, 39, 47].map(t => ({ value: t, label: formatTime(t) }));
+const marksCompact = [7, 23, 39].map(t => ({ value: t, label: formatTime(t) }));
 
 /**
  * Slider de selection du pas de temps (0-47).
@@ -22,6 +23,9 @@ const marks = [7, 15, 23, 31, 39, 47].map(t => ({ value: t, label: formatTime(t)
  */
 function TimeSelector({ value, onChange, disabled = false }) {
   const { t } = useTranslation();
+  const theme = useTheme();
+  const isNarrow = useMediaQuery(theme.breakpoints.down('sm'));
+
   return (
     <Box>
       <Typography gutterBottom>{t('selector.time.label')}</Typography>
@@ -34,7 +38,7 @@ function TimeSelector({ value, onChange, disabled = false }) {
         disabled={disabled}
         valueLabelDisplay="auto"
         valueLabelFormat={formatTime}
-        marks={marks}
+        marks={isNarrow ? marksCompact : marks}
       />
     </Box>
   );
