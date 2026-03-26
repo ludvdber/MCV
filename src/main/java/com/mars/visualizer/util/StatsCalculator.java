@@ -1,5 +1,6 @@
 package com.mars.visualizer.util;
 
+import java.util.Arrays;
 import java.util.List;
 
 import com.mars.visualizer.dto.response.StatsResult;
@@ -21,7 +22,7 @@ public class StatsCalculator {
     }
 
     /**
-     * Calcule min, max, mean, stddev d'un tableau 2D.
+     * Calcule min, max, mean, stddev, median d'un tableau 2D.
      * Ignore les valeurs NaN (données manquantes NetCDF).
      * Algorithme en deux passes (numériquement stable pour l'écart-type).
      *
@@ -52,26 +53,33 @@ public class StatsCalculator {
 
         if (count == 0) {
             log.warn("Aucune valeur valide dans le tableau (tout NaN)");
-            return new StatsResult(Double.NaN, Double.NaN, Double.NaN, Double.NaN);
+            return new StatsResult(Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN);
         }
 
         double mean = sum / count;
 
+        // Collecter les valeurs valides pour variance + médiane
+        double[] valid = new double[(int) count];
+        int idx = 0;
         double varianceSum = 0.0;
         for (float[] row : data) {
             for (float value : row) {
                 if (!Float.isNaN(value)) {
                     double diff = value - mean;
                     varianceSum += diff * diff;
+                    valid[idx++] = value;
                 }
             }
         }
         double stddev = Math.sqrt(varianceSum / count);
 
-        log.debug("Stats calculées : min={}, max={}, mean={}, stddev={} ({} valeurs)",
-                min, max, mean, stddev, count);
+        Arrays.sort(valid);
+        double median = percentile(valid, 50);
 
-        return new StatsResult(min, max, mean, stddev);
+        log.debug("Stats calculées : min={}, max={}, mean={}, stddev={}, median={} ({} valeurs)",
+                min, max, mean, stddev, median, count);
+
+        return new StatsResult(min, max, mean, stddev, median);
     }
 
     /**
@@ -91,5 +99,32 @@ public class StatsCalculator {
             matrix[0][i] = (v != null) ? v : Float.NaN;
         }
         return calculateStats(matrix);
+    }
+
+    /**
+     * Calcule le percentile p (0-100) d'un tableau trié par interpolation linéaire.
+     */
+    /**
+     * Calcule la différence élément par élément entre deux grilles 2D (A - B).
+     */
+    public static float[][] computeGridDifference(float[][] a, float[][] b) {
+        int nLat = Math.min(a.length, b.length);
+        int nLon = (nLat > 0) ? Math.min(a[0].length, b[0].length) : 0;
+        float[][] diff = new float[nLat][nLon];
+        for (int i = 0; i < nLat; i++) {
+            for (int j = 0; j < nLon; j++) {
+                diff[i][j] = a[i][j] - b[i][j];
+            }
+        }
+        return diff;
+    }
+
+    private static double percentile(double[] sorted, double p) {
+        if (sorted.length == 1) return sorted[0];
+        double rank = (p / 100.0) * (sorted.length - 1);
+        int lo = (int) Math.floor(rank);
+        int hi = Math.min(lo + 1, sorted.length - 1);
+        double frac = rank - lo;
+        return sorted[lo] + frac * (sorted[hi] - sorted[lo]);
     }
 }

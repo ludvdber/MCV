@@ -253,6 +253,10 @@ public class IndividualCatalogService {
 		}
 
 		// 2. Construire les DirInfo avec detection de changement de MY
+		//    Le changement d'annee martienne peut se produire :
+		//    a) entre deux repertoires (firstLs << prevLsMax)
+		//    b) au sein d'un meme repertoire (lastLs << firstLs, ex: 359°→0°)
+		//    Le seuil de 180° distingue un vrai wrap annuel d'un leger chevauchement.
 		List<DirInfo> dirs          = new ArrayList<>();
 		int           currentMarsYear = myBase;
 		double        prevLsMax     = -1;
@@ -269,14 +273,22 @@ public class IndividualCatalogService {
 				double firstLs = parseLsFromFilename(ncFiles.getFirst());
 				double lastLs  = parseLsFromFilename(ncFiles.getLast());
 
-				// Si le Ls de debut est inferieur au Ls de fin du dossier precedent
-				// → nouvelle annee martienne
-				if (prevLsMax >= 0 && firstLs < prevLsMax) {
+				// (a) Changement d'annee ENTRE repertoires (drop > 180°)
+				if (prevLsMax >= 0 && firstLs < prevLsMax - 180) {
 					currentMarsYear++;
 					log.info("Nouvelle annee martienne detectee : MY{}", currentMarsYear);
 				}
 
-				dirs.add(new DirInfo(dirName, dir, firstLs, lastLs, currentMarsYear));
+				// (b) Changement d'annee AU SEIN du repertoire (Ls wrap 359°→0°)
+				if (lastLs < firstLs - 180) {
+					dirs.add(new DirInfo(dirName, dir, firstLs, 360.0, currentMarsYear));
+					currentMarsYear++;
+					log.info("Nouvelle annee martienne detectee (intra-repertoire {}) : MY{}", dirName, currentMarsYear);
+					dirs.add(new DirInfo(dirName, dir, 0.0, lastLs, currentMarsYear));
+				} else {
+					dirs.add(new DirInfo(dirName, dir, firstLs, lastLs, currentMarsYear));
+				}
+
 				prevLsMax = lastLs;
 
 				log.debug("Repertoire {} : MY{}, Ls {}-{}, {} fichiers",
@@ -387,7 +399,8 @@ public class IndividualCatalogService {
 
 	/**
 	 * Parse le Ls depuis un nom de fichier via le pattern ls{AAA}_{BBBB}.
-	 * Formule : Ls = AAA + BBBB / 10000.0
+	 * Formule : Ls = AAA + BBBB / 10000.0, normalisé dans [0, 360).
+	 * Le fichier ls360_0000 (Ls=360°) est normalisé à 0°.
 	 *
 	 * @param filename nom du fichier (ex: hl-b274_000050p_ls001_0100.nc)
 	 * @return longitude solaire en degres (ex: 1.01)
@@ -399,6 +412,7 @@ public class IndividualCatalogService {
 		}
 		int aaa  = Integer.parseInt(m.group(1));
 		int bbbb = Integer.parseInt(m.group(2));
-		return aaa + bbbb / 10000.0;
+		double ls = aaa + bbbb / 10000.0;
+		return ls >= 360.0 ? ls - 360.0 : ls;
 	}
 }

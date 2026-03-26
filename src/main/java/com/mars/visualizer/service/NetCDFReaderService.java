@@ -12,6 +12,16 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.mars.visualizer.config.DataPathConfig;
+import com.mars.visualizer.dto.internal.AnimationData;
+import com.mars.visualizer.dto.internal.CrossSectionData;
+import com.mars.visualizer.dto.internal.HovmollerData;
+import com.mars.visualizer.dto.internal.ProfileData;
+import com.mars.visualizer.dto.internal.SliceData;
+import com.mars.visualizer.dto.internal.TemporalProfileData;
+import com.mars.visualizer.dto.internal.WindFieldData;
+import com.mars.visualizer.dto.internal.WindMapData;
+import com.mars.visualizer.dto.internal.WindRoseData;
+import com.mars.visualizer.dto.internal.ZonalMeanData;
 import com.mars.visualizer.exception.NetCDFException;
 import com.mars.visualizer.util.MarsConstants;
 
@@ -39,13 +49,6 @@ import ucar.nc2.NetcdfFiles;
 @Service
 @Slf4j
 public class NetCDFReaderService {
-
-	// Records typés pour les résultats d'extraction (élimine Map<String,Object> + casts unsafe)
-	public record SliceData(float[][] data, double[] latitudes, double[] longitudes) {}
-	public record AnimationData(List<float[][]> frames, double[] latitudes, double[] longitudes) {}
-	public record ProfileData(List<Float> values, double[] altitudes, double actualLat, double actualLon) {}
-	public record CrossSectionData(float[][] data, double[] altitudes, double[] horizontalCoords, double fixedValue) {}
-	public record WindFieldData(double[] lats, double[] lons, double[] u, double[] v) {}
 
 	// Noms de coordonnées et variables standardisés
 	private static final String COORD_LAT = "lat";
@@ -338,6 +341,58 @@ public class NetCDFReaderService {
 	}
 
 	/**
+	 * Extrait un profil temporel (toutes les altitudes × tous les pas de temps) en un point.
+	 * Lecture partielle : {@code nTime×nAlt×1×1} — une colonne atmosphérique sur tout le cycle diurne.
+	 * Réservé aux variables 4D.
+	 *
+	 * @return TemporalProfileData record typé, {@code data[nAlt][nTime]}
+	 */
+	public TemporalProfileData extractTemporalProfile(String filename, String variableName,
+			double latitude, double longitude) {
+
+		log.info("Extraction profil temporel : fichier={}, variable={}, lat={}, lon={}",
+				filename, variableName, latitude, longitude);
+
+		try (NetcdfFile ncfile = openMeanFile(filename)) {
+			ucar.nc2.Variable variable = requireVariable(ncfile, variableName);
+
+			int[] varShape = variable.getShape();
+			if (varShape.length == 3) {
+				throw new NetCDFException("error.netcdf.surface.no.profile", variableName);
+			}
+
+			int nTime = varShape[0];
+			int nAlt  = varShape[1];
+
+			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
+			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
+			int      latIdx     = findNearestIndex(latitudes,  latitude);
+			int      lonIdx     = findNearestIndex(longitudes, longitude);
+
+			String   altDimName = variable.getDimension(1).getShortName();
+			double[] altCoords  = extractCoordinates(ncfile, altDimName);
+
+			// Read all times and altitudes at the fixed lat/lon point
+			ucar.ma2.Array data  = readSection(variable,
+				new int[]{0, 0, latIdx, lonIdx}, new int[]{nTime, nAlt, 1, 1});
+			ucar.ma2.Index index = data.getIndex();
+
+			float[][] grid = new float[nAlt][nTime];
+			for (int a = 0; a < nAlt; a++) {
+				for (int t = 0; t < nTime; t++) {
+					grid[a][t] = data.getFloat(index.set(t, a, 0, 0));
+				}
+			}
+
+			log.info("Profil temporel extrait : {}x{} (alt x time)", nAlt, nTime);
+			return new TemporalProfileData(grid, altCoords, latitudes[latIdx], longitudes[lonIdx]);
+
+		} catch (IOException e) {
+			throw new NetCDFException(e, "error.netcdf.read.profile", filename);
+		}
+	}
+
+	/**
 	 * Extrait une coupe verticale (méridionale ou zonale) en un instant.
 	 * Lecture partielle : méridionale {@code 1×nAlt×nLat×1}, zonale {@code 1×nAlt×1×nLon}.
 	 * Réservé aux variables 4D.
@@ -486,6 +541,272 @@ public class NetCDFReaderService {
 	}
 
 	/**
+	 * Extrait les composantes UU et VV pour tous les timesteps à un point donné.
+	 * Utilisé pour la rose des vents (48 vecteurs vent sur le cycle diurne).
+	 *
+	 * @return WindRoseData record (uu[48], vv[48], actualLat, actualLon)
+	 */
+	public WindRoseData extractWindRose(String filename, double latitude, double longitude, int altitudeIndex) {
+
+		log.info("Extraction rose des vents : fichier={}, lat={}, lon={}, altitude={}", filename, latitude, longitude, altitudeIndex);
+
+		try (NetcdfFile ncfile = openMeanFile(filename)) {
+			ucar.nc2.Variable uuVar = requireVariable(ncfile, VAR_UU);
+			ucar.nc2.Variable vvVar = requireVariable(ncfile, VAR_VV);
+
+			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
+			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
+			int      latIdx     = findNearestIndex(latitudes,  latitude);
+			int      lonIdx     = findNearestIndex(longitudes, longitude);
+
+			int nTime = uuVar.getShape()[0];
+
+			ucar.ma2.Array uData = readSection(uuVar, new int[]{0, altitudeIndex, latIdx, lonIdx}, new int[]{nTime, 1, 1, 1});
+			ucar.ma2.Array vData = readSection(vvVar, new int[]{0, altitudeIndex, latIdx, lonIdx}, new int[]{nTime, 1, 1, 1});
+
+			ucar.ma2.Index uIdx = uData.getIndex();
+			ucar.ma2.Index vIdx = vData.getIndex();
+
+			List<Float> uu = new ArrayList<>(nTime);
+			List<Float> vv = new ArrayList<>(nTime);
+			for (int t = 0; t < nTime; t++) {
+				uu.add(uData.getFloat(uIdx.set(t, 0, 0, 0)));
+				vv.add(vData.getFloat(vIdx.set(t, 0, 0, 0)));
+			}
+
+			log.info("Rose des vents extraite : {} vecteurs, lat={}, lon={}", nTime, latitudes[latIdx], longitudes[lonIdx]);
+			return new WindRoseData(uu, vv, latitudes[latIdx], longitudes[lonIdx]);
+
+		} catch (IOException e) {
+			throw new NetCDFException(e, "error.netcdf.read.wind", filename);
+		}
+	}
+
+
+	/**
+	 * Extrait une carte de vent complète : vitesse scalaire (full grid) + vecteurs subsamplés.
+	 *
+	 * @return WindMapData record
+	 */
+	public WindMapData extractWindMap(String filename, int timeIndex, int altitudeIndex) {
+
+		log.info("Extraction carte de vent : fichier={}, time={}, altitude={}", filename, timeIndex, altitudeIndex);
+
+		try (NetcdfFile ncfile = openMeanFile(filename)) {
+			ucar.nc2.Variable uuVar = requireVariable(ncfile, VAR_UU);
+			ucar.nc2.Variable vvVar = requireVariable(ncfile, VAR_VV);
+
+			double[] latCoords = extractCoordinates(ncfile, COORD_LAT);
+			double[] lonCoords = extractCoordinates(ncfile, COORD_LON);
+			int      nLat      = latCoords.length;
+			int      nLon      = lonCoords.length;
+
+			ucar.ma2.Array uData = readSection(uuVar, new int[]{timeIndex, altitudeIndex, 0, 0}, new int[]{1, 1, nLat, nLon});
+			ucar.ma2.Array vData = readSection(vvVar, new int[]{timeIndex, altitudeIndex, 0, 0}, new int[]{1, 1, nLat, nLon});
+
+			ucar.ma2.Index uIdx = uData.getIndex();
+			ucar.ma2.Index vIdx = vData.getIndex();
+
+			// Full grid wind speed
+			float[][] windSpeed = new float[nLat][nLon];
+			for (int la = 0; la < nLat; la++) {
+				for (int lo = 0; lo < nLon; lo++) {
+					float u = uData.getFloat(uIdx.set(0, 0, la, lo));
+					float v = vData.getFloat(vIdx.set(0, 0, la, lo));
+					windSpeed[la][lo] = (float) Math.sqrt(u * u + v * v);
+				}
+			}
+
+			// Subsampled vectors for arrows
+			int cLat = 0; for (int la = 0; la < nLat; la += WIND_SUBSAMPLE_STEP) cLat++;
+			int cLon = 0; for (int lo = 0; lo < nLon; lo += WIND_SUBSAMPLE_STEP) cLon++;
+			int total = cLat * cLon;
+
+			double[] subLats = new double[total];
+			double[] subLons = new double[total];
+			double[] uArr    = new double[total];
+			double[] vArr    = new double[total];
+
+			int k = 0;
+			for (int la = 0; la < nLat; la += WIND_SUBSAMPLE_STEP) {
+				for (int lo = 0; lo < nLon; lo += WIND_SUBSAMPLE_STEP) {
+					subLats[k] = latCoords[la];
+					subLons[k] = lonCoords[lo];
+					uArr[k]    = uData.getFloat(uIdx.set(0, 0, la, lo));
+					vArr[k]    = vData.getFloat(vIdx.set(0, 0, la, lo));
+					k++;
+				}
+			}
+
+			log.info("Carte de vent extraite : {}x{} grid, {} vecteurs", nLat, nLon, k);
+			return new WindMapData(windSpeed, latCoords, lonCoords, subLats, subLons, uArr, vArr);
+
+		} catch (IOException e) {
+			throw new NetCDFException(e, "error.netcdf.read.wind", filename);
+		}
+	}
+
+	/**
+	 * Extrait un diagramme de Hovmöller : temps × latitude (ou longitude).
+	 * Pour chaque timestep, on moyenne sur la dimension spatiale non affichée.
+	 * Lecture partielle : {@code nTime×1×nLat×nLon} (4D) ou {@code nTime×nLat×nLon} (3D).
+	 *
+	 * @param type "latitude" ou "longitude" — la dimension spatiale conservée
+	 * @param altitudeIndex index d'altitude (ignoré pour variables 3D)
+	 * @return HovmollerData record typé
+	 */
+	public HovmollerData extractHovmoller(String filename, String variableName,
+			int altitudeIndex, String type) {
+
+		log.info("Extraction Hovmöller : fichier={}, variable={}, altitude={}, type={}",
+				filename, variableName, altitudeIndex, type);
+
+		try (NetcdfFile ncfile = openMeanFile(filename)) {
+			ucar.nc2.Variable variable = requireVariable(ncfile, variableName);
+
+			int[]   varShape  = variable.getShape();
+			boolean isSurface = (varShape.length == 3);
+			int     nTime     = varShape[0];
+			int     nLat      = isSurface ? varShape[1] : varShape[2];
+			int     nLon      = isSurface ? varShape[2] : varShape[3];
+
+			ucar.ma2.Array data = isSurface
+				? readSection(variable, new int[]{0, 0, 0},               new int[]{nTime, nLat, nLon})
+				: readSection(variable, new int[]{0, altitudeIndex, 0, 0}, new int[]{nTime, 1, nLat, nLon});
+
+			ucar.ma2.Index index = data.getIndex();
+
+			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
+			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
+
+			boolean isLatitude = "latitude".equals(type);
+			int     nSpatial   = isLatitude ? nLat : nLon;
+			int     nAvg       = isLatitude ? nLon : nLat;
+
+			float[][] hovmoller = new float[nTime][nSpatial];
+
+			for (int t = 0; t < nTime; t++) {
+				for (int s = 0; s < nSpatial; s++) {
+					double sum = 0;
+					int count = 0;
+					for (int a = 0; a < nAvg; a++) {
+						int latIdx = isLatitude ? s : a;
+						int lonIdx = isLatitude ? a : s;
+						float val = data.getFloat(
+							isSurface ? index.set(t, latIdx, lonIdx) : index.set(t, 0, latIdx, lonIdx));
+						if (!Float.isNaN(val)) {
+							sum += val;
+							count++;
+						}
+					}
+					hovmoller[t][s] = count > 0 ? (float) (sum / count) : Float.NaN;
+				}
+			}
+
+			double[] spatialCoords = isLatitude ? latitudes : longitudes;
+			// Generate time axis (0.5h intervals for 48 timesteps)
+			double[] times = new double[nTime];
+			for (int t = 0; t < nTime; t++) {
+				times[t] = t * 0.5;
+			}
+
+			log.info("Hovmöller {} extrait : {}x{}", type, nTime, nSpatial);
+			return new HovmollerData(hovmoller, times, spatialCoords);
+
+		} catch (IOException e) {
+			throw new NetCDFException(e, "error.netcdf.read.hovmoller", filename);
+		}
+	}
+
+	/**
+	 * Extrait une moyenne zonale : lat × altitude.
+	 * Pour chaque (lat, alt), on moyenne sur toutes les longitudes à un timestep donné.
+	 * Réservé aux variables 4D.
+	 *
+	 * @return ZonalMeanData record typé
+	 */
+	public ZonalMeanData extractZonalMean(String filename, String variableName, int timeIndex) {
+
+		log.info("Extraction Zonal Mean : fichier={}, variable={}, time={}",
+				filename, variableName, timeIndex);
+
+		try (NetcdfFile ncfile = openMeanFile(filename)) {
+			ucar.nc2.Variable variable = requireVariable(ncfile, variableName);
+
+			int[] varShape = variable.getShape();
+			if (varShape.length == 3) {
+				throw new NetCDFException("error.netcdf.surface.no.crosssection", variableName);
+			}
+
+			int nAlt = varShape[1];
+			int nLat = varShape[2];
+			int nLon = varShape[3];
+
+			ucar.ma2.Array data = readSection(variable,
+				new int[]{timeIndex, 0, 0, 0}, new int[]{1, nAlt, nLat, nLon});
+			ucar.ma2.Index index = data.getIndex();
+
+			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
+			String   altDimName = variable.getDimension(1).getShortName();
+			double[] altCoords  = extractCoordinates(ncfile, altDimName);
+
+			float[][] zonalMean = new float[nAlt][nLat];
+
+			for (int a = 0; a < nAlt; a++) {
+				for (int lat = 0; lat < nLat; lat++) {
+					double sum = 0;
+					int count = 0;
+					for (int lon = 0; lon < nLon; lon++) {
+						float val = data.getFloat(index.set(0, a, lat, lon));
+						if (!Float.isNaN(val)) {
+							sum += val;
+							count++;
+						}
+					}
+					zonalMean[a][lat] = count > 0 ? (float) (sum / count) : Float.NaN;
+				}
+			}
+
+			log.info("Zonal Mean extrait : {}x{}", nAlt, nLat);
+			return new ZonalMeanData(zonalMean, latitudes, altCoords);
+
+		} catch (IOException e) {
+			throw new NetCDFException(e, "error.netcdf.read.zonalmean", filename);
+		}
+	}
+
+	/**
+	 * Extrait le tableau complet des altitudes (en km) pour une variable.
+	 * Retourne {@code null} pour les variables de surface (3D).
+	 *
+	 * @return tableau d'altitudes en km, ou null si variable de surface
+	 */
+	public double[] extractAltitudeArray(String filename, String variableName) {
+		log.debug("Extraction tableau altitudes : fichier={}, variable={}", filename, variableName);
+
+		try (NetcdfFile ncfile = openMeanFile(filename)) {
+			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
+			if (variable == null) {
+				throw new NetCDFException("error.netcdf.variable.not.in.file", variableName, filename);
+			}
+
+			int[] shape = variable.getShape();
+			if (shape.length == 3) {
+				log.debug("Variable de surface, pas d'altitude");
+				return null;
+			}
+
+			String altDimName = variable.getDimension(1).getShortName();
+			double[] altCoords = extractCoordinates(ncfile, altDimName);
+			log.debug("Tableau altitudes extrait : {} niveaux", altCoords.length);
+			return altCoords;
+
+		} catch (IOException e) {
+			throw new NetCDFException(e, "error.netcdf.read.altitude", filename);
+		}
+	}
+
+	/**
 	 * Extrait la valeur réelle de l'altitude à un index donné pour une variable.
 	 * Retourne {@code null} pour les variables de surface (3D).
 	 */
@@ -552,7 +873,7 @@ public class NetCDFReaderService {
 	 * @param target valeur cible
 	 * @return index le plus proche
 	 */
-	public int findNearestIndex(double[] coords, double target) {
+	int findNearestIndex(double[] coords, double target) {
 		if (coords == null || coords.length == 0) {
 			throw new NetCDFException("error.netcdf.coordinates.not.found");
 		}
@@ -593,8 +914,12 @@ public class NetCDFReaderService {
 			coords[i] = coordArray.getDouble(i);
 		}
 
-		log.debug("Coordonnées {} extraites : {} valeurs [{} à {}]",
-				coordName, size, coords[0], coords[size - 1]);
+		if (size > 0) {
+			log.debug("Coordonnées {} extraites : {} valeurs [{} à {}]",
+					coordName, size, coords[0], coords[size - 1]);
+		} else {
+			log.debug("Coordonnées {} extraites : tableau vide", coordName);
+		}
 		return coords;
 	}
 }

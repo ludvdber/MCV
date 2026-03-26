@@ -57,7 +57,7 @@ public class CatalogService {
     /**
      * Cache mémoire du catalogue. Évite les scans disque répétés.
      */
-    private List<DatasetMetadata> catalog = new ArrayList<>();
+    private volatile List<DatasetMetadata> catalog = new ArrayList<>();
 
     /**
      * Constructeur avec injection de dépendances.

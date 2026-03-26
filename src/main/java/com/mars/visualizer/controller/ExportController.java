@@ -1,7 +1,5 @@
 package com.mars.visualizer.controller;
 
-import java.util.List;
-
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -12,217 +10,297 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.mars.visualizer.dto.internal.*;
 import com.mars.visualizer.exception.ValidationException;
 import com.mars.visualizer.service.NetCDFReaderService;
-import com.mars.visualizer.service.NetCDFReaderService.CrossSectionData;
-import com.mars.visualizer.service.NetCDFReaderService.ProfileData;
-import com.mars.visualizer.service.NetCDFReaderService.SliceData;
+import com.mars.visualizer.service.NetCDFWriterService;
 import com.mars.visualizer.service.ValidationService;
+import com.mars.visualizer.util.CSVBuilder;
 import com.mars.visualizer.util.DatasetResolver;
 import com.mars.visualizer.util.MarsConstants;
 
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Controller REST pour l'export de données (UC4).
- * Permet d'exporter les résultats de visualisation en format CSV.
- *
- * @author Ludo
- * @version 2.0
+ * Controller REST pour l'export CSV de toutes les visualisations.
  */
 @RestController
 @RequestMapping("/api/export")
 @Slf4j
 public class ExportController extends AbstractDataController {
 
-    private static final MediaType TEXT_CSV = MediaType.parseMediaType("text/csv");
+	private static final MediaType TEXT_CSV = MediaType.parseMediaType("text/csv");
+	private static final MediaType NETCDF = MediaType.parseMediaType("application/x-netcdf");
 
-    private final NetCDFReaderService netcdfService;
+	private final NetCDFReaderService netcdfService;
+	private final NetCDFWriterService netcdfWriter;
 
-    public ExportController(NetCDFReaderService netcdfService,
-                            ValidationService validationService,
-                            DatasetResolver datasetResolver) {
-        super(validationService, datasetResolver);
-        this.netcdfService = netcdfService;
-        log.info("ExportController initialisé");
-    }
+	public ExportController(NetCDFReaderService netcdfService,
+			NetCDFWriterService netcdfWriter,
+			ValidationService validationService,
+			DatasetResolver datasetResolver) {
+		super(validationService, datasetResolver);
+		this.netcdfService = netcdfService;
+		this.netcdfWriter = netcdfWriter;
+	}
 
-    @GetMapping("/csv/slice")
-    public ResponseEntity<String> exportSliceCSV(
-            @RequestParam String dataset,
-            @RequestParam(defaultValue = "TT") String variable,
-            @RequestParam(defaultValue = "0") int time,
-            @RequestParam(defaultValue = "0") int altitude) {
+	@GetMapping("/csv/slice")
+	public ResponseEntity<String> exportSliceCSV(
+			@RequestParam String dataset,
+			@RequestParam(defaultValue = "TT") String variable,
+			@RequestParam(defaultValue = "0") int time,
+			@RequestParam(defaultValue = "0") int altitude) {
 
-        log.info("GET /api/export/csv/slice : dataset={}, variable={}, time={}, altitude={}",
-                dataset, variable, time, altitude);
+		var resolved = resolveDataset(dataset, time);
+		validationService.validateTimestep(resolved.time());
+		validationService.validateAltitude(altitude);
 
-        var resolved = resolveDataset(dataset, time);
-        time = resolved.time();
-        validationService.validateTimestep(time);
-        validationService.validateAltitude(altitude);
+		SliceData slice = netcdfService.extractSlice2DWithCoords(resolved.filename(), variable, resolved.time(), altitude);
+		String csv = CSVBuilder.grid2D(slice.data(), slice.latitudes(), slice.longitudes(),
+				"latitude", "longitude", "value");
 
-        SliceData sliceData = netcdfService.extractSlice2DWithCoords(
-                resolved.filename(), variable, time, altitude);
+		return csvResponse(csv, String.format("slice_%s_%s_t%d_alt%d.csv", dataset, variable, resolved.time(), altitude));
+	}
 
-        String csv = buildSliceCSV(sliceData.data(), sliceData.latitudes(), sliceData.longitudes());
+	@GetMapping("/csv/timeseries")
+	public ResponseEntity<String> exportTimeSeriesCSV(
+			@RequestParam String dataset,
+			@RequestParam(defaultValue = "TT") String variable,
+			@RequestParam double latitude,
+			@RequestParam double longitude,
+			@RequestParam(defaultValue = "0") int altitude) {
 
-        String filename = String.format("slice_%s_%s_t%d_alt%d.csv",
-                dataset, variable, time, altitude);
+		requireMeanDataset(dataset, "error.individual.export.timeseries");
+		String ncFile = datasetResolver.resolveFilename(dataset);
+		validationService.validateLatitude(latitude);
+		validationService.validateLongitude(longitude);
+		validationService.validateAltitude(altitude);
 
-        log.info("Export slice CSV généré : {} lignes, fichier={}",
-                sliceData.data().length * sliceData.data()[0].length, filename);
+		var values = netcdfService.extractTimeSeries(ncFile, variable, latitude, longitude, altitude);
+		String csv = CSVBuilder.series(values, "timestep", "value");
 
-        return csvResponse(csv, filename);
-    }
+		return csvResponse(csv, String.format("timeseries_%s_%s_lat%s_lon%s_alt%d.csv",
+				dataset, variable, datasetResolver.formatCoord(latitude),
+				datasetResolver.formatCoord(longitude), altitude));
+	}
 
-    @GetMapping("/csv/timeseries")
-    public ResponseEntity<String> exportTimeSeriesCSV(
-            @RequestParam String dataset,
-            @RequestParam(defaultValue = "TT") String variable,
-            @RequestParam double latitude,
-            @RequestParam double longitude,
-            @RequestParam(defaultValue = "0") int altitude) {
+	@GetMapping("/csv/profile")
+	public ResponseEntity<String> exportProfileCSV(
+			@RequestParam String dataset,
+			@RequestParam(defaultValue = "TT") String variable,
+			@RequestParam(defaultValue = "0") int time,
+			@RequestParam double latitude,
+			@RequestParam double longitude) {
 
-        log.info("GET /api/export/csv/timeseries : dataset={}, variable={}, lat={}, lon={}, altitude={}",
-                dataset, variable, latitude, longitude, altitude);
+		var resolved = resolveDataset(dataset, time);
+		validationService.validateTimestep(resolved.time());
+		validationService.validateLatitude(latitude);
+		validationService.validateLongitude(longitude);
 
-        if (datasetResolver.isIndividualDataset(dataset)) {
-            throw new ValidationException("error.individual.export.timeseries");
-        }
+		ProfileData profile = netcdfService.extractVerticalProfile(resolved.filename(), variable, resolved.time(), latitude, longitude);
+		String csv = CSVBuilder.profile(profile.values(), profile.altitudes());
 
-        String ncFile = datasetResolver.resolveFilename(dataset);
-        validationService.validateLatitude(latitude);
-        validationService.validateLongitude(longitude);
-        validationService.validateAltitude(altitude);
+		return csvResponse(csv, String.format("profile_%s_%s_t%d_lat%s_lon%s.csv",
+				dataset, variable, resolved.time(),
+				datasetResolver.formatCoord(latitude), datasetResolver.formatCoord(longitude)));
+	}
 
-        List<Float> values = netcdfService.extractTimeSeries(
-                ncFile, variable, latitude, longitude, altitude);
+	@GetMapping("/csv/crosssection")
+	public ResponseEntity<String> exportCrossSectionCSV(
+			@RequestParam String dataset,
+			@RequestParam(defaultValue = "TT") String variable,
+			@RequestParam(defaultValue = "0") int time,
+			@RequestParam String type,
+			@RequestParam double fixedCoordinate) {
 
-        String csv = buildTimeSeriesCSV(values);
+		var resolved = resolveDataset(dataset, time);
+		validationService.validateTimestep(resolved.time());
+		validateCrossSectionType(type, fixedCoordinate);
 
-        String filename = String.format("timeseries_%s_%s_lat%s_lon%s_alt%d.csv",
-                dataset, variable,
-                datasetResolver.formatCoord(latitude),
-                datasetResolver.formatCoord(longitude),
-                altitude);
+		CrossSectionData cs = netcdfService.extractCrossSection(resolved.filename(), variable, resolved.time(), type, fixedCoordinate);
+		String horizLabel = MarsConstants.CROSS_SECTION_MERIDIONAL.equals(type) ? "latitude" : "longitude";
+		String csv = CSVBuilder.grid2D(cs.data(), cs.altitudes(), cs.horizontalCoords(),
+				"altitude_km", horizLabel, "value");
 
-        log.info("Export série temporelle CSV généré : {} valeurs, fichier={}", values.size(), filename);
-        return csvResponse(csv, filename);
-    }
+		return csvResponse(csv, String.format("crosssection_%s_%s_%s_t%d_fixed%s.csv",
+				dataset, variable, type, resolved.time(), datasetResolver.formatCoord(fixedCoordinate)));
+	}
 
-    @GetMapping("/csv/profile")
-    public ResponseEntity<String> exportProfileCSV(
-            @RequestParam String dataset,
-            @RequestParam(defaultValue = "TT") String variable,
-            @RequestParam(defaultValue = "0") int time,
-            @RequestParam double latitude,
-            @RequestParam double longitude) {
+	@GetMapping("/csv/hovmoller")
+	public ResponseEntity<String> exportHovmollerCSV(
+			@RequestParam String dataset,
+			@RequestParam(defaultValue = "TT") String variable,
+			@RequestParam(defaultValue = "0") int altitude,
+			@RequestParam(defaultValue = "latitude") String type) {
 
-        log.info("GET /api/export/csv/profile : dataset={}, variable={}, time={}, lat={}, lon={}",
-                dataset, variable, time, latitude, longitude);
+		requireMeanDataset(dataset, "error.individual.hovmoller");
+		validateHovmollerType(type);
+		String filename = datasetResolver.resolveFilename(dataset);
+		validationService.validateAltitude(altitude);
 
-        var resolved = resolveDataset(dataset, time);
-        time = resolved.time();
-        validationService.validateTimestep(time);
-        validationService.validateLatitude(latitude);
-        validationService.validateLongitude(longitude);
+		HovmollerData hov = netcdfService.extractHovmoller(filename, variable, altitude, type);
+		String spatialLabel = "latitude".equals(type) ? "latitude" : "longitude";
+		String csv = CSVBuilder.grid2D(hov.data(), hov.times(), hov.spatialCoords(),
+				"time_h", spatialLabel, "value");
 
-        ProfileData profileData = netcdfService.extractVerticalProfile(
-                resolved.filename(), variable, time, latitude, longitude);
+		return csvResponse(csv, String.format("hovmoller_%s_%s_%s_alt%d.csv", dataset, variable, type, altitude));
+	}
 
-        StringBuilder sb = new StringBuilder("altitude_km,value\n");
-        for (int i = 0; i < profileData.values().size(); i++) {
-            double alt = (profileData.altitudes() != null && i < profileData.altitudes().length)
-                    ? profileData.altitudes()[i] : i;
-            sb.append(alt).append(',').append(profileData.values().get(i)).append('\n');
-        }
+	@GetMapping("/csv/zonalmean")
+	public ResponseEntity<String> exportZonalMeanCSV(
+			@RequestParam String dataset,
+			@RequestParam(defaultValue = "TT") String variable,
+			@RequestParam(defaultValue = "0") int time) {
 
-        String filename = String.format("profile_%s_%s_t%d_lat%s_lon%s.csv",
-                dataset, variable, time,
-                datasetResolver.formatCoord(latitude),
-                datasetResolver.formatCoord(longitude));
+		var resolved = resolveDataset(dataset, time);
+		validationService.validateTimestep(resolved.time());
 
-        log.info("Export profil CSV généré : {} niveaux, fichier={}", profileData.values().size(), filename);
-        return csvResponse(sb.toString(), filename);
-    }
+		ZonalMeanData zm = netcdfService.extractZonalMean(resolved.filename(), variable, resolved.time());
+		String csv = CSVBuilder.grid2D(zm.data(), zm.altitudes(), zm.latitudes(),
+				"altitude_km", "latitude", "value");
 
-    @GetMapping("/csv/crosssection")
-    public ResponseEntity<String> exportCrossSectionCSV(
-            @RequestParam String dataset,
-            @RequestParam(defaultValue = "TT") String variable,
-            @RequestParam(defaultValue = "0") int time,
-            @RequestParam String type,
-            @RequestParam double fixedCoordinate) {
+		return csvResponse(csv, String.format("zonalmean_%s_%s_t%d.csv", dataset, variable, resolved.time()));
+	}
 
-        log.info("GET /api/export/csv/crosssection : dataset={}, variable={}, time={}, type={}, fixed={}",
-                dataset, variable, time, type, fixedCoordinate);
+	@GetMapping("/csv/windrose")
+	public ResponseEntity<String> exportWindRoseCSV(
+			@RequestParam String dataset,
+			@RequestParam double latitude,
+			@RequestParam double longitude,
+			@RequestParam(defaultValue = "49") int altitude) {
 
-        var resolved = resolveDataset(dataset, time);
-        time = resolved.time();
-        validationService.validateTimestep(time);
+		requireMeanDataset(dataset, "error.individual.windrose");
+		String filename = datasetResolver.resolveFilename(dataset);
+		validationService.validateLatitude(latitude);
+		validationService.validateLongitude(longitude);
+		validationService.validateAltitude(altitude);
 
-        if (!MarsConstants.CROSS_SECTION_MERIDIONAL.equals(type) && !MarsConstants.CROSS_SECTION_ZONAL.equals(type)) {
-            throw new ValidationException("error.netcdf.crosssection.type", type);
-        }
+		WindRoseData wr = netcdfService.extractWindRose(filename, latitude, longitude, altitude);
+		String csv = CSVBuilder.pairedSeries(wr.uu(), wr.vv(), "timestep", "uu_m_s", "vv_m_s");
 
-        if (MarsConstants.CROSS_SECTION_MERIDIONAL.equals(type)) {
-            validationService.validateLongitude(fixedCoordinate);
-        } else {
-            validationService.validateLatitude(fixedCoordinate);
-        }
+		return csvResponse(csv, String.format("windrose_%s_lat%s_lon%s_alt%d.csv",
+				dataset, datasetResolver.formatCoord(latitude), datasetResolver.formatCoord(longitude), altitude));
+	}
 
-        CrossSectionData csData = netcdfService.extractCrossSection(
-                resolved.filename(), variable, time, type, fixedCoordinate);
+	@GetMapping("/csv/windmap")
+	public ResponseEntity<String> exportWindMapCSV(
+			@RequestParam String dataset,
+			@RequestParam(defaultValue = "0") int time,
+			@RequestParam(defaultValue = "49") int altitude) {
 
-        String horizLabel = MarsConstants.CROSS_SECTION_MERIDIONAL.equals(type) ? "latitude" : "longitude";
-        StringBuilder sb = new StringBuilder("altitude_km,").append(horizLabel).append(",value\n");
+		var resolved = resolveDataset(dataset, time);
+		validationService.validateTimestep(resolved.time());
+		validationService.validateAltitude(altitude);
 
-        for (int a = 0; a < csData.data().length; a++) {
-            double alt = (csData.altitudes() != null && a < csData.altitudes().length)
-                    ? csData.altitudes()[a] : a;
-            for (int h = 0; h < csData.data()[a].length; h++) {
-                double coord = (csData.horizontalCoords() != null && h < csData.horizontalCoords().length)
-                        ? csData.horizontalCoords()[h] : h;
-                sb.append(alt).append(',').append(coord).append(',').append(csData.data()[a][h]).append('\n');
-            }
-        }
+		WindMapData wm = netcdfService.extractWindMap(resolved.filename(), resolved.time(), altitude);
+		String csv = CSVBuilder.grid2D(wm.windSpeed(), wm.latitudes(), wm.longitudes(),
+				"latitude", "longitude", "wind_speed_m_s");
 
-        String filename = String.format("crosssection_%s_%s_%s_t%d_fixed%s.csv",
-                dataset, variable, type, time, datasetResolver.formatCoord(fixedCoordinate));
+		return csvResponse(csv, String.format("windmap_%s_t%d_alt%d.csv", dataset, resolved.time(), altitude));
+	}
 
-        log.info("Export coupe verticale CSV généré : {}x{}, fichier={}",
-                csData.data().length, csData.data().length > 0 ? csData.data()[0].length : 0, filename);
-        return csvResponse(sb.toString(), filename);
-    }
+	@GetMapping("/csv/difference")
+	public ResponseEntity<String> exportDifferenceCSV(
+			@RequestParam String datasetA,
+			@RequestParam String datasetB,
+			@RequestParam(defaultValue = "TT") String variable,
+			@RequestParam(defaultValue = "0") int time,
+			@RequestParam(defaultValue = "0") int altitude) {
 
-    // Méthodes utilitaires
+		var resolvedA = resolveDataset(datasetA, time);
+		var resolvedB = resolveDataset(datasetB, time);
+		validationService.validateTimestep(resolvedA.time());
+		validationService.validateTimestep(resolvedB.time());
+		validationService.validateAltitude(altitude);
 
-    private String buildSliceCSV(float[][] data, double[] latitudes, double[] longitudes) {
-        StringBuilder sb = new StringBuilder("latitude,longitude,value\n");
-        for (int i = 0; i < data.length; i++) {
-            double lat = (latitudes != null && i < latitudes.length) ? latitudes[i] : i;
-            for (int j = 0; j < data[i].length; j++) {
-                double lon = (longitudes != null && j < longitudes.length) ? longitudes[j] : j;
-                sb.append(lat).append(',').append(lon).append(',').append(data[i][j]).append('\n');
-            }
-        }
-        return sb.toString();
-    }
+		SliceData sliceA = netcdfService.extractSlice2DWithCoords(resolvedA.filename(), variable, resolvedA.time(), altitude);
+		SliceData sliceB = netcdfService.extractSlice2DWithCoords(resolvedB.filename(), variable, resolvedB.time(), altitude);
+		String csv = CSVBuilder.differenceGrid(sliceA.data(), sliceB.data(), sliceA.latitudes(), sliceA.longitudes());
 
-    private String buildTimeSeriesCSV(List<Float> values) {
-        StringBuilder sb = new StringBuilder("timestep,value\n");
-        for (int t = 0; t < values.size(); t++) {
-            sb.append(t).append(',').append(values.get(t)).append('\n');
-        }
-        return sb.toString();
-    }
+		return csvResponse(csv, String.format("difference_%s_vs_%s_%s_t%d_alt%d.csv",
+				datasetA, datasetB, variable, time, altitude));
+	}
 
-    private ResponseEntity<String> csvResponse(String csvContent, String filename) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(TEXT_CSV);
-        headers.setContentDispositionFormData("attachment", filename);
-        headers.setCacheControl(CacheControl.noStore().getHeaderValue());
-        return new ResponseEntity<>(csvContent, headers, HttpStatus.OK);
-    }
+	@GetMapping("/csv/temporal-profile")
+	public ResponseEntity<String> exportTemporalProfileCSV(
+			@RequestParam String dataset,
+			@RequestParam(defaultValue = "TT") String variable,
+			@RequestParam double latitude,
+			@RequestParam double longitude) {
+
+		var resolved = resolveDataset(dataset, 0);
+		validationService.validateLatitude(latitude);
+		validationService.validateLongitude(longitude);
+
+		TemporalProfileData tp = netcdfService.extractTemporalProfile(resolved.filename(), variable, latitude, longitude);
+		int nTime = tp.data()[0].length;
+		String csv = CSVBuilder.temporalProfile(tp.data(), tp.altitudes(), nTime);
+
+		return csvResponse(csv, String.format("temporal_profile_%s_lat%s_lon%s.csv",
+				variable, datasetResolver.formatCoord(latitude), datasetResolver.formatCoord(longitude)));
+	}
+
+	// --- Helpers ---
+
+	private void requireMeanDataset(String dataset, String errorKey) {
+		if (datasetResolver.isIndividualDataset(dataset)) {
+			throw new ValidationException(errorKey);
+		}
+	}
+
+	private void validateHovmollerType(String type) {
+		if (!MarsConstants.HOVMOLLER_LATITUDE.equals(type) && !MarsConstants.HOVMOLLER_LONGITUDE.equals(type)) {
+			throw new ValidationException("error.netcdf.hovmoller.type", type);
+		}
+	}
+
+	private void validateCrossSectionType(String type, double fixedCoordinate) {
+		if (!MarsConstants.CROSS_SECTION_MERIDIONAL.equals(type) && !MarsConstants.CROSS_SECTION_ZONAL.equals(type)) {
+			throw new ValidationException("error.netcdf.crosssection.type", type);
+		}
+		if (MarsConstants.CROSS_SECTION_MERIDIONAL.equals(type)) {
+			validationService.validateLongitude(fixedCoordinate);
+		} else {
+			validationService.validateLatitude(fixedCoordinate);
+		}
+	}
+
+	// =========================================================================
+	// NetCDF export
+	// =========================================================================
+
+	@GetMapping("/netcdf/slice")
+	public ResponseEntity<byte[]> exportSliceNetCDF(
+			@RequestParam String dataset,
+			@RequestParam(defaultValue = "TT") String variable,
+			@RequestParam(defaultValue = "0") int time,
+			@RequestParam(defaultValue = "0") int altitude) throws java.io.IOException {
+
+		var resolved = resolveDataset(dataset, time);
+		validationService.validateTimestep(resolved.time());
+		validationService.validateAltitude(altitude);
+		SliceData slice = netcdfService.extractSlice2DWithCoords(resolved.filename(), variable, resolved.time(), altitude);
+		byte[] ncData = netcdfWriter.writeSliceNetCDF(variable, "see_source", slice.latitudes(), slice.longitudes(), slice.data());
+		return netcdfResponse(ncData, String.format("slice_%s_t%d_a%d.nc", variable, time, altitude));
+	}
+
+	// =========================================================================
+	// Helpers
+	// =========================================================================
+
+	private ResponseEntity<String> csvResponse(String csvContent, String filename) {
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(TEXT_CSV);
+		headers.setContentDispositionFormData("attachment", filename);
+		headers.setCacheControl(CacheControl.noStore().getHeaderValue());
+		return new ResponseEntity<>(csvContent, headers, HttpStatus.OK);
+	}
+
+	private ResponseEntity<byte[]> netcdfResponse(byte[] data, String filename) {
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(NETCDF);
+		headers.setContentDispositionFormData("attachment", filename);
+		headers.setCacheControl(CacheControl.noStore().getHeaderValue());
+		return new ResponseEntity<>(data, headers, HttpStatus.OK);
+	}
 }

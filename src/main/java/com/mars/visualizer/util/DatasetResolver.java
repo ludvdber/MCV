@@ -13,7 +13,7 @@ import com.mars.visualizer.service.IndividualCatalogService;
 /**
  * Composant utilitaire centralisant la logique de resolution des datasets
  * MEAN et INDIVIDUAL, ainsi que les conversions communes utilisees par
- * les controllers {@code FileController} et {@code ExportController}.
+ * tous les controllers data et export.
  *
  * @author Ludo
  * @version 1.0
@@ -63,8 +63,20 @@ public class DatasetResolver {
 		if (!m.matches()) {
 			throw new ValidationException("error.dataset.individual.format", dataset);
 		}
-		int marsYear    = Integer.parseInt(m.group(1));
-		double targetLs = Double.parseDouble(m.group(2));
+		int marsYear;
+		double targetLs;
+		try {
+			marsYear = Integer.parseInt(m.group(1));
+			targetLs = Double.parseDouble(m.group(2));
+		} catch (NumberFormatException e) {
+			throw new ValidationException("error.dataset.individual.format", dataset);
+		}
+		if (marsYear < 0 || marsYear > 200) {
+			throw new ValidationException("error.individual.year.not.available", marsYear);
+		}
+		if (targetLs < 0 || targetLs >= 360) {
+			throw new ValidationException("error.dataset.individual.format", dataset);
+		}
 
 		Path filePath = individualCatalogService.findClosestFile(marsYear, targetLs);
 		return filePath.toAbsolutePath().toString();
@@ -76,13 +88,6 @@ public class DatasetResolver {
 	public Double getActualLs(String dataset, String resolvedPath) {
 		if (!isIndividualDataset(dataset)) return null;
 		return individualCatalogService.getActualLs(Path.of(resolvedPath));
-	}
-
-	/**
-	 * Retourne 0 si le dataset est INDIVIDUAL, sinon retourne le time original.
-	 */
-	public int adjustTimeForIndividual(String dataset, int time) {
-		return isIndividualDataset(dataset) ? 0 : time;
 	}
 
 	/**
