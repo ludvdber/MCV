@@ -14,8 +14,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.mars.visualizer.config.DataPathConfig;
 import com.mars.visualizer.exception.NetCDFException;
-import com.mars.visualizer.service.NetCDFReaderService.ProfileData;
-import com.mars.visualizer.service.NetCDFReaderService.SliceData;
+import com.mars.visualizer.dto.internal.ProfileData;
+import com.mars.visualizer.dto.internal.SliceData;
 
 import ucar.ma2.ArrayDouble;
 import ucar.ma2.ArrayFloat;
