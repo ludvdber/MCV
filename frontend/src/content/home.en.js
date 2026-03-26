@@ -20,6 +20,11 @@ const FEATURES_TEXT = [
   { title: 'Time series',       tag: 'Local analysis',          body: "Complete diurnal cycle at a specific geographic point and altitude. Detect local signatures and extremes." },
   { title: 'Vertical profile',  tag: 'Vertical structure',      body: "Distribution of a variable across the 103 altitude levels. Complete thermal and dynamic structure of the column." },
   { title: 'Cross section',     tag: 'Meridional cross section', body: "Cross-sectional view of the atmosphere at a fixed longitude or latitude. The global structure of the atmosphere at a glance." },
+  { title: 'Hovmöller',         tag: 'Time × space',             body: "Temporal evolution averaged over one spatial dimension. Reveals diurnal wave propagation and planetary-scale patterns." },
+  { title: 'Zonal Mean',        tag: 'Lat × altitude',           body: "Longitude-averaged vertical structure. The classic view for studying Hadley cells, jets and thermal contrasts." },
+  { title: 'Wind Rose',        tag: 'Wind climatology',         body: "Polar diagram of wind direction and speed distribution over a full diurnal cycle. Reveals dominant wind regimes at a given point." },
+  { title: 'Temporal profile', tag: 'Time\u00d7altitude grid',   body: "Visualize how a variable evolves over the diurnal cycle at all altitude levels. Ideal for studying thermal tides and atmospheric waves." },
+  { title: 'Difference',       tag: 'Dataset comparison',       body: "Subtract two datasets to reveal anomalies and differences. Symmetric diverging palette highlights positive and negative deviations." },
   { title: 'Explorer',          tag: 'Full interface',           body: "All-in-one view for advanced users\u00a0: dataset, variable, visualization type and export on a single screen. The power of all views, without navigation." },
 ];
 

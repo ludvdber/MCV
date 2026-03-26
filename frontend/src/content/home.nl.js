@@ -19,8 +19,13 @@ const FEATURES_TEXT = [
   { title: 'Animation',             tag: 'Dagcyclus',               body: "Evolutie van een variabele over 48 opeenvolgende tijdstappen \u2014 een volledige Martiaanse sol geanimeerd in enkele seconden." },
   { title: 'Tijdreeks',             tag: 'Lokale analyse',          body: "Volledige dagcyclus op een geografisch punt en een precieze hoogte. Detecteer lokale signaturen en extremen." },
   { title: 'Verticaal profiel',     tag: 'Verticale structuur',     body: "Verdeling van een variabele over de 103 hoogteniveaus. Volledige thermische en dynamische structuur van de kolom." },
-  { title: 'Verticale doorsnede',   tag: 'Meridionale doorsnede',   body: "Dwarsdoorsnede van de atmosfeer bij een vaste lengte- of breedtegraad. De globale structuur van de atmosfeer in \u00e9\u00e9n blik." },
-  { title: 'Verkennen',             tag: 'Volledige interface',     body: "Alles-in-\u00e9\u00e9n-weergave voor gevorderde gebruikers\u00a0: dataset, variabele, visualisatietype en export op \u00e9\u00e9n scherm. De kracht van alle weergaven, zonder navigatie." },
+  { title: 'Verticale doorsnede',   tag: 'Meridionale doorsnede',   body: "Dwarsdoorsnede van de atmosfeer bij een vaste lengte- of breedtegraad. De globale structuur van de atmosfeer in één blik." },
+  { title: 'Hovmöller',             tag: 'Tijd × ruimte',           body: "Tijdsontwikkeling gemiddeld over één ruimtelijke dimensie. Onthult dagelijkse golfvoortplanting en planetaire patronen." },
+  { title: 'Zonaal gemiddelde',     tag: 'Lat × hoogte',            body: "Verticale structuur gemiddeld over lengtegraad. De klassieke weergave voor Hadley-cellen, jets en thermische contrasten." },
+  { title: 'Windroos',             tag: 'Windklimatologie',        body: "Polair diagram van windrichting en snelheidsverdeling over een volledige dagcyclus. Onthult dominante windregimes op een gegeven punt." },
+  { title: 'Temporeel profiel',    tag: 'Tijd\u00d7hoogte raster',  body: "Visualiseer hoe een variabele evolueert over de dagcyclus op alle hoogteniveaus. Ideaal voor het bestuderen van thermische getijden en atmosferische golven." },
+  { title: 'Verschil',             tag: 'Dataset vergelijking',    body: "Trek twee datasets van elkaar af om anomalieën en verschillen te onthullen. Een symmetrisch divergerend palet benadrukt positieve en negatieve afwijkingen." },
+  { title: 'Verkennen',             tag: 'Volledige interface',     body: "Alles-in-één-weergave voor gevorderde gebruikers\u00a0: dataset, variabele, visualisatietype en export op één scherm. De kracht van alle weergaven, zonder navigatie." },
 ];
 
 const STATS_TEXT = [

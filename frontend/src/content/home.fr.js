@@ -19,8 +19,13 @@ const FEATURES_TEXT = [
   { title: 'Animation',         tag: 'Cycle diurne',              body: "\u00c9volution d\u2019une variable sur 48 pas de temps cons\u00e9cutifs \u2014 un sol martien complet anim\u00e9 en quelques secondes." },
   { title: 'S\u00e9rie temporelle', tag: 'Analyse locale',        body: "Cycle diurne complet en un point g\u00e9ographique et une altitude pr\u00e9cis. D\u00e9tectez les signatures locales et les extr\u00eames." },
   { title: 'Profil vertical',   tag: 'Structure verticale',       body: "Distribution d\u2019une variable sur les 103 niveaux d\u2019altitude. Structure thermique et dynamique compl\u00e8te de la colonne." },
-  { title: 'Coupe verticale',   tag: 'Coupe m\u00e9ridionale',    body: "Vue en coupe de l\u2019atmosph\u00e8re \u00e0 longitude ou latitude fix\u00e9e. La structure globale de l\u2019atmosph\u00e8re en un regard." },
-  { title: 'Explorer',          tag: 'Interface compl\u00e8te',   body: "Vue tout-en-un pour les utilisateurs avanc\u00e9s\u00a0: dataset, variable, type de visualisation et export dans un seul \u00e9cran. La puissance de toutes les vues, sans navigation." },
+  { title: 'Coupe verticale',   tag: 'Coupe méridionale',    body: "Vue en coupe de l\u2019atmosphère à longitude ou latitude fixée. La structure globale de l\u2019atmosphère en un regard." },
+  { title: 'Hovmöller',         tag: 'Temps × espace',       body: "Évolution temporelle moyennée sur une dimension spatiale. Révèle la propagation des ondes diurnes et les structures planétaires." },
+  { title: 'Moyenne zonale',    tag: 'Lat × altitude',       body: "Structure verticale moyennée en longitude. La vue classique pour étudier les cellules de Hadley, jets et contrastes thermiques." },
+  { title: 'Rose des vents',   tag: 'Climatologie du vent', body: "Diagramme polaire de la distribution direction/vitesse du vent sur un cycle diurne complet. Révèle les régimes de vent dominants en un point donné." },
+  { title: 'Profil temporel',  tag: 'Grille temps\u00d7altitude', body: "Visualisez l\u2019\u00e9volution d\u2019une variable sur le cycle diurne \u00e0 tous les niveaux d\u2019altitude. Id\u00e9al pour \u00e9tudier les mar\u00e9es thermiques et ondes atmosph\u00e9riques." },
+  { title: 'Différence',       tag: 'Comparaison de datasets', body: "Soustrayez deux datasets pour révéler les anomalies et différences. Une palette divergente symétrique met en évidence les écarts positifs et négatifs." },
+  { title: 'Explorer',          tag: 'Interface complète',   body: "Vue tout-en-un pour les utilisateurs avancés\u00a0: dataset, variable, type de visualisation et export dans un seul écran. La puissance de toutes les vues, sans navigation." },
 ];
 
 const STATS_TEXT = [

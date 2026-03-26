@@ -14,6 +14,11 @@ export const FEATURES_STRUCTURE = [
   { id: 'timeseries',   route: '/timeseries',   color: '#38bdf8' },
   { id: 'profile',      route: '/profile',      color: '#38bdf8' },
   { id: 'crosssection', route: '/crosssection', color: '#38bdf8' },
+  { id: 'hovmoller',    route: '/hovmoller',    color: '#ff7043' },
+  { id: 'zonalmean',    route: '/zonalmean',    color: '#a855f7' },
+  { id: 'windrose',     route: '/windrose',     color: '#ff7043' },
+  { id: 'temporalprofile', route: '/temporal-profile', color: '#38bdf8' },
+  { id: 'difference',   route: '/difference',   color: '#a855f7' },
   { id: 'explore',      route: '/explore',      color: '#a855f7', featured: true },
 ];
 

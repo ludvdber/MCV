@@ -59,12 +59,12 @@ export default function StatCard({ stat, delay = 0 }) {
 
         {/* Barres comparatives Mars vs Terre */}
         {marsRatio != null && (
-          <Box sx={{ mt: 'auto', pt: 1.5, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+          <Box sx={{ mt: 'auto', pt: 1.5, borderTop: '1px solid var(--glass-border)' }}>
             <Box sx={{ mb: 0.8 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.4 }}>
                 <Typography sx={{ fontSize: '0.68rem', color: 'var(--mars-orange)', fontWeight: 600 }}>Mars</Typography>
               </Box>
-              <Box sx={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+              <Box sx={{ height: 5, borderRadius: 3, background: 'var(--glass-border)', overflow: 'hidden' }}>
                 <Box sx={{
                   height: '100%', borderRadius: 3,
                   width: visible ? `${Math.max(marsRatio * 100, 3)}%` : '0%',
@@ -77,9 +77,9 @@ export default function StatCard({ stat, delay = 0 }) {
             <Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.4 }}>
                 <Typography sx={{ fontSize: '0.68rem', color: '#38bdf8', fontWeight: 600 }}>Terre</Typography>
-                <Typography sx={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.4)' }}>{stat.earthLabel}</Typography>
+                <Typography sx={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>{stat.earthLabel}</Typography>
               </Box>
-              <Box sx={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+              <Box sx={{ height: 5, borderRadius: 3, background: 'var(--glass-border)', overflow: 'hidden' }}>
                 <Box sx={{
                   height: '100%', borderRadius: 3,
                   width: visible ? '100%' : '0%',
@@ -93,7 +93,7 @@ export default function StatCard({ stat, delay = 0 }) {
         )}
         {/* Température : pas de barre (échelles incompatibles) — juste un label Terre */}
         {marsRatio == null && stat.earthLabel && (
-          <Box sx={{ mt: 'auto', pt: 1.5, borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'center' }}>
+          <Box sx={{ mt: 'auto', pt: 1.5, borderTop: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'center' }}>
             <Chip label={stat.earthLabel} size="small" sx={{ height: 20, fontSize: '0.68rem', backgroundColor: 'rgba(56,189,248,0.1)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.25)' }} />
           </Box>
         )}
