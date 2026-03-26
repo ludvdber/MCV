@@ -1,12 +1,12 @@
 plugins {
 	id 'java'
-	id 'org.springframework.boot' version '4.0.3'
+	id 'org.springframework.boot' version '4.0.4'
 	id 'io.spring.dependency-management' version '1.1.7'
 }
 
 group = 'com.mars'
 version = '0.0.1-SNAPSHOT'
-description = 'Mars Atmospheric Data Visualizer'
+description = 'Mars Climate Viewer'
 
 java {
 	toolchain {
@@ -36,6 +36,9 @@ dependencies {
 
 	// Guava - requis par cdm-core 5.9.1
 	implementation 'com.google.guava:guava:33.5.0-jre'
+
+	// OpenAPI / Swagger UI — auto-generated API documentation
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2'
 	
 	// Lombok
 	compileOnly 'org.projectlombok:lombok'
@@ -52,6 +55,43 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	jvmArgs '-XX:+EnableDynamicAgentLoading'
+}
+
+tasks.named('jar') {
+	enabled = false
+}
+
+// ── Frontend build ──────────────────────────────────────────────────────
+def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+def npmCmd = isWindows ? 'npm.cmd' : 'npm'
+
+tasks.register('npmInstall', Exec) {
+	workingDir = file('frontend')
+	commandLine npmCmd, 'install'
+	inputs.file('frontend/package-lock.json')
+	outputs.dir('frontend/node_modules')
+}
+
+tasks.register('buildFrontend', Exec) {
+	dependsOn 'npmInstall'
+	workingDir = file('frontend')
+	commandLine npmCmd, 'run', 'build'
+	inputs.dir('frontend/src')
+	inputs.dir('frontend/public')
+	inputs.file('frontend/index.html')
+	inputs.file('frontend/vite.config.js')
+	outputs.dir('frontend/dist')
+}
+
+tasks.register('copyFrontend', Copy) {
+	dependsOn 'buildFrontend'
+	from 'frontend/dist'
+	into 'build/resources/main/static'
+}
+
+tasks.named('classes') {
+	dependsOn 'copyFrontend'
 }
 
 // Compilation avec flag -parameters pour Spring Boot

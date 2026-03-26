@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+Sitemap: /sitemap.xml
+
+# API endpoints should not be indexed
+Disallow: /api/
+Disallow: /swagger-ui
+Disallow: /api-docs

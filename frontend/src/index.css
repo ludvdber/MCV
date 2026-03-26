@@ -12,6 +12,7 @@
   --mars-deep: #bf3a0a;
   --cyan-accent: #38bdf8;
   --cyan-deep: #0ea5e9;
+  --cyan-highlight: rgba(56, 189, 248, 0.15);
 
   /* Fond spatial */
   --bg-space: #020818;
@@ -30,6 +31,49 @@
   /* Texte */
   --text-primary: rgba(255, 255, 255, 0.95);
   --text-secondary: rgba(255, 255, 255, 0.6);
+}
+
+/* ---------- Light theme CSS Variables ---------- */
+[data-theme='light'] {
+  --bg-space: #f0f2f5;
+  --bg-surface: rgba(255, 255, 255, 0.92);
+  --bg-surface-hover: rgba(0, 0, 0, 0.04);
+  --glass-blur: 12px;
+  --glass-border: rgba(0, 0, 0, 0.1);
+  --glass-shadow: 0 1px 8px rgba(0, 0, 0, 0.08);
+  --text-primary: #1a1a2e;
+  --text-secondary: #64748b;
+  --mars-orange: #c44b1f;
+  --mars-deep: #a83a12;
+  --cyan-accent: #0284c7;
+  --cyan-deep: #0369a1;
+  --cyan-highlight: rgba(2, 132, 199, 0.12);
+}
+
+/* ---------- High Contrast Mode (WCAG AAA: 7:1 ratio) ---------- */
+[data-contrast='high'] {
+  --text-primary: #ffffff;
+  --text-secondary: #d4d4d8;
+  --bg-space: #000000;
+  --bg-surface: rgba(20, 20, 30, 0.95);
+  --glass-border: rgba(255, 255, 255, 0.25);
+  --mars-orange: #ff6b35;
+  --cyan-accent: #5bc0f8;
+}
+[data-contrast='high'][data-theme='light'] {
+  --text-primary: #000000;
+  --text-secondary: #1a1a2e;
+  --bg-space: #ffffff;
+  --bg-surface: rgba(255, 255, 255, 1);
+  --glass-border: rgba(0, 0, 0, 0.3);
+  --mars-orange: #b83a0a;
+  --cyan-accent: #005a8c;
+}
+[data-contrast='high'] .js-plotly-plot text {
+  font-weight: 700 !important;
+}
+[data-contrast='high'] .js-plotly-plot .scatter .lines path {
+  stroke-width: 4px !important;
 }
 
 /* ---------- Reset & Body ---------- */
@@ -105,6 +149,32 @@ body {
   }
 }
 
+/* ---------- Fullscreen: chart fills entire viewport ---------- */
+:fullscreen {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-space);
+  padding: 16px;
+  overflow: auto;
+}
+:fullscreen > * {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+:fullscreen .MuiPaper-root {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+:fullscreen .MuiPaper-root > div,
+:fullscreen .js-plotly-plot,
+:fullscreen .plot-container,
+:fullscreen .svg-container {
+  flex: 1 !important;
+  height: 100% !important;
+}
+
 /* ---------- Custom Scrollbar ---------- */
 ::-webkit-scrollbar {
   width: 8px;
@@ -133,6 +203,72 @@ body {
 @keyframes logoPulse {
   0%, 100% { filter: drop-shadow(0 0 8px rgba(224, 90, 43, 0.6)); }
   50%      { filter: drop-shadow(0 0 16px rgba(224, 90, 43, 0.9)); }
+}
+
+/* ---------- Light theme overrides ---------- */
+[data-theme='light'] body {
+  background: #f0f2f5;
+  color: #1a1a2e;
+}
+
+[data-theme='light'] ::-webkit-scrollbar-track {
+  background: #e2e4e8;
+}
+
+[data-theme='light'] ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--mars-orange), var(--cyan-accent));
+}
+
+[data-theme='light'] * {
+  scrollbar-color: var(--mars-orange) #e2e4e8;
+}
+
+/* Plotly modebar */
+[data-theme='light'] .js-plotly-plot .plotly .modebar {
+  background: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='light'] .js-plotly-plot .plotly .modebar-btn path {
+  fill: rgba(0, 0, 0, 0.5) !important;
+}
+
+[data-theme='light'] .js-plotly-plot .plotly .modebar-btn:hover path {
+  fill: var(--mars-orange) !important;
+}
+
+/* Glass hover in light mode */
+[data-theme='light'] .glass-hover:hover {
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+/* MUI Paper — remove dark bg, clean shadows */
+[data-theme='light'] .MuiPaper-root {
+  background-color: #ffffff !important;
+  backdrop-filter: none !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* MUI Chip contrast */
+[data-theme='light'] .MuiChip-outlined {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+/* Sidebar & nav — override hardcoded dark rgba values */
+[data-theme='light'] .MuiDrawer-paper {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Tabs indicator & selection */
+[data-theme='light'] .MuiTabs-indicator {
+  background-color: var(--mars-orange) !important;
+}
+
+/* Alert banners */
+[data-theme='light'] .MuiAlert-root {
+  backdrop-filter: none;
 }
 
 /* ---------- Plotly override ---------- */
@@ -175,13 +311,67 @@ body {
 
   /* Eviter le debordement horizontal des Paper + Container */
   .MuiContainer-root {
-    padding-left: 12px !important;
-    padding-right: 12px !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  .MuiPaper-root {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
   }
 
   /* Boutons plus compacts en mobile */
   .MuiButton-root {
     font-size: 0.8rem;
+    padding: 6px 12px;
+  }
+
+  /* Plotly modebar plus petite */
+  .modebar-container {
+    transform: scale(0.75);
+    transform-origin: top right;
+  }
+
+  /* Plotly chart ne deborde pas */
+  .js-plotly-plot, .plotly {
+    max-width: 100% !important;
+  }
+}
+
+/* ---------- Tablet responsive (600-1024px) ---------- */
+@media (min-width: 600px) and (max-width: 1024px) {
+  .MuiContainer-root {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  /* Sidebar: auto-collapse on tablet */
+  nav[style*="width: 220px"] {
+    width: 64px !important;
+  }
+
+  /* Grid: 2 columns max on tablet */
+  .MuiGrid2-container > .MuiGrid2-root {
+    min-width: 45% !important;
+  }
+
+  /* Plotly modebar slightly smaller */
+  .modebar-container {
+    transform: scale(0.85);
+    transform-origin: top right;
+  }
+
+  /* Tabs: smaller text for more tabs visible */
+  .MuiTab-root {
+    font-size: 0.78rem !important;
+    min-width: 80px !important;
+    padding: 8px 10px !important;
+  }
+
+  /* Stats bar: stack vertically on narrow tablets */
+  .stats-bar {
+    flex-wrap: wrap;
+    gap: 4px;
   }
 }
 
@@ -189,14 +379,4 @@ body {
 .MuiTabs-root .MuiTabs-scroller {
   overflow-x: auto !important;
   -webkit-overflow-scrolling: touch;
-}
-
-/* ---------- Stats bar responsive ---------- */
-@media (max-width: 500px) {
-  /* Stats min/max/mean/stddev : empilement vertical au lieu d'horizontal */
-  .stats-bar {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 4px !important;
-  }
 }

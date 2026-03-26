@@ -3,7 +3,71 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mars Climate Viewer</title>
+
+    <!-- SEO -->
+    <title>Mars Climate Viewer — Interactive Mars Atmospheric Data Visualization</title>
+    <meta name="description" content="Open-source interactive visualization platform for Mars atmospheric data from the GEM-Mars climate model. Explore temperature, winds, pressure, and dust across 103 altitude levels." />
+    <meta name="keywords" content="Mars, atmosphere, climate, GEM-Mars, visualization, NetCDF, IASB-BIRA, planetary science, open source, atmospheric data, heatmap, wind rose, cross-section" />
+    <meta name="author" content="Ludovic" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- Open Graph (Facebook, LinkedIn, Discord, WhatsApp) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Mars Climate Viewer" />
+    <meta property="og:description" content="Open-source platform to explore Mars atmospheric data — temperature, winds, pressure, dust. 10+ interactive visualization types from the GEM-Mars climate model." />
+    <meta property="og:image" content="/logo.webp" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:site_name" content="Mars Climate Viewer" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:locale:alternate" content="nl_BE" />
+    <meta property="og:locale:alternate" content="de_DE" />
+    <meta property="og:locale:alternate" content="es_ES" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Mars Climate Viewer" />
+    <meta name="twitter:description" content="Interactive visualization of Mars atmospheric data — GEM-Mars climate model. Open source." />
+    <meta name="twitter:image" content="/logo.webp" />
+
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Mars Climate Viewer",
+      "alternateName": "MCV",
+      "description": "Open-source interactive visualization platform for Mars atmospheric data from the GEM-Mars climate model.",
+      "applicationCategory": "ScienceApplication",
+      "operatingSystem": "Web",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+      "author": {
+        "@type": "Person",
+        "name": "Ludovic",
+        "url": "https://github.com/ludvdber"
+
+      },
+      "sourceOrganization": {
+        "@type": "ResearchOrganization",
+        "name": "IASB-BIRA",
+        "description": "Royal Belgian Institute for Space Aeronomy"
+      },
+      "license": "https://opensource.org/licenses/MIT",
+      "keywords": ["Mars", "atmosphere", "climate model", "GEM-Mars", "NetCDF", "scientific visualization"]
+    }
+    </script>
+
+    <!-- Theme -->
+    <meta name="theme-color" content="#020818" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+
+    <!-- mars.glb (3.9 MB) loaded lazily by Home page only, no preload -->
   </head>
   <body>
     <div id="root"></div>

@@ -16,10 +16,9 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import {
-  Box, Container, Typography, Button, Paper, Chip,
+  Box, Container, Typography, Button, Paper,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
-import { alpha } from '@mui/material/styles';
 import {
   KeyboardArrowDown as ChevronIcon,
   RocketLaunch as RocketIcon,
@@ -27,21 +26,16 @@ import {
   WaterDrop as WaterIcon,
   Explore as ExploreIcon,
   Science as ScienceIcon,
-  GridOn as SliceIcon,
-  PlayCircleOutline as AnimationIcon,
-  ShowChart as TimeSeriesIcon,
-  AlignVerticalBottom as ProfileIcon,
-  CropFree as CrossSectionIcon,
-  ArrowForward as ArrowIcon,
-  OpenInFull as ExploreAllIcon,
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { homeContent as homeContentFr } from '../content/home.fr';
 import { homeContent as homeContentEn } from '../content/home.en';
 import { homeContent as homeContentNl } from '../content/home.nl';
+import { homeContent as homeContentEs } from '../content/home.es';
+import { homeContent as homeContentDe } from '../content/home.de';
 
 /** Mappe la langue courante au fichier de contenu correspondant */
-const HOME_CONTENT = { fr: homeContentFr, en: homeContentEn, nl: homeContentNl };
+const HOME_CONTENT = { fr: homeContentFr, en: homeContentEn, nl: homeContentNl, es: homeContentEs, de: homeContentDe };
 import { useMars } from '../context/MarsContext';
 import { useReveal } from '../hooks/useReveal';
 import DatasetSelector from '../components/DatasetSelector';
@@ -57,38 +51,36 @@ import BelgiumCard from '../components/home/BelgiumCard';
 
 /* ═══ Icons maps ═══ */
 const WHY_ICONS  = { water: WaterIcon, explore: ExploreIcon, science: ScienceIcon };
-const FEAT_ICONS = { slice: SliceIcon, animation: AnimationIcon, timeseries: TimeSeriesIcon, profile: ProfileIcon, crosssection: CrossSectionIcon, explore: ExploreAllIcon };
+/* FEAT_ICONS moved into FeatureCard component */
 
 /* ═══ Mars 3D — Hero ═══ */
 function RotatingMars() {
   const groupRef = useRef();
-  const { scene } = useGLTF('/mars.glb');
-  const clone = useMemo(() => {
-    const c = scene.clone(true);
-    c.traverse(child => {
+  const { scene } = useGLTF('/mars.glb', false, true);
+  useMemo(() => {
+    scene.traverse(child => {
       if (child.isMesh && child.material) {
-        child.material = child.material.clone();
         if (child.material.metalness !== undefined) child.material.metalness = Math.min(child.material.metalness, 0.3);
         if (child.material.roughness !== undefined) child.material.roughness = Math.max(child.material.roughness, 0.6);
         child.material.needsUpdate = true;
       }
     });
-    const box = new THREE.Box3().setFromObject(c);
+    const box = new THREE.Box3().setFromObject(scene);
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
-    if (maxDim > 0) c.scale.multiplyScalar(2 / maxDim);
-    const newBox = new THREE.Box3().setFromObject(c);
-    c.position.sub(newBox.getCenter(new THREE.Vector3()));
-    return c;
+    if (maxDim > 0) scene.scale.multiplyScalar(2 / maxDim);
+    const newBox = new THREE.Box3().setFromObject(scene);
+    scene.position.sub(newBox.getCenter(new THREE.Vector3()));
   }, [scene]);
   useFrame(({ clock }) => { if (groupRef.current) groupRef.current.rotation.y = clock.getElapsedTime() * 0.15; });
-  return <group ref={groupRef}><primitive object={clone} /></group>;
+  return <group ref={groupRef}><primitive object={scene} /></group>;
 }
 function MarsFallback() {
   const ref = useRef();
   useFrame(({ clock }) => { if (ref.current) ref.current.rotation.y = clock.getElapsedTime() * 0.15; });
-  return <mesh ref={ref}><sphereGeometry args={[1, 64, 64]} /><meshStandardMaterial color="#c1440e" roughness={0.9} /></mesh>;
+  return <mesh ref={ref}><sphereGeometry args={[1, 64, 64]} /><meshBasicMaterial color="#c1440e" /></mesh>;
 }
+
 
 /* ═══ Composant principal ═══ */
 function Home() {
@@ -142,7 +134,7 @@ function Home() {
             </Box>
           </Grid>
           <Grid size={{ xs: 12, md: 5 }}>
-            <Box {...useReveal(0.3)} sx={{ height: { xs: 300, md: 450 } }}>
+            <Box {...useReveal(0.3)} sx={{ height: { xs: 300, md: 450 } }} role="img" aria-label="3D rotating Mars globe">
               <Canvas camera={{ position: [0, 0, 3], fov: 45 }}>
                 <ambientLight intensity={0.8} />
                 <hemisphereLight args={['#ffd4a0', '#1a1a4a', 0.6]} />
@@ -166,8 +158,8 @@ function Home() {
       <Box sx={{
         py: { xs: 8, md: 12 },
         background: 'radial-gradient(ellipse at 50% 0%, rgba(56,189,248,0.05) 0%, transparent 65%)',
-        borderTop: '1px solid rgba(56,189,248,0.07)',
-        borderBottom: '1px solid rgba(56,189,248,0.07)',
+        borderTop: '1px solid var(--glass-border)',
+        borderBottom: '1px solid var(--glass-border)',
       }}>
         <Container maxWidth="lg">
           <SectionHeader tag={why.tag} title={why.title} color="primary" />
@@ -180,13 +172,13 @@ function Home() {
               border: '1px solid rgba(224,90,43,0.2)',
               boxShadow: 'inset 0 0 60px rgba(224,90,43,0.05)',
             }}>
-              <QuoteIcon sx={{ fontSize: 36, color: 'rgba(224,90,43,0.3)', mb: 1 }} />
+              <QuoteIcon sx={{ fontSize: 36, color: 'var(--mars-orange)', mb: 1 }} />
               <Typography sx={{
                 fontFamily: "'Rajdhani', sans-serif",
                 fontSize: { xs: '1.1rem', md: '1.4rem' },
                 fontWeight: 500,
                 lineHeight: 1.75,
-                color: 'rgba(255,255,255,0.9)',
+                color: 'var(--text-primary)',
                 letterSpacing: '0.01em',
               }}>
                 {why.quote}
@@ -199,7 +191,7 @@ function Home() {
             {why.reasons.map((reason, i) => {
               const Icon = WHY_ICONS[reason.icon] || ScienceIcon;
               return (
-                <Grid key={i} size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
+                <Grid key={reason.icon} size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
                   <Box {...useReveal(i * 0.12)} sx={{ width: '100%' }}>
                     <Paper sx={{ p: 3.5, height: '100%', borderTop: '2px solid rgba(224,90,43,0.4)', transition: 'transform 0.22s', '&:hover': { transform: 'translateY(-5px)' } }}>
                       <Box sx={{ width: 48, height: 48, borderRadius: '14px', backgroundColor: 'rgba(224,90,43,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
@@ -224,7 +216,7 @@ function Home() {
           <SectionHeader tag={solarSystem.tag} title={solarSystem.title} subtitle={solarSystem.subtitle} color="secondary" />
           <Box {...useReveal(0.1)}>
             <Suspense fallback={
-              <Box sx={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(56,189,248,0.1)', borderRadius: 3 }}>
+              <Box sx={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--glass-border)', borderRadius: 3 }}>
                 <Typography color="text.secondary">{t('home.solarLoading')}</Typography>
               </Box>
             }>
@@ -240,53 +232,36 @@ function Home() {
       </Box>
 
       {/* ══════════════════════════════════════════════════════════
-          4. FEATURE SHOWCASE
+          4. FEATURE SHOWCASE — Bento grid
       ══════════════════════════════════════════════════════════ */}
-      <Box sx={{ py: { xs: 8, md: 12 }, borderTop: '1px solid rgba(56,189,248,0.06)', borderBottom: '1px solid rgba(56,189,248,0.06)' }}>
+      <Box sx={{ py: { xs: 8, md: 12 }, borderTop: '1px solid var(--glass-border)', borderBottom: '1px solid var(--glass-border)' }}>
         <Container maxWidth="lg">
           <SectionHeader tag={t('home.featuresTag')} title={t('home.featuresTitle')} subtitle={t('home.featuresSubtitle')} color="secondary" />
-          {/* Vues spécifiques (5 cartes) */}
-          <Grid container spacing={3}>
-            {features.filter(f => !f.featured).map((feature, i) => (
-              <Grid key={feature.id} size={{ xs: 12, sm: 6, md: i < 2 ? 6 : 4 }}>
-                <FeatureCard feature={feature} delay={i * 0.09} />
+
+          {/* Hero row — 2 primary views */}
+          <Grid container spacing={2.5}>
+            {features.filter(f => !f.featured).slice(0, 2).map((feature, i) => (
+              <Grid key={feature.id} size={{ xs: 12, md: 6 }}>
+                <FeatureCard feature={feature} delay={i * 0.08} hero />
               </Grid>
             ))}
           </Grid>
-          {/* Carte Explorer — pleine largeur, style spécial */}
-          {features.filter(f => f.featured).map(feature => {
-            const Icon = FEAT_ICONS[feature.id] || ExploreAllIcon;
-            return (
-              <Box key={feature.id} {...useReveal(0.5)} sx={{ mt: 3 }}>
-                <Paper
-                  component={Link} to={feature.route}
-                  sx={{
-                    p: { xs: 3, md: 4 }, textDecoration: 'none', display: 'flex',
-                    flexDirection: { xs: 'column', md: 'row' }, alignItems: { md: 'center' }, gap: 3,
-                    border: `1px solid ${alpha(feature.color, 0.35)}`,
-                    background: `linear-gradient(135deg, ${alpha(feature.color, 0.07)} 0%, transparent 60%)`,
-                    transition: 'transform 0.25s, box-shadow 0.25s',
-                    '&:hover': { transform: 'translateY(-5px)', boxShadow: `0 16px 48px ${alpha(feature.color, 0.22)}` },
-                  }}
-                >
-                  <Box sx={{ width: 56, height: 56, borderRadius: '16px', backgroundColor: alpha(feature.color, 0.15), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Icon sx={{ color: feature.color, fontSize: 28 }} />
-                  </Box>
-                  <Box sx={{ flex: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.8, flexWrap: 'wrap' }}>
-                      <Typography sx={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', fontWeight: 700, color: feature.color }}>{feature.title}</Typography>
-                      <Chip label={feature.tag} size="small" sx={{ height: 22, fontSize: '0.78rem', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, backgroundColor: alpha(feature.color, 0.15), color: feature.color, border: `1px solid ${alpha(feature.color, 0.35)}` }} />
-                      <Chip label={t('home.advanced')} size="small" variant="outlined" sx={{ height: 22, fontSize: '0.72rem', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, color: 'rgba(255,255,255,0.5)', borderColor: 'rgba(255,255,255,0.2)' }} />
-                    </Box>
-                    <Typography color="text.secondary" sx={{ fontSize: '0.95rem', lineHeight: 1.7, maxWidth: 680 }}>{feature.body}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: feature.color, fontWeight: 700, fontSize: '0.9rem', flexShrink: 0 }}>
-                    {t('home.goTo')} <ArrowIcon sx={{ fontSize: 18 }} />
-                  </Box>
-                </Paper>
-              </Box>
-            );
-          })}
+
+          {/* Compact grid — remaining views, 4 columns */}
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            {features.filter(f => !f.featured).slice(2).map((feature, i) => (
+              <Grid key={feature.id} size={{ xs: 12, sm: 6, md: 3 }}>
+                <FeatureCard feature={feature} delay={0.16 + i * 0.06} />
+              </Grid>
+            ))}
+          </Grid>
+
+          {/* Explorer — full-width hero CTA */}
+          {features.filter(f => f.featured).map(feature => (
+            <Box key={feature.id} sx={{ mt: 2.5 }}>
+              <FeatureCard feature={feature} delay={0.5} hero />
+            </Box>
+          ))}
         </Container>
       </Box>
 
@@ -317,7 +292,7 @@ function Home() {
           <SectionHeader tag={t('home.statsTag')} title={t('home.statsTitle')} subtitle={t('home.statsSubtitle')} color="primary" />
           <Grid container spacing={3} alignItems="stretch">
             {stats.map((stat, i) => (
-              <Grid key={i} size={{ xs: 6, md: 3 }} sx={{ display: 'flex' }}>
+              <Grid key={stat.label} size={{ xs: 6, md: 3 }} sx={{ display: 'flex' }}>
                 <StatCard stat={stat} delay={i * 0.08} />
               </Grid>
             ))}
@@ -328,7 +303,7 @@ function Home() {
       {/* ══════════════════════════════════════════════════════════
           6. TIMELINE MISSIONS — verticale alternée
       ══════════════════════════════════════════════════════════ */}
-      <Box sx={{ py: { xs: 8, md: 12 }, borderTop: '1px solid rgba(56,189,248,0.06)' }}>
+      <Box sx={{ py: { xs: 8, md: 12 }, borderTop: '1px solid var(--glass-border)' }}>
         <Container maxWidth="md">
           <SectionHeader tag={t('home.timelineTag')} title={t('home.timelineTitle')} subtitle={t('home.timelineSubtitle')} color="secondary" />
 
@@ -353,12 +328,12 @@ function Home() {
       {/* ══════════════════════════════════════════════════════════
           7. BELGIQUE ET MARS
       ══════════════════════════════════════════════════════════ */}
-      <Box sx={{ py: { xs: 8, md: 12 }, background: 'radial-gradient(ellipse at 50% 50%, rgba(168,85,247,0.05) 0%, transparent 65%)', borderTop: '1px solid rgba(168,85,247,0.08)', borderBottom: '1px solid rgba(168,85,247,0.08)' }}>
+      <Box sx={{ py: { xs: 8, md: 12 }, background: 'radial-gradient(ellipse at 50% 50%, rgba(168,85,247,0.05) 0%, transparent 65%)', borderTop: '1px solid var(--glass-border)', borderBottom: '1px solid var(--glass-border)' }}>
         <Container maxWidth="lg">
           <SectionHeader tag={belgium.tag} title={belgium.title} subtitle={belgium.subtitle} color="secondary" />
           <Grid container spacing={3} alignItems="stretch">
             {belgium.items.map((item, i) => (
-              <Grid key={i} size={{ xs: 12, sm: 6, md: 4 }} sx={{ display: 'flex' }}>
+              <Grid key={item.icon} size={{ xs: 12, sm: 6, md: 4 }} sx={{ display: 'flex' }}>
                 <BelgiumCard item={item} delay={i * 0.08} />
               </Grid>
             ))}
@@ -386,5 +361,4 @@ function Home() {
   );
 }
 
-useGLTF.preload('/mars.glb');
 export default Home;
