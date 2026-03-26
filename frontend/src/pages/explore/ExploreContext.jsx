@@ -18,6 +18,7 @@ export const A = Object.freeze({
   // Paramètres de visualisation
   SET_VIZ_TYPE:        'SET_VIZ_TYPE',
   SET_CROSS_SECTION:   'SET_CROSS_SECTION',
+  SET_HOVMOLLER_TYPE:  'SET_HOVMOLLER_TYPE',
   SET_COLORSCALE:      'SET_COLORSCALE',
   SET_Z_MIN:           'SET_Z_MIN',
   SET_Z_MAX:           'SET_Z_MAX',
@@ -40,12 +41,15 @@ export const A = Object.freeze({
   CLEAR_ERROR:         'CLEAR_ERROR',
   SET_LINK_COPIED:     'SET_LINK_COPIED',
   SET_PENDING_AUTO:    'SET_PENDING_AUTO',
+  SET_DATASET_B:       'SET_DATASET_B',
+  REORDER_RESULTS:     'REORDER_RESULTS',
 });
 
 /* ─── État initial ─────────────────────────────────────────────────────────── */
 const initialState = {
   vizType:             'slice',
   crossSectionType:    'meridional',
+  hovmollerType:       'latitude',
   colorscale:          'auto',
   zMinInput:           '',
   zMaxInput:           '',
@@ -63,6 +67,7 @@ const initialState = {
   error:               null,
   linkCopied:          false,
   pendingAutoLaunch:   false,
+  datasetB:            '',
 };
 
 /* ─── Reducer ──────────────────────────────────────────────────────────────── */
@@ -72,6 +77,8 @@ function exploreReducer(state, action) {
       return { ...state, vizType: action.value };
     case A.SET_CROSS_SECTION:
       return { ...state, crossSectionType: action.value };
+    case A.SET_HOVMOLLER_TYPE:
+      return { ...state, hovmollerType: action.value };
     case A.SET_COLORSCALE:
       return { ...state, colorscale: action.value };
     case A.SET_Z_MIN:
@@ -113,6 +120,8 @@ function exploreReducer(state, action) {
     }
     case A.SET_ACTIVE_RESULT:
       return { ...state, activeResult: action.value };
+    case A.REORDER_RESULTS:
+      return { ...state, resultOrder: action.value };
 
     case A.SET_LOADING:
       return { ...state, loading: action.value };
@@ -124,6 +133,8 @@ function exploreReducer(state, action) {
       return { ...state, linkCopied: action.value };
     case A.SET_PENDING_AUTO:
       return { ...state, pendingAutoLaunch: action.value };
+    case A.SET_DATASET_B:
+      return { ...state, datasetB: action.value };
 
     default:
       return state;

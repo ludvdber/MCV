@@ -5,12 +5,15 @@ import {
   Button, Menu, MenuItem, ListItemIcon, ListItemText, Divider,
   Snackbar, Alert,
 } from '@mui/material';
+import { useToast } from '../context/ToastContext';
 import {
   PhotoCamera as PngIcon,
   Image as SvgIcon,
   TableChart as CsvIcon,
   KeyboardArrowDown as ArrowIcon,
   FileDownload as DownloadIcon,
+  PictureAsPdf as PdfIcon,
+  Storage as NetCDFIcon,
 } from '@mui/icons-material';
 
 /**
@@ -22,8 +25,9 @@ import {
  * @param {function|null}   onCSV     - callback pour export CSV (null = option masquee)
  * @param {boolean}         disabled  - desactive le bouton
  */
-function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, disabled = false }) {
+function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, onNetCDF = null, pdfMeta = null, disabled = false }) {
   const { t } = useTranslation();
+  const showToast = useToast();
   const [anchorEl, setAnchorEl] = useState(null);
   const [exportError, setExportError] = useState(null);
   const open = Boolean(anchorEl);
@@ -117,6 +121,7 @@ function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, disabled 
     try {
       const url = await exportAsImage(plotRef.current, 'png', { width: 1920, height: 1080, scale: 2 });
       triggerDownload(url, `${filename}.png`);
+      showToast(t('toast.pngExported'));
     } catch {
       setExportError(t('export.pngError'));
     }
@@ -126,8 +131,9 @@ function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, disabled 
     handleClose();
     if (!plotRef?.current) return;
     try {
-      const url = await exportAsImage(plotRef.current, 'svg', { width: 1200, height: 700 });
+      const url = await exportAsImage(plotRef.current, 'svg', { width: 1920, height: 1080 });
       triggerDownload(url, `${filename}.svg`);
+      showToast(t('toast.svgExported'));
     } catch {
       setExportError(t('export.svgError'));
     }
@@ -135,7 +141,30 @@ function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, disabled 
 
   const handleCSV = () => {
     handleClose();
-    if (onCSV) onCSV();
+    if (onCSV) {
+      onCSV();
+      showToast(t('toast.csvExported'));
+    }
+  };
+
+  const handlePDF = async () => {
+    handleClose();
+    if (!plotRef?.current || !pdfMeta) return;
+    try {
+      const { exportPDF } = await import('../utils/exportUtils');
+      await exportPDF(plotRef.current, pdfMeta, filename);
+      showToast(t('toast.pdfExported') || 'PDF exported');
+    } catch {
+      setExportError('PDF export failed');
+    }
+  };
+
+  const handleNetCDF = () => {
+    handleClose();
+    if (onNetCDF) {
+      onNetCDF();
+      showToast(t('toast.netcdfExported') || 'NetCDF export started');
+    }
   };
 
   return (
@@ -187,7 +216,28 @@ function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, disabled 
               secondary={t('export.csvDesc')}
               slotProps={{ secondary: { sx: { fontSize: '0.7rem' } } }}
             />
+          </MenuItem>,
+        ]}
+        {pdfMeta && (
+          <MenuItem onClick={handlePDF}>
+            <ListItemIcon><PdfIcon fontSize="small" /></ListItemIcon>
+            <ListItemText
+              primary="PDF"
+              secondary={t('export.pdfDesc') || 'Report with chart + parameters'}
+              slotProps={{ secondary: { sx: { fontSize: '0.7rem' } } }}
+            />
           </MenuItem>
+        )}
+        {onNetCDF && [
+          <Divider key="ncdiv" />,
+          <MenuItem key="nc" onClick={handleNetCDF}>
+            <ListItemIcon><NetCDFIcon fontSize="small" /></ListItemIcon>
+            <ListItemText
+              primary="NetCDF (.nc)"
+              secondary={t('export.netcdfDesc') || 'Scientific format for Python/Matlab'}
+              slotProps={{ secondary: { sx: { fontSize: '0.7rem' } } }}
+            />
+          </MenuItem>,
         ]}
       </Menu>
 

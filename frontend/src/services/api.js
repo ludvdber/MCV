@@ -24,11 +24,57 @@ api.interceptors.request.use(config => {
   return config;
 });
 
+/** Normalise les erreurs reseau en messages comprehensibles */
+api.interceptors.response.use(
+  res => res,
+  err => {
+    if (!err.response) {
+      // Erreur reseau (serveur injoignable, timeout, CORS)
+      if (err.code === 'ECONNABORTED') {
+        err.message = i18n.t('error.timeout', { ns: 'translation', defaultValue: 'Request timed out — the server may be overloaded. Try again.' });
+      } else {
+        err.message = i18n.t('error.network', { ns: 'translation', defaultValue: 'Cannot reach the server. Check your connection and try again.' });
+      }
+    } else {
+      const status = err.response.status;
+      if (status === 429) {
+        err.message = i18n.t('error.rateLimit', { ns: 'translation', defaultValue: 'Too many requests — please wait a moment and try again.' });
+      } else if (status >= 500) {
+        err.message = i18n.t('error.server', { ns: 'translation', defaultValue: 'Server error — please try again later.' });
+      }
+      // 4xx: keep the backend's i18n error message (err.response.data.message)
+    }
+    return Promise.reject(err);
+  },
+);
+
 // ==================== CACHE ====================
 
-/** Cache en memoire pour les endpoints de donnees (TTL 5 min). */
+/** Cache en memoire pour les endpoints de donnees (TTL 5 min, max 50 entrees). */
 const _cache = new Map();
 const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_MAX = 50;
+
+/** Purge les entrees expirees et ejecte les plus anciennes si > CACHE_MAX. */
+function purgeCache() {
+  const now = Date.now();
+  for (const [k, v] of _cache) {
+    if (now - v.ts > CACHE_TTL) _cache.delete(k);
+  }
+  // If still over limit, remove oldest entries
+  if (_cache.size > CACHE_MAX) {
+    const sorted = [..._cache.entries()].sort((a, b) => a[1].ts - b[1].ts);
+    const toRemove = sorted.slice(0, _cache.size - CACHE_MAX);
+    for (const [k] of toRemove) _cache.delete(k);
+  }
+}
+
+// Purge periodique toutes les 60 secondes
+const _purgeInterval = setInterval(purgeCache, 60_000);
+// Prevent interval leak during Vite HMR
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => clearInterval(_purgeInterval));
+}
 
 /**
  * Cle de cache deterministe : trie les parametres par cle alphabetique pour
@@ -96,6 +142,10 @@ export const getAnimation = (params) => cachedGet('/data/animation', params);
 export const exportSliceCSV = (params) =>
   api.get('/export/csv/slice', { params, responseType: 'blob' });
 
+/** GET /api/export/netcdf/slice — export NetCDF d'une slice 2D */
+export const exportSliceNetCDF = (params) =>
+  api.get('/export/netcdf/slice', { params, responseType: 'blob' });
+
 /**
  * GET /api/export/csv/timeseries — export CSV d'une serie temporelle
  * responseType 'blob' pour permettre le telechargement cote client
@@ -125,6 +175,41 @@ export const getWind = (params, signal) => cachedGet('/data/wind', params, signa
  */
 export const getCrossSection = (params) => cachedGet('/data/crosssection', params);
 
+/**
+ * GET /api/data/altitudes — tableau des altitudes en km pour un dataset/variable
+ * @param {Object} params - { dataset, variable }
+ * @returns {Promise} { surface: boolean, altitudes: number[] }
+ */
+export const getAltitudes = (params) => cachedGet('/data/altitudes', params);
+
+/**
+ * GET /api/data/hovmoller — diagramme de Hovmoller (temps x lat ou lon)
+ * @param {Object} params - { dataset, variable, altitude, type }
+ * @returns {Promise} HovmollerResponse (data[][], times[], spatialCoords[], stats)
+ */
+export const getHovmoller = (params) => cachedGet('/data/hovmoller', params);
+
+/**
+ * GET /api/data/zonalmean — moyenne zonale (lat x altitude)
+ * @param {Object} params - { dataset, variable, time }
+ * @returns {Promise} ZonalMeanResponse (data[][], latitudes[], altitudes[], stats)
+ */
+export const getZonalMean = (params) => cachedGet('/data/zonalmean', params);
+
+/**
+ * GET /api/data/windrose — rose des vents (UU/VV sur 48 timesteps)
+ * @param {Object} params - { dataset, latitude, longitude, altitude }
+ * @returns {Promise} WindRoseResponse (uu[], vv[], actualLat, actualLon)
+ */
+export const getWindRose = (params) => cachedGet('/data/windrose', params);
+
+/**
+ * GET /api/data/difference — difference entre deux datasets (A - B)
+ * @param {Object} params - { datasetA, datasetB, variable, time, altitude }
+ * @returns {Promise} DifferenceResponse (data[][], stats)
+ */
+export const getDifference = (params) => cachedGet('/data/difference', params);
+
 /** GET /api/export/csv/profile — export CSV d'un profil vertical */
 export const exportProfileCSV = (params) =>
   api.get('/export/csv/profile', { params, responseType: 'blob' });
@@ -132,5 +217,28 @@ export const exportProfileCSV = (params) =>
 /** GET /api/export/csv/crosssection — export CSV d'une coupe verticale */
 export const exportCrossSectionCSV = (params) =>
   api.get('/export/csv/crosssection', { params, responseType: 'blob' });
+
+/** GET /api/export/csv/hovmoller */
+export const exportHovmollerCSV = (params) =>
+  api.get('/export/csv/hovmoller', { params, responseType: 'blob' });
+
+/** GET /api/export/csv/zonalmean */
+export const exportZonalMeanCSV = (params) =>
+  api.get('/export/csv/zonalmean', { params, responseType: 'blob' });
+
+/** GET /api/export/csv/windrose */
+export const exportWindRoseCSV = (params) =>
+  api.get('/export/csv/windrose', { params, responseType: 'blob' });
+
+/** GET /api/export/csv/difference */
+export const exportDifferenceCSV = (params) =>
+  api.get('/export/csv/difference', { params, responseType: 'blob' });
+
+/** GET /api/data/temporal-profile — profil altitude x temps en un point */
+export const getTemporalProfile = (params) => cachedGet('/data/temporal-profile', params);
+
+/** GET /api/export/csv/temporal-profile */
+export const exportTemporalProfileCSV = (params) =>
+  api.get('/export/csv/temporal-profile', { params, responseType: 'blob' });
 
 export default api;
