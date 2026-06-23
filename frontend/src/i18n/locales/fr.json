@@ -1,5 +1,6 @@
 {
   "nav.home": "Accueil",
+  "nav.sourceCode": "Code source",
   "nav.slice": "Slice 2D",
   "nav.timeseries": "Serie temporelle",
   "nav.animation": "Animation",

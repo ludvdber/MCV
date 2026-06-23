@@ -83,8 +83,8 @@ function ExplorePageContent() {
     selectedLatitude, setSelectedLatitude,
     selectedLongitude, setSelectedLongitude,
     dataset, datasetLabel,
-    selectedIndividualMY, setSelectedIndividualMY,
-    selectedIndividualLs, setSelectedIndividualLs,
+    setSelectedIndividualMY,
+    setSelectedIndividualLs,
   } = useMars();
 
   const [searchParams] = useSearchParams();
@@ -492,6 +492,17 @@ function ExplorePageContent() {
     }
   }, [resultsById, state.activeResult, resultOrder.length, dispatch, showToast, t]);
 
+  /* ── État UI local — déclaré AVANT tout return conditionnel (rules-of-hooks).
+     Sinon, sur un refresh direct de /explore, catalogLoading passe true→false
+     et le nombre de hooks change entre deux rendus → crash React. ── */
+  const [panelVisible, setPanelVisible] = useState(true);
+
+  const togglePanel = useCallback(() => {
+    setPanelVisible(v => !v);
+    // Trigger Plotly resize after CSS transition
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 250);
+  }, []);
+
   /* ── Rendu ─────────────────────────────────────────────────────────────── */
 
   if (catalogLoading) {
@@ -501,14 +512,6 @@ function ExplorePageContent() {
       </Box>
     );
   }
-
-  const [panelVisible, setPanelVisible] = useState(true);
-
-  const togglePanel = useCallback(() => {
-    setPanelVisible(v => !v);
-    // Trigger Plotly resize after CSS transition
-    setTimeout(() => window.dispatchEvent(new Event('resize')), 250);
-  }, []);
 
   return (
     <Box sx={{

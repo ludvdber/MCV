@@ -1,5 +1,6 @@
 {
   "nav.home": "Startpagina",
+  "nav.sourceCode": "Broncode",
   "nav.slice": "2D-slice",
   "nav.timeseries": "Tijdreeks",
   "nav.animation": "Animatie",

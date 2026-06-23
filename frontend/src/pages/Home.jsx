@@ -81,6 +81,22 @@ function MarsFallback() {
   return <mesh ref={ref}><sphereGeometry args={[1, 64, 64]} /><meshBasicMaterial color="#c1440e" /></mesh>;
 }
 
+/* ═══ Carte « raison » — composant dédié pour que useReveal soit appelé au
+   sommet d'un composant (et non dans un .map, ce qui violait rules-of-hooks) ═══ */
+function ReasonCard({ reason, delay }) {
+  const Icon = WHY_ICONS[reason.icon] || ScienceIcon;
+  return (
+    <Box {...useReveal(delay)} sx={{ width: '100%' }}>
+      <Paper sx={{ p: 3.5, height: '100%', borderTop: '2px solid rgba(224,90,43,0.4)', transition: 'transform 0.22s', '&:hover': { transform: 'translateY(-5px)' } }}>
+        <Box sx={{ width: 48, height: 48, borderRadius: '14px', backgroundColor: 'rgba(224,90,43,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+          <Icon sx={{ color: 'var(--mars-orange)', fontSize: 26 }} />
+        </Box>
+        <Typography sx={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '1.1rem', mb: 1.5 }}>{reason.title}</Typography>
+        <Typography color="text.secondary" sx={{ lineHeight: 1.75, fontSize: '0.95rem' }}>{reason.body}</Typography>
+      </Paper>
+    </Box>
+  );
+}
 
 /* ═══ Composant principal ═══ */
 function Home() {
@@ -188,22 +204,11 @@ function Home() {
 
           {/* 3 raisons */}
           <Grid container spacing={3} alignItems="stretch">
-            {why.reasons.map((reason, i) => {
-              const Icon = WHY_ICONS[reason.icon] || ScienceIcon;
-              return (
-                <Grid key={reason.icon} size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
-                  <Box {...useReveal(i * 0.12)} sx={{ width: '100%' }}>
-                    <Paper sx={{ p: 3.5, height: '100%', borderTop: '2px solid rgba(224,90,43,0.4)', transition: 'transform 0.22s', '&:hover': { transform: 'translateY(-5px)' } }}>
-                      <Box sx={{ width: 48, height: 48, borderRadius: '14px', backgroundColor: 'rgba(224,90,43,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
-                        <Icon sx={{ color: 'var(--mars-orange)', fontSize: 26 }} />
-                      </Box>
-                      <Typography sx={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '1.1rem', mb: 1.5 }}>{reason.title}</Typography>
-                      <Typography color="text.secondary" sx={{ lineHeight: 1.75, fontSize: '0.95rem' }}>{reason.body}</Typography>
-                    </Paper>
-                  </Box>
-                </Grid>
-              );
-            })}
+            {why.reasons.map((reason, i) => (
+              <Grid key={reason.icon} size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
+                <ReasonCard reason={reason} delay={i * 0.12} />
+              </Grid>
+            ))}
           </Grid>
         </Container>
       </Box>

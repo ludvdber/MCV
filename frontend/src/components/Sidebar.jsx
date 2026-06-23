@@ -32,13 +32,16 @@ import {
   Timeline as ProfilesIcon,
   BarChart as DiagnosticsIcon,
 } from '@mui/icons-material';
-import { DarkMode as DarkModeIcon, LightMode as LightModeIcon, Contrast as ContrastIcon } from '@mui/icons-material';
+import { DarkMode as DarkModeIcon, LightMode as LightModeIcon, Contrast as ContrastIcon, GitHub as GitHubIcon } from '@mui/icons-material';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useThemeMode } from '../context/ThemeContext';
 import { useRecentHistory } from '../hooks/useRecentHistory';
 
 export const SIDEBAR_WIDTH_EXPANDED = 220;
 export const SIDEBAR_WIDTH_COLLAPSED = 64;
+
+/** Dépôt open source du projet (affiché en pied de sidebar). */
+const GITHUB_URL = 'https://github.com/ludvdber/MCV';
 
 /* ---------- Grouped navigation structure ---------- */
 
@@ -521,6 +524,36 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
           </Box>
         )}
         {!collapsed && <LanguageSwitcher />}
+        {/* Lien open source vers le dépôt GitHub */}
+        {collapsed ? (
+          <Tooltip title={t('nav.sourceCode')} placement="right" arrow>
+            <IconButton
+              component="a"
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={t('nav.sourceCode')}
+              sx={{ color: 'var(--text-secondary)', p: 1, '&:hover': { color: 'var(--text-primary)' } }}
+            >
+              <GitHubIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        ) : (
+          <Box
+            component="a"
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            sx={{
+              display: 'flex', alignItems: 'center', gap: 0.8, cursor: 'pointer',
+              color: 'var(--text-secondary)', fontSize: '0.75rem', textDecoration: 'none',
+              '&:hover': { color: 'var(--text-primary)' },
+            }}
+          >
+            <GitHubIcon sx={{ fontSize: 16 }} />
+            <Typography variant="caption" color="inherit">{t('nav.sourceCode')}</Typography>
+          </Box>
+        )}
         {!collapsed && (
           <Typography variant="caption" color="text.secondary" display="block">
             v{__APP_VERSION__}

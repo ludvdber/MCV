@@ -20,7 +20,6 @@ export default function StatCard({ stat, delay = 0 }) {
 
   /* barre comparative : ratio fixé dans les données */
   const marsRatio  = stat.ratio != null ? Math.min(stat.ratio, 1) : null;
-  const earthRatio = stat.ratio != null ? 1 : null;
 
   return (
     <Box

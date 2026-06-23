@@ -1,6 +1,6 @@
 plugins {
 	id 'java'
-	id 'org.springframework.boot' version '4.0.7'
+	id 'org.springframework.boot' version '4.1.0'
 	id 'io.spring.dependency-management' version '1.1.7'
 }
 
@@ -35,10 +35,10 @@ dependencies {
 	implementation 'edu.ucar:cdm-core:5.9.1'
 
 	// Guava - requis par cdm-core 5.9.1
-	implementation 'com.google.guava:guava:33.5.0-jre'
+	implementation 'com.google.guava:guava:33.6.0-jre'
 
 	// OpenAPI / Swagger UI — auto-generated API documentation
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
 	
 	// Lombok
 	compileOnly 'org.projectlombok:lombok'

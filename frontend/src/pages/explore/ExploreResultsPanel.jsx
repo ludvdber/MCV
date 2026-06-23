@@ -8,7 +8,7 @@
  *   onRemoveResult (id: string) => void — ferme un onglet
  *   onExportCSV    ()           => void — déclenche l'export CSV du résultat actif
  */
-import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
+import { useState, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box, Paper, Typography, Tabs, Tab, IconButton, Chip, Tooltip,

@@ -27,8 +27,8 @@ mars-visualizer/
 
 | Couche | Technologies |
 |---|---|
-| **Backend** | Spring Boot 4.0.2, Java 21, NetCDF-Java (cdm-core 5.9.1), Gradle 9 |
-| **Frontend** | React 18, Vite, Plotly.js, Material-UI, Axios |
+| **Backend** | Spring Boot 4.1.0, Java 21, NetCDF-Java (cdm-core 5.9.1), Gradle 9 |
+| **Frontend** | React 19, Vite 8, Plotly.js, Three.js / React-Three-Fiber, Material-UI 7, Axios |
 
 ---
 

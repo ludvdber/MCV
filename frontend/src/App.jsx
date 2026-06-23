@@ -110,7 +110,11 @@ function AppContent() {
         >
           <Suspense fallback={<Loading />}>
             <LazyMotion features={domAnimation}>
-            <AnimatePresence mode="popLayout">
+            {/* mode="wait" : démonte proprement l'ancienne page (et son Canvas R3F)
+                avant de monter la nouvelle. "popLayout" re-parentait le <Canvas>
+                de l'accueil pendant la navigation -> R3F relançait connect()/onCreated
+                sur un nœud DOM détaché -> erreur three au départ de l'accueil. */}
+            <AnimatePresence mode="wait">
               <Routes location={location} key={location.pathname}>
                 <Route path="/" element={<PageTransition><Home /></PageTransition>} />
                 <Route path="/slice" element={<PageTransition><SlicePage /></PageTransition>} />

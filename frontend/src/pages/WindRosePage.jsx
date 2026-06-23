@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   Container, Paper, Typography, Button, CircularProgress,
   Alert, Box, Chip, LinearProgress,
@@ -28,7 +28,7 @@ function WindRosePage() {
     selectedAltitude, setSelectedAltitude,
     selectedLatitude, setSelectedLatitude,
     selectedLongitude, setSelectedLongitude,
-    dataset, datasetLabel,
+    datasetLabel,
   } = useMars();
   const { t } = useTranslation();
 

@@ -8,7 +8,7 @@
  * OrbitControls : rotation + zoom, auto-rotation lente.
  */
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { Html, OrbitControls, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { Box, IconButton, Tooltip, Typography } from '@mui/material';
