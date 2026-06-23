@@ -23,6 +23,7 @@ import com.mars.visualizer.dto.internal.WindMapData;
 import com.mars.visualizer.dto.internal.WindRoseData;
 import com.mars.visualizer.dto.internal.ZonalMeanData;
 import com.mars.visualizer.exception.NetCDFException;
+import com.mars.visualizer.exception.ValidationException;
 import com.mars.visualizer.util.MarsConstants;
 
 import lombok.extern.slf4j.Slf4j;
@@ -861,7 +862,10 @@ public class NetCDFReaderService {
 		} catch (IOException e) {
 			throw new NetCDFException(e, "error.netcdf.read.section", variable.getShortName());
 		} catch (ucar.ma2.InvalidRangeException e) {
-			throw new NetCDFException(e, "error.netcdf.section.out.of.range",
+			// Index hors bornes pour la dimension réelle de la variable
+			// (ex: altitude 102 sur une variable dynamique à 102 niveaux) =
+			// erreur client -> 400, pas 500.
+			throw new ValidationException("error.netcdf.section.out.of.range",
 				variable.getShortName(), Arrays.toString(origin), Arrays.toString(shape));
 		}
 	}

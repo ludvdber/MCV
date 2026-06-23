@@ -53,17 +53,21 @@ function DifferenceViewer({ differenceData, variableCode, datasetLabelA, dataset
     // Symmetric z-range centered on 0
     const maxAbs = Math.max(Math.abs(stats?.min || 0), Math.abs(stats?.max || 0));
 
-    // Log scale transform (applied to absolute values, preserves sign)
+    // Log scale transform — symmetric log centered on 0, sans inversion de signe.
+    // L'ancienne version (sign * log10(|v|)) renvoyait une valeur NÉGATIVE pour une
+    // petite différence POSITIVE (|v| < 1 → log10 < 0), inversant la couleur.
+    // Ici : |Δ| <= 1 → 0 (zone morte linéaire), |Δ| > 1 → sign * log10(|Δ|).
+    // Ignoré si maxAbs <= 1 (sinon logMax <= 0 → plage zmin/zmax invalide).
     let displayData = data;
     let zMin = customZMin ?? -maxAbs;
     let zMax = customZMax ?? maxAbs;
-    if (logScale) {
+    if (logScale && maxAbs > 1) {
       displayData = data.map(row => row.map(v => {
         if (v == null) return null;
-        const sign = v >= 0 ? 1 : -1;
-        return sign * Math.log10(Math.max(Math.abs(v), 1e-10));
+        const a = Math.abs(v);
+        return a <= 1 ? 0 : (v >= 0 ? 1 : -1) * Math.log10(a);
       }));
-      const logMax = Math.log10(Math.max(maxAbs, 1e-10));
+      const logMax = Math.log10(maxAbs);
       zMin = -logMax;
       zMax = logMax;
     }

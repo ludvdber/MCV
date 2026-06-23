@@ -12,7 +12,6 @@ import {
   TableChart as CsvIcon,
   KeyboardArrowDown as ArrowIcon,
   FileDownload as DownloadIcon,
-  PictureAsPdf as PdfIcon,
   Storage as NetCDFIcon,
 } from '@mui/icons-material';
 
@@ -25,7 +24,7 @@ import {
  * @param {function|null}   onCSV     - callback pour export CSV (null = option masquee)
  * @param {boolean}         disabled  - desactive le bouton
  */
-function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, onNetCDF = null, pdfMeta = null, disabled = false }) {
+function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, onNetCDF = null, disabled = false }) {
   const { t } = useTranslation();
   const showToast = useToast();
   const [anchorEl, setAnchorEl] = useState(null);
@@ -147,18 +146,6 @@ function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, onNetCDF 
     }
   };
 
-  const handlePDF = async () => {
-    handleClose();
-    if (!plotRef?.current || !pdfMeta) return;
-    try {
-      const { exportPDF } = await import('../utils/exportUtils');
-      await exportPDF(plotRef.current, pdfMeta, filename);
-      showToast(t('toast.pdfExported') || 'PDF exported');
-    } catch {
-      setExportError('PDF export failed');
-    }
-  };
-
   const handleNetCDF = () => {
     handleClose();
     if (onNetCDF) {
@@ -218,16 +205,6 @@ function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, onNetCDF 
             />
           </MenuItem>,
         ]}
-        {pdfMeta && (
-          <MenuItem onClick={handlePDF}>
-            <ListItemIcon><PdfIcon fontSize="small" /></ListItemIcon>
-            <ListItemText
-              primary="PDF"
-              secondary={t('export.pdfDesc') || 'Report with chart + parameters'}
-              slotProps={{ secondary: { sx: { fontSize: '0.7rem' } } }}
-            />
-          </MenuItem>
-        )}
         {onNetCDF && [
           <Divider key="ncdiv" />,
           <MenuItem key="nc" onClick={handleNetCDF}>

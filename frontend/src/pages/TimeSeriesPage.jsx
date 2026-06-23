@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Container, Paper, Typography, Button, CircularProgress,
@@ -57,43 +57,47 @@ function TimeSeriesPage() {
   const [viewerContainerRef, exportPlotRef] = usePlotRef();
   const [linkCopied, copyToClipboard] = useCopyToClipboard();
   const [searchParams] = useSearchParams();
-  const hasRestoredUrl = useRef(false);
+  const lastSearchRef = useRef(undefined);
   const pendingAutoLaunch = useRef(false);
   const showToast = useToast();
   const { addEntry } = useRecentHistory();
 
   const isSurfaceVariable = checkIsSurface(selectedVariable);
 
-  // Restore from permalink
-  if (!catalogLoading && !hasRestoredUrl.current) {
-    hasRestoredUrl.current = true;
+  // Restore from permalink — on mount AND when the query string changes (e.g.
+  // clicking a history entry while already on this page).
+  useEffect(() => {
+    if (catalogLoading) return;
+    const search = searchParams.toString();
+    if (search === lastSearchRef.current) return;
+    lastSearchRef.current = search;
     const ds = searchParams.get('ds');
-    if (ds) {
-      setSelectedDataset(ds);
-      const v = searchParams.get('var');
-      if (v) handleVariableChange(v);
-      const alt = searchParams.get('alt');
-      if (alt != null) setSelectedAltitude(parseInt(alt, 10));
-      const pts = searchParams.get('pts');
-      if (pts) {
-        try {
-          const parsed = JSON.parse(pts);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const withIds = parsed.map((p, i) => ({ ...p, id: p.id ?? i }));
-            nextId.current = withIds.length;
-            setPoints(withIds);
-          }
-        } catch { /* ignore */ }
-      } else {
-        const lat = searchParams.get('lat');
-        const lon = searchParams.get('lon');
-        if (lat != null && lon != null) {
-          setPoints([{ lat: parseFloat(lat), lon: parseFloat(lon) }]);
+    if (!ds) return;
+    setSelectedDataset(ds);
+    const v = searchParams.get('var');
+    if (v) handleVariableChange(v);
+    const alt = searchParams.get('alt');
+    if (alt != null) setSelectedAltitude(parseInt(alt, 10));
+    const pts = searchParams.get('pts');
+    if (pts) {
+      try {
+        const parsed = JSON.parse(pts);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const withIds = parsed.map((p, i) => ({ ...p, id: p.id ?? i }));
+          nextId.current = withIds.length;
+          setPoints(withIds);
         }
+      } catch { /* ignore */ }
+    } else {
+      const lat = searchParams.get('lat');
+      const lon = searchParams.get('lon');
+      if (lat != null && lon != null) {
+        setPoints([{ lat: parseFloat(lat), lon: parseFloat(lon) }]);
       }
-      pendingAutoLaunch.current = true;
     }
-  }
+    pendingAutoLaunch.current = true;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalogLoading, searchParams]);
 
   const handleAnalyze = () => {
     if (!selectedDataset || !selectedVariable || points.length === 0) return;

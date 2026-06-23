@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
@@ -48,17 +48,26 @@ export function useVisualizationPage({
   const [viewerContainerRef, exportPlotRef] = usePlotRef();
   const [linkCopied, copyToClipboard] = useCopyToClipboard();
   const [searchParams] = useSearchParams();
-  const hasRestoredUrl = useRef(false);
   const pendingAutoLaunch = useRef(false);
+  // Keep a live ref to restoreUrl (recreated each render by the page) so the
+  // restoration effect can depend only on searchParams, not on the function.
+  const restoreUrlRef = useRef(restoreUrl);
+  restoreUrlRef.current = restoreUrl;
+  const lastSearchRef = useRef(undefined);
 
-  // --- URL restoration (runs once when catalog loads) ---
-  if (!catalogLoading && !hasRestoredUrl.current) {
-    hasRestoredUrl.current = true;
-    const restored = restoreUrl(searchParams);
-    if (restored) {
+  // --- URL restoration ---
+  // Runs on mount AND whenever the query string changes — including when the
+  // user clicks a history entry for the page they are already on (same route,
+  // new params). Guarded by lastSearchRef so it only fires on real changes.
+  useEffect(() => {
+    if (catalogLoading) return;
+    const search = searchParams.toString();
+    if (search === lastSearchRef.current) return;
+    lastSearchRef.current = search;
+    if (restoreUrlRef.current(searchParams)) {
       pendingAutoLaunch.current = true;
     }
-  }
+  }, [catalogLoading, searchParams]);
 
   // --- Launch handler ---
   const handleLaunch = useCallback(() => {

@@ -98,3 +98,27 @@ dist-ssr/
 *.sln
 .claude/
 CLAUDE.md
+
+# ===== CLAUDE / IA =====
+.claudeignore
+CLAUDE.local.md
+
+# ===== TFE / MÉMOIRE (documents personnels) =====
+TFE_Lyx.pdf
+TFE_Lyx.lyx
+RELECTURE_TFE_*.md
+PRESENTATION_TFE_*.md
+informatique_evaluation_*.pdf
+*.tex.bak
+*.lyx~
+
+# ===== SOURCES DESIGN BRUTES (logo, etc.) — non versionnées =====
+/ChatGPT Image*.png
+/*-source.png
+
+# ===== ENVIRONNEMENT LOCAL =====
+.env
+.env.local
+.env.*.local
+*.env
+

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Container, Paper, Typography, Button, CircularProgress,
@@ -58,42 +58,47 @@ function ProfilePage() {
   const [viewerContainerRef, exportPlotRef] = usePlotRef();
   const [linkCopied, copyToClipboard] = useCopyToClipboard();
   const [searchParams] = useSearchParams();
-  const hasRestoredUrl = useRef(false);
+  const lastSearchRef = useRef(undefined);
   const pendingAutoLaunch = useRef(false);
   const showToast = useToast();
   const { addEntry } = useRecentHistory();
 
-  // Restore from permalink (supports both new ?pts= and old ?lat=&lon= format)
-  if (!catalogLoading && !hasRestoredUrl.current) {
-    hasRestoredUrl.current = true;
+  // Restore from permalink (supports both new ?pts= and old ?lat=&lon= format).
+  // Runs on mount AND when the query string changes (e.g. clicking a history
+  // entry while already on this page).
+  useEffect(() => {
+    if (catalogLoading) return;
+    const search = searchParams.toString();
+    if (search === lastSearchRef.current) return;
+    lastSearchRef.current = search;
     const ds = searchParams.get('ds');
-    if (ds) {
-      setSelectedDataset(ds);
-      const v = searchParams.get('var');
-      if (v) handleVariableChange(v);
-      const time = searchParams.get('t');
-      if (time != null) setSelectedTime(parseInt(time, 10));
-      const pts = searchParams.get('pts');
-      if (pts) {
-        try {
-          const parsed = JSON.parse(pts);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const withIds = parsed.map((p, i) => ({ ...p, id: p.id ?? i }));
-            nextId.current = withIds.length;
-            setPoints(withIds);
-          }
-        } catch { /* ignore */ }
-      } else {
-        // Backward compat: old single-point permalink ?lat=&lon=
-        const lat = searchParams.get('lat');
-        const lon = searchParams.get('lon');
-        if (lat != null && lon != null) {
-          setPoints([{ lat: parseFloat(lat), lon: parseFloat(lon) }]);
+    if (!ds) return;
+    setSelectedDataset(ds);
+    const v = searchParams.get('var');
+    if (v) handleVariableChange(v);
+    const time = searchParams.get('t');
+    if (time != null) setSelectedTime(parseInt(time, 10));
+    const pts = searchParams.get('pts');
+    if (pts) {
+      try {
+        const parsed = JSON.parse(pts);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const withIds = parsed.map((p, i) => ({ ...p, id: p.id ?? i }));
+          nextId.current = withIds.length;
+          setPoints(withIds);
         }
+      } catch { /* ignore */ }
+    } else {
+      // Backward compat: old single-point permalink ?lat=&lon=
+      const lat = searchParams.get('lat');
+      const lon = searchParams.get('lon');
+      if (lat != null && lon != null) {
+        setPoints([{ lat: parseFloat(lat), lon: parseFloat(lon) }]);
       }
-      pendingAutoLaunch.current = true;
     }
-  }
+    pendingAutoLaunch.current = true;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalogLoading, searchParams]);
 
   const isSurfaceVariable = checkIsSurface(selectedVariable);
 

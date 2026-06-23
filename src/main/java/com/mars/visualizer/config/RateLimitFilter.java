@@ -88,19 +88,15 @@ public class RateLimitFilter implements Filter {
 
 	/**
 	 * Extracts the client IP from the request.
-	 * Only trusts X-Forwarded-For when server.forward-headers-strategy=framework
-	 * is set (meaning a trusted reverse proxy is configured).
+	 *
+	 * <p>Relies on {@code getRemoteAddr()} which is already resolved to the real
+	 * client IP by Spring's {@code ForwardedHeaderFilter} (enabled via
+	 * {@code server.forward-headers-strategy=framework}). We deliberately do NOT
+	 * parse {@code X-Forwarded-For} manually here: trusting its first value lets
+	 * any client spoof an arbitrary IP and bypass the per-IP rate limit. The
+	 * trusted reverse proxy (Caddy/Nginx) is responsible for setting the header.
 	 */
 	private String getClientIp(HttpServletRequest request) {
-		String xff = request.getHeader("X-Forwarded-For");
-		if (xff != null && !xff.isEmpty()) {
-			// Take only the first (client) IP; subsequent are proxy chain
-			String clientIp = xff.split(",")[0].trim();
-			// Basic validation: reject obviously forged values
-			if (clientIp.length() <= 45 && clientIp.matches("[0-9a-fA-F.:]+")) {
-				return clientIp;
-			}
-		}
 		return request.getRemoteAddr();
 	}
 

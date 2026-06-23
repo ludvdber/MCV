@@ -41,7 +41,7 @@ function saveHistory(entries) {
 
 /**
  * Hook pour gerer l'historique des visualisations recentes.
- * Stocke les 10 dernieres dans localStorage.
+ * Stocke les MAX_ENTRIES dernieres dans localStorage.
  */
 export function useRecentHistory() {
   const [history, setHistory] = useState(loadHistory);
@@ -62,9 +62,13 @@ export function useRecentHistory() {
 
   const addEntry = useCallback((entry) => {
     const prev = loadHistory(); // always read fresh from localStorage
-    const deduped = prev.filter(
-      e => !(e.page === entry.page && e.dataset === entry.dataset && e.variable === entry.variable)
-    );
+    // Dedup on the full parameter signature: two visualisations that differ only
+    // by time / altitude / points / colorscale must stay as DISTINCT entries.
+    // The permalink encodes every parameter, so it is the correct identity key.
+    // Fall back to page+dataset+variable when no permalink could be built.
+    const signature = e => e.permalink || `${e.page}|${e.dataset}|${e.variable}`;
+    const entrySignature = signature(entry);
+    const deduped = prev.filter(e => signature(e) !== entrySignature);
     const updated = [
       { ...entry, id: String(Date.now()), timestamp: Date.now() },
       ...deduped,

@@ -113,6 +113,30 @@ class FileControllerTest {
         }
 
         @Test
+        @DisplayName("GET /api/data/slice avec time non-numérique retourne 400 (et pas 500)")
+        void sliceTimeNonNumeriqueRetourne400() throws Exception {
+            // time=abc -> MethodArgumentTypeMismatchException -> doit être 400, pas 500
+            mockMvc.perform(get("/api/data/slice")
+                            .param("dataset", "mean_MY28_Ls0_30")
+                            .param("variable", "TT")
+                            .param("altitude", "49")
+                            .param("time", "abc"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").exists());
+        }
+
+        @Test
+        @DisplayName("GET /api/data/slice avec altitude non-numérique retourne 400")
+        void sliceAltitudeNonNumeriqueRetourne400() throws Exception {
+            mockMvc.perform(get("/api/data/slice")
+                            .param("dataset", "mean_MY28_Ls0_30")
+                            .param("variable", "TT")
+                            .param("altitude", "xyz")
+                            .param("time", "0"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
         @DisplayName("GET /api/data/timeseries avec dataset INDIVIDUAL retourne 400")
         void timeseriesIndividualRetourne400() throws Exception {
             when(datasetResolver.isIndividualDataset("IND_MY34_LS5.00")).thenReturn(true);

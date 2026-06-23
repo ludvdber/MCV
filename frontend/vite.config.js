@@ -12,7 +12,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig(() => ({
   define: {
     // eslint-disable-next-line no-undef
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '0.0.0'),
@@ -82,9 +82,5 @@ export default defineConfig(({ mode }) => ({
         },
       },
     },
-  },
-  esbuild: {
-    // Strip console statements in production builds
-    drop: mode === 'production' ? ['console', 'debugger'] : [],
   },
 }))

@@ -107,14 +107,6 @@ function SlicePage() {
     );
   };
 
-  const pdfMeta = sliceData ? {
-    title: `${datasetLabel} — ${selectedVariable} — t=${selectedTime} — alt=${selectedAltitude}`,
-    dataset: datasetLabel,
-    variable: selectedVariable,
-    params: { time: selectedTime, altitude: selectedAltitude },
-    stats: sliceData.stats,
-  } : null;
-
   const tableData = useMemo(() =>
     sliceData ? gridToTable(sliceData.data, sliceData.latitudes, sliceData.longitudes, selectedVariable) : null,
   [sliceData, selectedVariable]);
@@ -182,7 +174,7 @@ function SlicePage() {
             {sliceData && (
               <Box sx={{ mb: 1, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
                 <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
-                <ExportMenu plotRef={exportPlotRef} filename={`mars_slice_${selectedVariable || 'plot'}`} onCSV={handleExportCSV} onNetCDF={handleExportNetCDF} pdfMeta={pdfMeta} />
+                <ExportMenu plotRef={exportPlotRef} filename={`mars_slice_${selectedVariable || 'plot'}`} onCSV={handleExportCSV} onNetCDF={handleExportNetCDF} />
                 <TableButton />
                 <FullscreenButton containerRef={viewerContainerRef} />
               </Box>

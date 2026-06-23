@@ -1,19 +1,18 @@
-import { memo, useState } from 'react';
-import { Paper, Typography, Box, IconButton, Collapse, useMediaQuery, useTheme } from '@mui/material';
-import { ExpandMore as ExpandIcon } from '@mui/icons-material';
+import { memo } from 'react';
+import { Paper, Typography, Box } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 
 /**
- * Barre de statistiques descriptives — collapsible.
- * Expanded by default on desktop (sm+), collapsed on mobile.
+ * Barre de statistiques descriptives — toujours visible, compacte et colorée.
+ *
+ * Chaque statistique est une "cellule" (libellé + valeur) séparée par un fin
+ * trait vertical, avec un accent couleur : min = cyan, max = orange Mars,
+ * moyenne mise en avant. Pas de repli (le gain d'espace était négligeable).
  *
  * @param {{ min, max, mean, stddev, median? }|null} stats
  */
 function StatsBar({ stats }) {
   const { t, i18n } = useTranslation();
-  const theme = useTheme();
-  const isDesktop = useMediaQuery(theme.breakpoints.up('sm'));
-  const [expanded, setExpanded] = useState(isDesktop);
 
   if (!stats) return null;
 
@@ -22,55 +21,67 @@ function StatsBar({ stats }) {
     : '-';
 
   const items = [
-    { label: t('common.min'), value: fmt(stats.min) },
-    { label: t('common.max'), value: fmt(stats.max) },
-    { label: t('common.mean'), value: fmt(stats.mean) },
-    { label: t('common.stddev'), value: fmt(stats.stddev) },
+    { label: t('common.min'),    value: fmt(stats.min),    color: 'var(--cyan-accent)' },
+    { label: t('common.max'),    value: fmt(stats.max),    color: 'var(--mars-orange)' },
+    { label: t('common.mean'),   value: fmt(stats.mean),   color: 'var(--text-primary)' },
+    { label: t('common.stddev'), value: fmt(stats.stddev), color: 'var(--text-secondary)' },
   ];
-
   if (stats.median != null) {
-    items.push({ label: t('common.median'), value: fmt(stats.median) });
+    items.push({ label: t('common.median'), value: fmt(stats.median), color: 'var(--text-secondary)' });
   }
 
   return (
-    <Paper sx={{ mt: 1, overflow: 'hidden' }}>
-      <Box
-        onClick={() => setExpanded(v => !v)}
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          p: { xs: 0.5, sm: expanded ? 0 : 0.5 },
-          '&:hover': { bgcolor: 'var(--bg-surface-hover)' },
-        }}
-      >
-        {!expanded && (
-          <Typography variant="caption" sx={{ color: 'var(--text-secondary)', fontSize: '0.7rem' }}>
-            {t('common.min')}: {fmt(stats.min)} · {t('common.max')}: {fmt(stats.max)}
+    <Paper
+      sx={{
+        mt: 1,
+        px: { xs: 1, sm: 2 },
+        py: { xs: 0.75, sm: 1 },
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'stretch',
+        flexWrap: 'wrap',
+      }}
+    >
+      {items.map((it, i) => (
+        <Box
+          key={it.label}
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            px: { xs: 1.25, sm: 2.5 },
+            py: 0.25,
+            minWidth: 60,
+            borderLeft: i === 0 ? 'none' : '1px solid var(--glass-border)',
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: '0.6rem',
+              fontWeight: 600,
+              letterSpacing: '0.07em',
+              textTransform: 'uppercase',
+              color: 'var(--text-secondary)',
+              lineHeight: 1.5,
+            }}
+          >
+            {it.label}
           </Typography>
-        )}
-        <IconButton size="small" sx={{ ml: 'auto', p: 0.3, color: 'var(--text-secondary)' }}>
-          <ExpandIcon sx={{ fontSize: 16, transform: expanded ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
-        </IconButton>
-      </Box>
-      <Collapse in={expanded}>
-        <Box sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: { xs: 1.5, sm: 3 },
-          flexWrap: 'wrap',
-          p: { xs: 1, sm: 1.5 },
-          pt: 0,
-        }}>
-          {items.map(({ label, value }) => (
-            <Typography key={label} variant="body2" sx={{ fontSize: { xs: '0.72rem', sm: '0.875rem' }, whiteSpace: 'nowrap' }}>
-              {label} : {value}
-            </Typography>
-          ))}
+          <Typography
+            sx={{
+              fontSize: { xs: '0.82rem', sm: '0.95rem' },
+              fontWeight: 700,
+              fontVariantNumeric: 'tabular-nums',
+              color: it.color,
+              lineHeight: 1.25,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {it.value}
+          </Typography>
         </Box>
-      </Collapse>
+      ))}
     </Paper>
   );
 }

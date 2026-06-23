@@ -24,7 +24,7 @@ import { LazyMotion, domAnimation, AnimatePresence } from 'framer-motion';
 import KeyboardShortcutsDialog from './components/KeyboardShortcutsDialog';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
-// mars.glb (3.9 MB) is lazy-loaded only when the Home page hero section is visible.
+// mars.glb (~220 KB, meshopt-compressed) is lazy-loaded only when the Home page hero is visible.
 // No preload — the 3D globe is not worth blocking TTI on other pages.
 
 // Chargement differe : ces pages ne sont telechargees que quand l'utilisateur y navigue

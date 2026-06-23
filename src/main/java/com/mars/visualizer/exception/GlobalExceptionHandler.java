@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import lombok.extern.slf4j.Slf4j;
@@ -67,6 +68,19 @@ public class GlobalExceptionHandler {
         String message = messageSource.getMessage("error.parameter.missing",
                 new Object[]{ex.getParameterName()}, locale);
         log.warn("Missing parameter: {}", sanitizeLog(ex.getParameterName()));
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(buildErrorBody(error, message));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        Locale locale = LocaleContextHolder.getLocale();
+        String error   = messageSource.getMessage("error.category.validation", null, locale);
+        String message = messageSource.getMessage("error.parameter.invalid",
+                new Object[]{ex.getName()}, locale);
+        log.warn("Type mismatch on parameter: {}", sanitizeLog(ex.getName()));
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
