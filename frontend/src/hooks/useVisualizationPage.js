@@ -35,7 +35,7 @@ export function useVisualizationPage({
   buildHistoryEntry,
   canLaunch,
 }) {
-  const { catalogLoading, dataset } = useMars();
+  const { catalogLoading, dataset, selectedDataset } = useMars();
   const { t } = useTranslation();
   const showToast = useToast();
   const { addEntry } = useRecentHistory();
@@ -54,6 +54,12 @@ export function useVisualizationPage({
   const restoreUrlRef = useRef(restoreUrl);
   restoreUrlRef.current = restoreUrl;
   const lastSearchRef = useRef(undefined);
+  // Incrémenté après une restauration pour FORCER un rendu, même si tous les
+  // setters de restoreUrl sont des no-op (params identiques à la sélection
+  // courante du contexte). Sans ça, l'auto-launch en bas — évalué au rendu —
+  // n'aurait jamais l'occasion de tourner quand on clique une entrée
+  // d'historique correspondant exactement à la vue déjà affichée.
+  const [, forceRestoreRender] = useState(0);
 
   // --- URL restoration ---
   // Runs on mount AND whenever the query string changes — including when the
@@ -66,6 +72,7 @@ export function useVisualizationPage({
     lastSearchRef.current = search;
     if (restoreUrlRef.current(searchParams)) {
       pendingAutoLaunch.current = true;
+      forceRestoreRender(n => n + 1);
     }
   }, [catalogLoading, searchParams]);
 
@@ -96,9 +103,16 @@ export function useVisualizationPage({
   }, [fetchData, buildHistoryEntry, canLaunch, addEntry]);
 
   // --- Auto-launch after URL restoration ---
-  if (pendingAutoLaunch.current && dataset && !loading) {
+  // Évalué pendant le rendu (et NON dans un effet) à dessein : il faut le rendu
+  // où les valeurs de l'URL sont déjà appliquées au contexte. Un useEffect se
+  // déclencherait dès le commit du montage, avant que setState n'ait propagé le
+  // dataset/point restaurés, et lancerait avec les valeurs de la page précédente
+  // (bug observé en revenant sur une vue depuis l'historique).
+  const shouldAutoLaunch = pendingAutoLaunch.current && !loading && !catalogLoading;
+  if (shouldAutoLaunch && (dataset || selectedDataset)) {
     pendingAutoLaunch.current = false;
-    setTimeout(handleLaunch, 0);
+    if (dataset) setTimeout(handleLaunch, 0);
+    else setTimeout(() => setError(t('error.datasetNotFound', { id: selectedDataset })), 0);
   }
 
   // --- Permalink copy ---

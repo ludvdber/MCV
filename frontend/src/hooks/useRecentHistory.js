@@ -36,7 +36,40 @@ function loadHistory() {
 }
 
 function saveHistory(entries) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  } catch {
+    // localStorage indisponible ou plein (navigation privee, quota depasse) :
+    // l'historique est un confort, on ignore l'echec sans casser la visualisation.
+  }
+}
+
+/**
+ * Applique le plafond sans jamais supprimer les entrees epinglees : on garde
+ * tous les favoris + les MAX_ENTRIES entrees non epinglees les plus recentes,
+ * en preservant l'ordre de la liste.
+ */
+function capHistory(list) {
+  let unpinned = 0;
+  return list.filter(e => {
+    if (e.pinned) return true;
+    unpinned += 1;
+    return unpinned <= MAX_ENTRIES;
+  });
+}
+
+/** Signature d'identite d'une entree (le permalien encode tous les parametres). */
+function signatureOf(e) {
+  return e.permalink || `${e.page}|${e.dataset}|${e.variable}`;
+}
+
+/**
+ * Identifiant unique d'entree. Date.now() seul collisionnait quand deux ajouts
+ * tombaient dans la meme milliseconde (memes id -> suppression/epinglage cassés).
+ */
+function makeId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 /**
@@ -62,19 +95,25 @@ export function useRecentHistory() {
 
   const addEntry = useCallback((entry) => {
     const prev = loadHistory(); // always read fresh from localStorage
-    // Dedup on the full parameter signature: two visualisations that differ only
-    // by time / altitude / points / colorscale must stay as DISTINCT entries.
-    // The permalink encodes every parameter, so it is the correct identity key.
-    // Fall back to page+dataset+variable when no permalink could be built.
-    const signature = e => e.permalink || `${e.page}|${e.dataset}|${e.variable}`;
-    const entrySignature = signature(entry);
-    const deduped = prev.filter(e => signature(e) !== entrySignature);
-    const updated = [
-      { ...entry, id: String(Date.now()), timestamp: Date.now() },
-      ...deduped,
-    ].slice(0, MAX_ENTRIES);
-    saveHistory(updated);
+    // Si la meme config existe deja (meme permalien), on ne la deplace PAS :
+    // revenir sur une vue depuis l'historique ne doit pas reordonner la liste
+    // sous les yeux de l'utilisateur. Seules les nouvelles configs s'ajoutent en tete.
+    const sig = signatureOf(entry);
+    if (prev.some(e => signatureOf(e) === sig)) return;
+    const newEntry = { ...entry, id: makeId(), timestamp: Date.now(), pinned: false };
+    saveHistory(capHistory([newEntry, ...prev]));
     emitChange(); // notify all hook instances in this tab
+  }, []);
+
+  const removeEntry = useCallback((id) => {
+    saveHistory(loadHistory().filter(e => e.id !== id));
+    emitChange();
+  }, []);
+
+  const togglePin = useCallback((id) => {
+    const updated = loadHistory().map(e => e.id === id ? { ...e, pinned: !e.pinned } : e);
+    saveHistory(capHistory(updated));
+    emitChange();
   }, []);
 
   const clearHistory = useCallback(() => {
@@ -82,5 +121,5 @@ export function useRecentHistory() {
     emitChange();
   }, []);
 
-  return { history, addEntry, clearHistory };
+  return { history, addEntry, removeEntry, togglePin, clearHistory };
 }

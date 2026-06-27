@@ -32,6 +32,7 @@ function StarField() {
 
   return (
     <Box
+      className="starfield-bg"
       sx={{
         position: 'fixed',
         inset: 0,

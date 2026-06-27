@@ -285,12 +285,20 @@ function ExplorePageContent() {
 
   /** Auto-lance après restauration de l'URL. */
   useEffect(() => {
-    if (!pendingAutoLaunch || loading) return;
+    if (!pendingAutoLaunch || loading || catalogLoading) return;
     const isInd = selectedDataset?.startsWith(INDIVIDUAL_PREFIX);
-    if (!isInd && !dataset) return;
+    // Dataset non individuel introuvable dans le catalogue : on signale au lieu
+    // de rester muet (l'identifiant vient d'une URL éditable à la main).
+    if (!isInd && !dataset) {
+      if (selectedDataset) {
+        dispatch({ type: A.SET_PENDING_AUTO, value: false });
+        dispatch({ type: A.SET_ERROR, value: t('error.datasetNotFound', { id: selectedDataset }) });
+      }
+      return;
+    }
     dispatch({ type: A.SET_PENDING_AUTO, value: false });
     handleLancerRef.current();
-  }, [pendingAutoLaunch, dataset, selectedDataset]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pendingAutoLaunch, dataset, selectedDataset, loading, catalogLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Fetch du champ de vent lors de l'activation du toggle sur une slice.
    *  AbortController pour annuler la requete precedente si le toggle ou l'onglet actif change

@@ -99,8 +99,8 @@ function DetailPanel({ resultData, resultType, variableCode }) {
       },
     }], {
       title: { text: `${t('viz.detail.distribution')} — ${variableLabel} (${unit})`, font: { size: 13, color: fontColor } },
-      xaxis: { title: `${variableLabel} (${unit})`, color: fontColor },
-      yaxis: { title: t('viz.detail.frequency'), color: fontColor },
+      xaxis: { title: { text: `${variableLabel} (${unit})` }, color: fontColor },
+      yaxis: { title: { text: t('viz.detail.frequency') }, color: fontColor },
       font: { color: fontColor },
       margin: { t: 40, r: 20, b: 50, l: 60 },
       paper_bgcolor: paperBg,
@@ -125,8 +125,8 @@ function DetailPanel({ resultData, resultType, variableCode }) {
       line: { color: '#38bdf8', width: 2 },
     }], {
       title: { text: t('viz.detail.zonalMean'), font: { size: 13, color: fontColor } },
-      xaxis: { title: `${variableLabel} (${unit})`, color: fontColor },
-      yaxis: { title: t('viz.latitude'), color: fontColor },
+      xaxis: { title: { text: `${variableLabel} (${unit})` }, color: fontColor },
+      yaxis: { title: { text: t('viz.latitude') }, color: fontColor },
       font: { color: fontColor },
       margin: { t: 40, r: 20, b: 50, l: 60 },
       paper_bgcolor: paperBg,

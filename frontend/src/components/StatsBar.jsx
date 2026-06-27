@@ -16,9 +16,21 @@ function StatsBar({ stats }) {
 
   if (!stats) return null;
 
-  const fmt = (v) => v != null
-    ? v.toLocaleString(i18n.language, { maximumSignificantDigits: 4 })
-    : '-';
+  // Notation scientifique (mantisse ×10^exposant) pour les valeurs extremes,
+  // sinon groupement local classique. Evite les "42 290 000 000 ..." illisibles
+  // alors que le graphe affiche deja la meme valeur sous forme compacte.
+  const fmt = (v) => {
+    if (v == null) return '-';
+    if (v === 0) return '0';
+    const abs = Math.abs(v);
+    if (abs >= 1e6 || abs < 1e-3) {
+      const [mant, e] = v.toExponential(2).split('e');
+      const exp = parseInt(e, 10);
+      const mantStr = Number(mant).toLocaleString(i18n.language, { maximumFractionDigits: 2 });
+      return <>{mantStr}×10<sup>{exp}</sup></>;
+    }
+    return v.toLocaleString(i18n.language, { maximumSignificantDigits: 4 });
+  };
 
   const items = [
     { label: t('common.min'),    value: fmt(stats.min),    color: 'var(--cyan-accent)' },
@@ -32,6 +44,7 @@ function StatsBar({ stats }) {
 
   return (
     <Paper
+      className="stats-bar"
       sx={{
         mt: 1,
         px: { xs: 1, sm: 2 },

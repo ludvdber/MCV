@@ -19,7 +19,6 @@ import com.mars.visualizer.dto.internal.ProfileData;
 import com.mars.visualizer.dto.internal.SliceData;
 import com.mars.visualizer.dto.internal.TemporalProfileData;
 import com.mars.visualizer.dto.internal.WindFieldData;
-import com.mars.visualizer.dto.internal.WindMapData;
 import com.mars.visualizer.dto.internal.WindRoseData;
 import com.mars.visualizer.dto.internal.ZonalMeanData;
 import com.mars.visualizer.exception.NetCDFException;
@@ -141,7 +140,7 @@ public class NetCDFReaderService {
 	private ucar.nc2.Variable requireVariable(NetcdfFile ncfile, String variableName) {
 		ucar.nc2.Variable v = ncfile.findVariable(variableName);
 		if (v == null) {
-			throw new NetCDFException("error.netcdf.variable.not.found", variableName);
+			throw new ValidationException("error.netcdf.variable.not.found", variableName);
 		}
 		return v;
 	}
@@ -312,7 +311,7 @@ public class NetCDFReaderService {
 
 			int[] varShape = variable.getShape();
 			if (varShape.length == 3) {
-				throw new NetCDFException("error.netcdf.surface.no.profile", variableName);
+				throw new ValidationException("error.netcdf.surface.no.profile", variableName);
 			}
 
 			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
@@ -359,7 +358,7 @@ public class NetCDFReaderService {
 
 			int[] varShape = variable.getShape();
 			if (varShape.length == 3) {
-				throw new NetCDFException("error.netcdf.surface.no.profile", variableName);
+				throw new ValidationException("error.netcdf.surface.no.profile", variableName);
 			}
 
 			int nTime = varShape[0];
@@ -411,7 +410,7 @@ public class NetCDFReaderService {
 
 			int[] varShape = variable.getShape();
 			if (varShape.length == 3) {
-				throw new NetCDFException("error.netcdf.surface.no.crosssection", variableName);
+				throw new ValidationException("error.netcdf.surface.no.crosssection", variableName);
 			}
 
 			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
@@ -464,7 +463,7 @@ public class NetCDFReaderService {
 				}
 
 			} else {
-				throw new NetCDFException("error.netcdf.crosssection.type", type);
+				throw new ValidationException("error.netcdf.crosssection.type", type);
 			}
 
 			double[] hCoords = new double[horizontalCoords.length];
@@ -585,69 +584,6 @@ public class NetCDFReaderService {
 
 
 	/**
-	 * Extrait une carte de vent complète : vitesse scalaire (full grid) + vecteurs subsamplés.
-	 *
-	 * @return WindMapData record
-	 */
-	public WindMapData extractWindMap(String filename, int timeIndex, int altitudeIndex) {
-
-		log.info("Extraction carte de vent : fichier={}, time={}, altitude={}", filename, timeIndex, altitudeIndex);
-
-		try (NetcdfFile ncfile = openMeanFile(filename)) {
-			ucar.nc2.Variable uuVar = requireVariable(ncfile, VAR_UU);
-			ucar.nc2.Variable vvVar = requireVariable(ncfile, VAR_VV);
-
-			double[] latCoords = extractCoordinates(ncfile, COORD_LAT);
-			double[] lonCoords = extractCoordinates(ncfile, COORD_LON);
-			int      nLat      = latCoords.length;
-			int      nLon      = lonCoords.length;
-
-			ucar.ma2.Array uData = readSection(uuVar, new int[]{timeIndex, altitudeIndex, 0, 0}, new int[]{1, 1, nLat, nLon});
-			ucar.ma2.Array vData = readSection(vvVar, new int[]{timeIndex, altitudeIndex, 0, 0}, new int[]{1, 1, nLat, nLon});
-
-			ucar.ma2.Index uIdx = uData.getIndex();
-			ucar.ma2.Index vIdx = vData.getIndex();
-
-			// Full grid wind speed
-			float[][] windSpeed = new float[nLat][nLon];
-			for (int la = 0; la < nLat; la++) {
-				for (int lo = 0; lo < nLon; lo++) {
-					float u = uData.getFloat(uIdx.set(0, 0, la, lo));
-					float v = vData.getFloat(vIdx.set(0, 0, la, lo));
-					windSpeed[la][lo] = (float) Math.sqrt(u * u + v * v);
-				}
-			}
-
-			// Subsampled vectors for arrows
-			int cLat = 0; for (int la = 0; la < nLat; la += WIND_SUBSAMPLE_STEP) cLat++;
-			int cLon = 0; for (int lo = 0; lo < nLon; lo += WIND_SUBSAMPLE_STEP) cLon++;
-			int total = cLat * cLon;
-
-			double[] subLats = new double[total];
-			double[] subLons = new double[total];
-			double[] uArr    = new double[total];
-			double[] vArr    = new double[total];
-
-			int k = 0;
-			for (int la = 0; la < nLat; la += WIND_SUBSAMPLE_STEP) {
-				for (int lo = 0; lo < nLon; lo += WIND_SUBSAMPLE_STEP) {
-					subLats[k] = latCoords[la];
-					subLons[k] = lonCoords[lo];
-					uArr[k]    = uData.getFloat(uIdx.set(0, 0, la, lo));
-					vArr[k]    = vData.getFloat(vIdx.set(0, 0, la, lo));
-					k++;
-				}
-			}
-
-			log.info("Carte de vent extraite : {}x{} grid, {} vecteurs", nLat, nLon, k);
-			return new WindMapData(windSpeed, latCoords, lonCoords, subLats, subLons, uArr, vArr);
-
-		} catch (IOException e) {
-			throw new NetCDFException(e, "error.netcdf.read.wind", filename);
-		}
-	}
-
-	/**
 	 * Extrait un diagramme de Hovmöller : temps × latitude (ou longitude).
 	 * Pour chaque timestep, on moyenne sur la dimension spatiale non affichée.
 	 * Lecture partielle : {@code nTime×1×nLat×nLon} (4D) ou {@code nTime×nLat×nLon} (3D).
@@ -736,7 +672,7 @@ public class NetCDFReaderService {
 
 			int[] varShape = variable.getShape();
 			if (varShape.length == 3) {
-				throw new NetCDFException("error.netcdf.surface.no.crosssection", variableName);
+				throw new ValidationException("error.netcdf.surface.no.crosssection", variableName);
 			}
 
 			int nAlt = varShape[1];
@@ -788,7 +724,7 @@ public class NetCDFReaderService {
 		try (NetcdfFile ncfile = openMeanFile(filename)) {
 			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
 			if (variable == null) {
-				throw new NetCDFException("error.netcdf.variable.not.in.file", variableName, filename);
+				throw new ValidationException("error.netcdf.variable.not.in.file", variableName, filename);
 			}
 
 			int[] shape = variable.getShape();
@@ -818,7 +754,7 @@ public class NetCDFReaderService {
 		try (NetcdfFile ncfile = openMeanFile(filename)) {
 			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
 			if (variable == null) {
-				throw new NetCDFException("error.netcdf.variable.not.in.file", variableName, filename);
+				throw new ValidationException("error.netcdf.variable.not.in.file", variableName, filename);
 			}
 
 			int[] shape = variable.getShape();

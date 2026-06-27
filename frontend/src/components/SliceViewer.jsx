@@ -166,7 +166,8 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
         y: yLines,
         mode: 'lines',
         line: { color: fontColor, width: 1.2 },
-        hoverinfo: 'none',
+        // 'skip' (et non 'none') pour laisser le survol atteindre la heatmap dessous.
+        hoverinfo: 'skip',
         showlegend: false,
       });
     }
@@ -176,7 +177,7 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
       title: { text: `${datasetLabel || ''} — ${variableLabel} — ${formatTime(timeIndex)} — ${altitudeText}`, font: { size: titleSize, color: fontColor } },
       font: { color: fontColor },
       xaxis: {
-        title: t('viz.longitude'),
+        title: { text: t('viz.longitude') },
         range: [lonMin, lonMax],
         showgrid: false,
         zeroline: false,
@@ -184,7 +185,7 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
         color: fontColor
       },
       yaxis: {
-        title: t('viz.latitude'),
+        title: { text: t('viz.latitude') },
         range: [latMin, latMax],
         showgrid: false,
         zeroline: false,

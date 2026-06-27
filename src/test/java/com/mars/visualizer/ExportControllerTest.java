@@ -187,7 +187,7 @@ class ExportControllerTest {
     }
 
     // =========================================================================
-    // Hovmoller / ZonalMean / Windrose / Windmap exports
+    // Hovmoller / ZonalMean / Windrose exports
     // =========================================================================
 
     @Nested
@@ -219,15 +219,6 @@ class ExportControllerTest {
             mockMvc.perform(get("/api/export/csv/windrose")
                             .param("latitude", "0")
                             .param("longitude", "0")
-                            .param("altitude", "0"))
-                    .andExpect(status().isBadRequest());
-        }
-
-        @Test
-        @DisplayName("Export CSV windmap sans dataset retourne 400")
-        void windmapSansDatasetRetourne400() throws Exception {
-            mockMvc.perform(get("/api/export/csv/windmap")
-                            .param("time", "0")
                             .param("altitude", "0"))
                     .andExpect(status().isBadRequest());
         }

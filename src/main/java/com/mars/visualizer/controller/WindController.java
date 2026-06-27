@@ -6,16 +6,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.mars.visualizer.dto.response.StatsResult;
-import com.mars.visualizer.dto.response.WindMapResponse;
 import com.mars.visualizer.dto.response.WindRoseResponse;
-import com.mars.visualizer.dto.internal.WindMapData;
 import com.mars.visualizer.dto.internal.WindRoseData;
 import com.mars.visualizer.exception.ValidationException;
 import com.mars.visualizer.service.NetCDFReaderService;
 import com.mars.visualizer.service.ValidationService;
 import com.mars.visualizer.util.DatasetResolver;
-import com.mars.visualizer.util.StatsCalculator;
 
 /**
  * Controller REST pour la rose des vents et la carte de vent.
@@ -58,30 +54,6 @@ public class WindController extends AbstractDataController {
         var response = new WindRoseResponse(
                 dataset, latitude, longitude, altitude, altitudeValue,
                 wrData.uu(), wrData.vv(), wrData.actualLat(), wrData.actualLon());
-
-        return cachedOk(response);
-    }
-
-    @GetMapping("/data/windmap")
-    public ResponseEntity<WindMapResponse> getWindMap(
-            @RequestParam String dataset,
-            @RequestParam(defaultValue = "0") int time,
-            @RequestParam(defaultValue = "49") int altitude) {
-
-        var resolved = resolveDataset(dataset, time);
-        time = resolved.time();
-        validationService.validateTimestep(time);
-        validationService.validateAltitude(altitude);
-
-        WindMapData wmData = netcdfService.extractWindMap(resolved.filename(), time, altitude);
-        StatsResult stats = StatsCalculator.calculateStats(wmData.windSpeed());
-        Double altitudeValue = netcdfService.extractAltitudeValue(resolved.filename(), "UU", altitude);
-
-        var response = new WindMapResponse(
-                dataset, time, altitude, altitudeValue,
-                datasetResolver.getActualLs(dataset, resolved.filename()),
-                wmData.windSpeed(), wmData.latitudes(), wmData.longitudes(),
-                wmData.subLats(), wmData.subLons(), wmData.u(), wmData.v(), stats);
 
         return cachedOk(response);
     }

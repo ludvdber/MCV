@@ -93,13 +93,13 @@ function HovmollerViewer({ hovmollerData, variableCode, datasetLabel, colorscale
       },
       font: { color: fontColor },
       xaxis: {
-        title: xLabel,
+        title: { text: xLabel },
         color: fontColor,
         showgrid: false,
         zeroline: false
       },
       yaxis: {
-        title: t('viz.localTime'),
+        title: { text: t('viz.localTime') },
         color: fontColor,
         showgrid: false,
         zeroline: false,

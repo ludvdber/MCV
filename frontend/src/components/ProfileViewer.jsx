@@ -51,13 +51,13 @@ function ProfileViewer({ profiles, variableCode, datasetLabel, onExportCSV = nul
       title: { text: titleText, font: { size: titleSize, color: fontColor } },
       font: { color: fontColor },
       xaxis: {
-        title: `${variableLabel} (${unit})`,
+        title: { text: `${variableLabel} (${unit})` },
         color: fontColor,
         gridcolor: gridColor,
         zeroline: false,
       },
       yaxis: {
-        title: t('viz.altitude'),
+        title: { text: t('viz.altitude') },
         color: fontColor,
         gridcolor: gridColor,
         zeroline: false,

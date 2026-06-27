@@ -25,7 +25,6 @@ import com.mars.visualizer.controller.ProfileController;
 import com.mars.visualizer.dto.internal.HovmollerData;
 import com.mars.visualizer.dto.internal.SliceData;
 import com.mars.visualizer.dto.internal.TemporalProfileData;
-import com.mars.visualizer.dto.internal.WindMapData;
 import com.mars.visualizer.dto.internal.WindRoseData;
 import com.mars.visualizer.dto.internal.ZonalMeanData;
 import com.mars.visualizer.exception.ValidationException;
@@ -316,71 +315,6 @@ class NewVisualizationsControllerTest {
                     .andExpect(jsonPath("$.vv[0]").value(-1.0))
                     .andExpect(jsonPath("$.actualLat").value(0.0))
                     .andExpect(jsonPath("$.actualLon").value(0.0));
-        }
-    }
-
-    // =========================================================================
-    // Wind Map endpoint
-    // =========================================================================
-
-    @Nested
-    @DisplayName("Wind Map endpoint")
-    class WindMapTests {
-
-        @Test
-        @DisplayName("GET /api/data/windmap sans dataset retourne 400")
-        void windmapSansDatasetRetourne400() throws Exception {
-            mockMvc.perform(get("/api/data/windmap")
-                            .param("time", "0")
-                            .param("altitude", "49"))
-                    .andExpect(status().isBadRequest());
-        }
-
-        @Test
-        @DisplayName("GET /api/data/windmap avec altitude invalide retourne 400")
-        void windmapAltitudeInvalideRetourne400() throws Exception {
-            when(datasetResolver.resolveFilename("mean_MY28_Ls0_30")).thenReturn("/fake/path.nc");
-            when(datasetResolver.isIndividualDataset("mean_MY28_Ls0_30")).thenReturn(false);
-
-            doThrow(new ValidationException("error.altitude.invalid", 999, 0, 102))
-                    .when(validationService).validateAltitude(999);
-
-            mockMvc.perform(get("/api/data/windmap")
-                            .param("dataset", "mean_MY28_Ls0_30")
-                            .param("time", "0")
-                            .param("altitude", "999"))
-                    .andExpect(status().isBadRequest());
-        }
-
-        @Test
-        @DisplayName("GET /api/data/windmap avec params valides retourne 200")
-        void windmapParamsValidesRetourne200() throws Exception {
-            when(datasetResolver.resolveFilename("mean_MY28_Ls0_30")).thenReturn("/fake/path.nc");
-            when(datasetResolver.isIndividualDataset("mean_MY28_Ls0_30")).thenReturn(false);
-            when(datasetResolver.getActualLs("mean_MY28_Ls0_30", "/fake/path.nc")).thenReturn(15.0);
-
-            WindMapData wmData = new WindMapData(
-                    new float[][]{{5.0f, 6.0f}},
-                    new double[]{-45, 45},
-                    new double[]{-90, 90},
-                    new double[]{0.0},
-                    new double[]{0.0},
-                    new double[]{1.0},
-                    new double[]{2.0});
-
-            when(netcdfService.extractWindMap("/fake/path.nc", 0, 49))
-                    .thenReturn(wmData);
-            when(netcdfService.extractAltitudeValue("/fake/path.nc", "UU", 49))
-                    .thenReturn(5.0);
-
-            mockMvc.perform(get("/api/data/windmap")
-                            .param("dataset", "mean_MY28_Ls0_30")
-                            .param("time", "0")
-                            .param("altitude", "49"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.dataset").value("mean_MY28_Ls0_30"))
-                    .andExpect(jsonPath("$.windSpeed[0][0]").value(5.0))
-                    .andExpect(jsonPath("$.stats").exists());
         }
     }
 

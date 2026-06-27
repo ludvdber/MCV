@@ -25,6 +25,8 @@ i18n
     },
     fallbackLng: 'en',
     supportedLngs: ['en', 'fr', 'nl', 'es', 'de'],
+    // Désactive le message promotionnel Locize affiché dans la console à l'init.
+    showSupportNotice: false,
     detection: {
       order: ['localStorage', 'navigator'],
       caches: ['localStorage'],

@@ -20,10 +20,12 @@ import PageLoader from '../components/PageLoader';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { triggerApiDownload } from '../utils/exportUtils';
+import { intParam } from '../utils/urlParams';
 import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
 import { useVisualizationPage } from '../hooks/useVisualizationPage';
 import { isSurfaceVariable as checkIsSurface } from '../utils/variableUtils';
 import ChartOrTable from '../components/ChartOrTable';
+import ViewExplainer from '../components/ViewExplainer';
 import { grid2DToTable } from '../utils/dataToTable';
 
 function ZonalMeanPage() {
@@ -52,7 +54,7 @@ function ZonalMeanPage() {
       if (!ds) return false;
       setSelectedDataset(ds);
       const v = sp.get('var'); if (v) handleVariableChange(v);
-      const ti = sp.get('t'); if (ti != null) setSelectedTime(parseInt(ti, 10));
+      const ti = intParam(sp, 't'); if (ti != null) setSelectedTime(ti);
       const cs = sp.get('cs'); if (cs) setColorscale(cs);
       return true;
     },
@@ -172,6 +174,7 @@ function ZonalMeanPage() {
           </>
         )}
       </ChartOrTable>
+      <ViewExplainer id="zonalmean" />
     </Container>
   );
 }

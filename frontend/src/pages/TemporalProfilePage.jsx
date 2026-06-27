@@ -18,9 +18,11 @@ import PageLoader from '../components/PageLoader';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { triggerApiDownload } from '../utils/exportUtils';
+import { floatParam } from '../utils/urlParams';
 import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
 import { useVisualizationPage } from '../hooks/useVisualizationPage';
 import ChartOrTable from '../components/ChartOrTable';
+import ViewExplainer from '../components/ViewExplainer';
 import { grid2DToTable } from '../utils/dataToTable';
 
 function TemporalProfilePage() {
@@ -47,8 +49,8 @@ function TemporalProfilePage() {
       if (!ds) return false;
       setSelectedDataset(ds);
       const v = sp.get('var'); if (v) handleVariableChange(v);
-      const lat = sp.get('lat'); if (lat != null) setSelectedLatitude(parseFloat(lat));
-      const lon = sp.get('lon'); if (lon != null) setSelectedLongitude(parseFloat(lon));
+      const lat = floatParam(sp, 'lat'); if (lat != null) setSelectedLatitude(lat);
+      const lon = floatParam(sp, 'lon'); if (lon != null) setSelectedLongitude(lon);
       const cs = sp.get('cs'); if (cs) setColorscale(cs);
       return true;
     },
@@ -170,6 +172,7 @@ function TemporalProfilePage() {
           </>
         )}
       </ChartOrTable>
+      <ViewExplainer id="temporalprofile" />
     </Container>
   );
 }

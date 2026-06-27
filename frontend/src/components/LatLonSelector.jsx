@@ -20,6 +20,15 @@ const lonMarks = [
 ];
 
 /**
+ * Aligne les repères d'extrémité vers l'intérieur (premier à gauche, dernier à
+ * droite) pour qu'ils ne débordent pas et ne se chevauchent pas entre deux sliders.
+ */
+const edgeLabelSx = (count) => ({
+  '& .MuiSlider-markLabel[data-index="0"]': { transform: 'translateX(0%)' },
+  [`& .MuiSlider-markLabel[data-index="${count - 1}"]`]: { transform: 'translateX(-100%)' },
+});
+
+/**
  * Deux sliders pour selectionner un point latitude/longitude sur la grille Mars.
  *
  * La grille GEM-Mars est de 45 latitudes × 90 longitudes :
@@ -51,6 +60,7 @@ function LatLonSelector({ latitude, longitude, onLatChange, onLonChange, disable
           valueLabelDisplay="auto"
           valueLabelFormat={(v) => `${v}°`}
           marks={latMarks}
+          sx={edgeLabelSx(latMarks.length)}
         />
       </Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -65,6 +75,7 @@ function LatLonSelector({ latitude, longitude, onLatChange, onLonChange, disable
           valueLabelDisplay="auto"
           valueLabelFormat={(v) => `${v}°`}
           marks={lonMarks}
+          sx={edgeLabelSx(lonMarks.length)}
         />
       </Box>
     </Box>

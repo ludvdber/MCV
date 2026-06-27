@@ -17,6 +17,7 @@ import PermalienButton from '../components/PermalienButton';
 import ColorscaleSelector from '../components/ColorscaleSelector';
 import LocationsLegend from '../components/LocationsLegend';
 import ChartOrTable from '../components/ChartOrTable';
+import ViewExplainer from '../components/ViewExplainer';
 import ChartSkeleton from '../components/ChartSkeleton';
 import FullscreenButton from '../components/FullscreenButton';
 import PageLoader from '../components/PageLoader';
@@ -26,6 +27,7 @@ import { triggerApiDownload } from '../utils/exportUtils';
 import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
 import { useVisualizationPage } from '../hooks/useVisualizationPage';
 import { gridToTable } from '../utils/dataToTable';
+import { intParam } from '../utils/urlParams';
 
 function SlicePage() {
   const {
@@ -55,8 +57,8 @@ function SlicePage() {
       if (!ds) return false;
       setSelectedDataset(ds);
       const v = sp.get('var'); if (v) handleVariableChange(v);
-      const ti = sp.get('t'); if (ti != null) setSelectedTime(parseInt(ti, 10));
-      const alt = sp.get('alt'); if (alt != null) setSelectedAltitude(parseInt(alt, 10));
+      const ti = intParam(sp, 't'); if (ti != null) setSelectedTime(ti);
+      const alt = intParam(sp, 'alt'); if (alt != null) setSelectedAltitude(alt);
       const cs = sp.get('cs'); if (cs) setColorscale(cs);
       return true;
     },
@@ -193,6 +195,7 @@ function SlicePage() {
           </>
         )}
       </ChartOrTable>
+      <ViewExplainer id="slice" />
     </Container>
   );
 }

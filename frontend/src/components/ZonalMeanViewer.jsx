@@ -95,13 +95,13 @@ function ZonalMeanViewer({ zonalMeanData, variableCode, datasetLabel, colorscale
       },
       font: { color: fontColor },
       xaxis: {
-        title: t('viz.latitude'),
+        title: { text: t('viz.latitude') },
         color: fontColor,
         showgrid: false,
         zeroline: false
       },
       yaxis: {
-        title: t('viz.altitude'),
+        title: { text: t('viz.altitude') },
         color: fontColor,
         showgrid: false,
         zeroline: false,

@@ -68,14 +68,14 @@ function TimeSeriesChart({ series, timeSeriesData, variableCode, datasetLabel, o
       title: { text: titleText, font: { size: titleSize, color: fontColor } },
       font: { color: fontColor },
       xaxis: {
-        title: t('viz.localTime'),
+        title: { text: t('viz.localTime') },
         type: 'category',
         color: fontColor,
         gridcolor: gridColor,
         zeroline: false,
       },
       yaxis: {
-        title: `${variableLabel} (${unit})`,
+        title: { text: `${variableLabel} (${unit})` },
         color: fontColor,
         gridcolor: gridColor,
         zeroline: false,

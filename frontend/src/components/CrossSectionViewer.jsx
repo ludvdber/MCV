@@ -96,13 +96,13 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
       },
       font: { color: fontColor },
       xaxis: {
-        title: xLabel,
+        title: { text: xLabel },
         color: fontColor,
         showgrid: false,
         zeroline: false
       },
       yaxis: {
-        title: t('viz.altitude'),
+        title: { text: t('viz.altitude') },
         color: fontColor,
         showgrid: false,
         zeroline: false,

@@ -50,25 +50,129 @@
   --cyan-highlight: rgba(2, 132, 199, 0.12);
 }
 
-/* ---------- High Contrast Mode (WCAG AAA: 7:1 ratio) ---------- */
+/* ---------- High Contrast Mode (WCAG AAA: 7:1 ratio) ----------
+   Le simple changement de variables ne suffisait pas : les composants MUI
+   tirent leurs couleurs du thème JS, pas de ces variables, et le flou
+   glassmorphism écrase le contraste. On force donc ici des fonds opaques, des
+   bordures épaisses et du texte à pleine intensité, en dark comme en clair. */
 [data-contrast='high'] {
   --text-primary: #ffffff;
-  --text-secondary: #d4d4d8;
+  --text-secondary: #f0f0f0;
   --bg-space: #000000;
-  --bg-surface: rgba(20, 20, 30, 0.95);
-  --glass-border: rgba(255, 255, 255, 0.25);
-  --mars-orange: #ff6b35;
-  --cyan-accent: #5bc0f8;
+  --bg-surface: #000000;
+  --bg-surface-hover: #1c1c28;
+  --glass-blur: 0px;
+  --glass-border: #ffffff;
+  --glass-shadow: none;
+  --cyan-highlight: rgba(255, 255, 255, 0.18);
+  --mars-orange: #ff8a4c;
+  --cyan-accent: #7cc9ff;
 }
 [data-contrast='high'][data-theme='light'] {
   --text-primary: #000000;
-  --text-secondary: #1a1a2e;
+  --text-secondary: #1a1a1a;
   --bg-space: #ffffff;
-  --bg-surface: rgba(255, 255, 255, 1);
-  --glass-border: rgba(0, 0, 0, 0.3);
-  --mars-orange: #b83a0a;
-  --cyan-accent: #005a8c;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #e6e6e6;
+  --glass-border: #000000;
+  --glass-shadow: none;
+  --cyan-highlight: rgba(0, 0, 0, 0.12);
+  --mars-orange: #8a2a00;
+  --cyan-accent: #003a57;
 }
+
+/* Fond uni : on coupe le ciel étoilé décoratif */
+[data-contrast='high'] .starfield-bg {
+  display: none !important;
+}
+[data-contrast='high'] body {
+  background: var(--bg-space) !important;
+}
+
+/* Surfaces opaques, sans flou, bordées nettement */
+[data-contrast='high'] .MuiPaper-root,
+[data-contrast='high'] .MuiDrawer-paper,
+[data-contrast='high'] .MuiMenu-paper,
+[data-contrast='high'] .MuiPopover-paper,
+[data-contrast='high'] .MuiAlert-root,
+[data-contrast='high'] .glass-panel {
+  background-color: var(--bg-surface) !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 2px solid var(--glass-border) !important;
+  box-shadow: none !important;
+}
+
+/* Texte à pleine intensité */
+[data-contrast='high'] body,
+[data-contrast='high'] .MuiTypography-root,
+[data-contrast='high'] .MuiInputBase-input,
+[data-contrast='high'] .MuiFormLabel-root,
+[data-contrast='high'] .MuiInputLabel-root,
+[data-contrast='high'] .MuiSelect-select,
+[data-contrast='high'] .MuiTab-root,
+[data-contrast='high'] .MuiListItemText-primary,
+[data-contrast='high'] .MuiListItemText-secondary {
+  color: var(--text-primary) !important;
+}
+
+/* Champs et listes déroulantes : contour épais et net */
+[data-contrast='high'] .MuiOutlinedInput-notchedOutline {
+  border-color: var(--glass-border) !important;
+  border-width: 2px !important;
+}
+
+/* Boutons, bascules, puces : contour visible et texte gras */
+[data-contrast='high'] .MuiButton-root,
+[data-contrast='high'] .MuiToggleButton-root,
+[data-contrast='high'] .MuiChip-root {
+  border: 2px solid var(--glass-border) !important;
+  font-weight: 700 !important;
+}
+
+/* Bouton d'action principal : aplat très contrasté */
+[data-contrast='high'] .MuiButton-containedPrimary {
+  background: var(--mars-orange) !important;
+  box-shadow: none !important;
+  color: #000000 !important;
+}
+[data-contrast='high'][data-theme='light'] .MuiButton-containedPrimary {
+  color: #ffffff !important;
+}
+
+/* Élément de menu actif / survolé bien marqué */
+[data-contrast='high'] .MuiMenuItem-root.Mui-selected,
+[data-contrast='high'] .MuiMenuItem-root:hover,
+[data-contrast='high'] .MuiAutocomplete-option[aria-selected='true'],
+[data-contrast='high'] .MuiAutocomplete-option.Mui-focused {
+  background-color: var(--bg-surface-hover) !important;
+}
+
+/* Onglets : indicateur épais, onglet actif souligné */
+[data-contrast='high'] .MuiTabs-indicator {
+  height: 4px !important;
+  background-color: var(--mars-orange) !important;
+}
+[data-contrast='high'] .MuiTab-root.Mui-selected {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* Séparateurs nets. Pas de soulignement global des liens : ici les cartes et
+   les entrées de menu sont elles-mêmes des liens de bloc, souligner reviendrait
+   à barrer tout leur texte. Leur bordure et leur survol suffisent à les repérer. */
+[data-contrast='high'] .MuiDivider-root {
+  border-color: var(--glass-border) !important;
+}
+
+/* Anneau de focus renforcé */
+[data-contrast='high'] *:focus-visible {
+  outline: 3px solid var(--mars-orange) !important;
+  outline-offset: 2px !important;
+}
+
+/* Graphes Plotly : texte gras et tracés plus épais */
 [data-contrast='high'] .js-plotly-plot text {
   font-weight: 700 !important;
 }
@@ -161,18 +265,30 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  gap: 12px;
 }
-:fullscreen .MuiPaper-root {
+/* Seule la carte contenant le graphe (div role="img") s'étire ; le reste
+   (stats, contrôles d'animation) garde sa hauteur naturelle. */
+:fullscreen .MuiPaper-root:has(> [role="img"]) {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
-:fullscreen .MuiPaper-root > div,
+:fullscreen .MuiPaper-root:has(> [role="img"]) > [role="img"],
 :fullscreen .js-plotly-plot,
 :fullscreen .plot-container,
 :fullscreen .svg-container {
   flex: 1 !important;
   height: 100% !important;
+  min-height: 0 !important;
+}
+/* La barre de stats reste une ligne horizontale compacte en bas. */
+:fullscreen .stats-bar {
+  flex: 0 0 auto !important;
+  flex-direction: row !important;
+  width: 100%;
 }
 
 /* ---------- Custom Scrollbar ---------- */

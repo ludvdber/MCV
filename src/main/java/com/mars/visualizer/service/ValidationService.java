@@ -81,7 +81,7 @@ public class ValidationService {
     public void validateLatitude(double lat) {
         log.debug("Validation latitude : {}", lat);
 
-        if (lat < -90.0 || lat > 90.0) {
+        if (Double.isNaN(lat) || lat < -90.0 || lat > 90.0) {
             throw new ValidationException("error.latitude.invalid", lat);
         }
     }
@@ -95,7 +95,7 @@ public class ValidationService {
     public void validateLongitude(double lon) {
         log.debug("Validation longitude : {}", lon);
 
-        if (lon < -180.0 || lon > 180.0) {
+        if (Double.isNaN(lon) || lon < -180.0 || lon > 180.0) {
             throw new ValidationException("error.longitude.invalid", lon);
         }
     }

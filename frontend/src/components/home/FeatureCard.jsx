@@ -13,7 +13,6 @@ import {
   Equalizer as ZonalMeanIcon,
   DonutLarge as WindRoseIcon,
   CompareArrows as DifferenceIcon,
-  Air as WindMapIcon,
   CalendarViewMonth as TemporalProfileIcon,
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
@@ -28,7 +27,6 @@ const FEAT_ICONS = {
   hovmoller: HovmollerIcon,
   zonalmean: ZonalMeanIcon,
   windrose: WindRoseIcon,
-  windmap: WindMapIcon,
   temporalprofile: TemporalProfileIcon,
   difference: DifferenceIcon,
   explore: ExploreAllIcon,

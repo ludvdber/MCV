@@ -21,10 +21,12 @@ import PageLoader from '../components/PageLoader';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { downloadAnimationCSV } from '../utils/exportUtils';
+import { intParam } from '../utils/urlParams';
 import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
 import { useVisualizationPage } from '../hooks/useVisualizationPage';
 import { isSurfaceVariable } from '../utils/variableUtils';
 import ChartOrTable from '../components/ChartOrTable';
+import ViewExplainer from '../components/ViewExplainer';
 import { animationToTable } from '../utils/dataToTable';
 
 /**
@@ -58,7 +60,7 @@ function AnimationPage() {
       if (!ds) return false;
       setSelectedDataset(ds);
       const v = sp.get('var'); if (v) handleVariableChange(v);
-      const alt = sp.get('alt'); if (alt != null) setSelectedAltitude(parseInt(alt, 10));
+      const alt = intParam(sp, 'alt'); if (alt != null) setSelectedAltitude(alt);
       const cs = sp.get('cs'); if (cs) setColorscale(cs);
       return true;
     },
@@ -190,6 +192,7 @@ function AnimationPage() {
           </>
         )}
       </ChartOrTable>
+      <ViewExplainer id="animation" />
     </Container>
   );
 }

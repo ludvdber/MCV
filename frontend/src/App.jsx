@@ -9,7 +9,7 @@
  *   sont charges a la demande pour eviter que Plotly.js (~1 MB) bloque le chargement
  *   de la page d'accueil
  */
-import { lazy, Suspense, Component, useState, useMemo, useCallback } from 'react';
+import { lazy, Suspense, Component, useState, useEffect, useMemo, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { CircularProgress, Box, Typography, Button } from '@mui/material';
 import i18n from './i18n';
@@ -20,7 +20,7 @@ import { AppThemeProvider, useThemeMode } from './context/ThemeContext';
 import StarField from './components/StarField';
 import Sidebar, { SIDEBAR_WIDTH_EXPANDED, SIDEBAR_WIDTH_COLLAPSED } from './components/Sidebar';
 import PageTransition from './components/PageTransition';
-import { LazyMotion, domAnimation, AnimatePresence } from 'framer-motion';
+import { LazyMotion, domAnimation } from 'framer-motion';
 import KeyboardShortcutsDialog from './components/KeyboardShortcutsDialog';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
@@ -78,6 +78,9 @@ function AppContent() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const sidebarWidth = sidebarCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
 
+  // Revient en haut de page à chaque changement de route.
+  useEffect(() => { window.scrollTo(0, 0); }, [location.pathname]);
+
   const toggleShortcuts = useCallback(() => setShortcutsOpen(v => !v), []);
 
   const globalShortcuts = useMemo(() => ({
@@ -110,11 +113,9 @@ function AppContent() {
         >
           <Suspense fallback={<Loading />}>
             <LazyMotion features={domAnimation}>
-            {/* mode="wait" : démonte proprement l'ancienne page (et son Canvas R3F)
-                avant de monter la nouvelle. "popLayout" re-parentait le <Canvas>
-                de l'accueil pendant la navigation -> R3F relançait connect()/onCreated
-                sur un nœud DOM détaché -> erreur three au départ de l'accueil. */}
-            <AnimatePresence mode="wait">
+            {/* key={pathname} rejoue le fondu d'entrée à chaque page. Pas
+                d'AnimatePresence : il re-parentait le Canvas R3F de l'accueil
+                pendant la navigation, ce qui plantait Three.js. */}
               <Routes location={location} key={location.pathname}>
                 <Route path="/" element={<PageTransition><Home /></PageTransition>} />
                 <Route path="/slice" element={<PageTransition><SlicePage /></PageTransition>} />
@@ -125,13 +126,11 @@ function AppContent() {
                 <Route path="/profile" element={<PageTransition><ProfilePage /></PageTransition>} />
                 <Route path="/hovmoller" element={<PageTransition><HovmollerPage /></PageTransition>} />
                 <Route path="/zonalmean" element={<PageTransition><ZonalMeanPage /></PageTransition>} />
-                <Route path="/multiprofile" element={<PageTransition><ProfilePage /></PageTransition>} />
                 <Route path="/windrose" element={<PageTransition><WindRosePage /></PageTransition>} />
                 <Route path="/difference" element={<PageTransition><DifferencePage /></PageTransition>} />
                 <Route path="/temporal-profile" element={<PageTransition><TemporalProfilePage /></PageTransition>} />
                 <Route path="*" element={<PageTransition><NotFoundPage /></PageTransition>} />
               </Routes>
-            </AnimatePresence>
             </LazyMotion>
           </Suspense>
         </Box>

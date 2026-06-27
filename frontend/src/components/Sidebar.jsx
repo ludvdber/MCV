@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, useNavigate, Link } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Box, Typography, List, ListItemButton,
@@ -32,16 +32,15 @@ import {
   Timeline as ProfilesIcon,
   BarChart as DiagnosticsIcon,
 } from '@mui/icons-material';
-import { DarkMode as DarkModeIcon, LightMode as LightModeIcon, Contrast as ContrastIcon, GitHub as GitHubIcon } from '@mui/icons-material';
+import { DarkMode as DarkModeIcon, LightMode as LightModeIcon, Contrast as ContrastIcon, InfoOutlined as AboutIcon } from '@mui/icons-material';
 import LanguageSwitcher from './LanguageSwitcher';
+import AboutDialog from './AboutDialog';
+import HistoryDialog from './HistoryDialog';
 import { useThemeMode } from '../context/ThemeContext';
 import { useRecentHistory } from '../hooks/useRecentHistory';
 
 export const SIDEBAR_WIDTH_EXPANDED = 220;
 export const SIDEBAR_WIDTH_COLLAPSED = 64;
-
-/** Dépôt open source du projet (affiché en pied de sidebar). */
-const GITHUB_URL = 'https://github.com/ludvdber/MCV';
 
 /* ---------- Grouped navigation structure ---------- */
 
@@ -117,6 +116,21 @@ function timeAgo(ts, t) {
   return t('history.timeAgo.days', { count: Math.floor(diff / 86400000) });
 }
 
+/** Infobulle d'une entrée d'historique : libellé complet (non tronqué) + date exacte. */
+function historyTooltip(entry) {
+  return `${entry.label} · ${new Date(entry.timestamp).toLocaleString()}`;
+}
+
+/** Vrai si l'entrée correspond à la page + paramètres actuellement affichés. */
+function isActiveEntry(entry, location) {
+  if (!entry.permalink) return location.pathname === entry.page;
+  const [path, query = ''] = entry.permalink.split('?');
+  if (path !== location.pathname) return false;
+  const a = new URLSearchParams(query); a.sort();
+  const b = new URLSearchParams(location.search); b.sort();
+  return a.toString() === b.toString();
+}
+
 /* ---------- Nav item (single link) ---------- */
 
 function NavItem({ labelKey, to, icon: Icon, collapsed, onClose, nested = false }) {
@@ -166,9 +180,11 @@ function NavItem({ labelKey, to, icon: Icon, collapsed, onClose, nested = false 
 
 /* ---------- Nav group (collapsible category) ---------- */
 
-function NavGroup({ group, collapsed, onClose, openGroups, toggleGroup }) {
+function NavGroup({ group, collapsed, onClose, openGroups, toggleGroup, activeGroupId }) {
   const { t } = useTranslation();
-  const isOpen = openGroups[group.id] === true; // default closed
+  // Ouvert si l'utilisateur l'a explicitement (dé)plié, sinon ouvert par défaut
+  // pour le groupe contenant la page courante.
+  const isOpen = openGroups[group.id] !== undefined ? openGroups[group.id] : (group.id === activeGroupId);
   const GroupIcon = group.icon;
 
   // In collapsed mode, show only the child items as flat icons
@@ -225,13 +241,33 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
   const navigate = useNavigate();
   const { mode, toggleTheme, highContrast, toggleContrast } = useThemeMode();
   const width = collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
+  const location = useLocation();
   const { history, clearHistory } = useRecentHistory();
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState({});
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
+
+  // Groupe de navigation contenant la page courante (déplié par défaut).
+  const activeGroupId = NAV_GROUPS.find(g => g.items.some(i => i.to === location.pathname))?.id;
 
   const toggleGroup = (id) => {
-    setOpenGroups(prev => ({ ...prev, [id]: prev[id] !== true }));
+    setOpenGroups(prev => {
+      const currentlyOpen = prev[id] !== undefined ? prev[id] : (id === activeGroupId);
+      return { ...prev, [id]: !currentlyOpen };
+    });
+  };
+
+  // Effacement de l'historique en deux temps (1er clic arme, 2e confirme).
+  const requestClear = () => {
+    if (confirmClear) {
+      clearHistory();
+      setConfirmClear(false);
+    } else {
+      setConfirmClear(true);
+      setTimeout(() => setConfirmClear(false), 3000);
+    }
   };
 
   return (
@@ -315,6 +351,7 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
               onClose={onClose}
               openGroups={openGroups}
               toggleGroup={toggleGroup}
+              activeGroupId={activeGroupId}
             />
           ))}
 
@@ -345,9 +382,10 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
             <List dense disablePadding sx={{ pl: 1, pr: 0.5, pb: 0.5 }}>
               {history.slice(0, 5).map(entry => {
                 const Icon = PAGE_ICONS[entry.page] || ExploreIcon;
+                const active = isActiveEntry(entry, location);
                 return (
+                  <Tooltip key={entry.id} title={historyTooltip(entry)} placement="right" arrow enterDelay={500}>
                   <ListItemButton
-                    key={entry.id}
                     component={Link}
                     to={entry.permalink || entry.page}
                     onClick={onClose}
@@ -356,110 +394,58 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
                       py: 0.4,
                       px: 1,
                       mb: 0.3,
+                      borderLeft: active ? '2px solid var(--mars-orange)' : '2px solid transparent',
+                      background: active ? 'var(--bg-surface-hover)' : 'transparent',
                       '&:hover': { background: 'var(--bg-surface-hover)' },
                     }}
                   >
-                    <ListItemIcon sx={{ minWidth: 26, color: 'var(--text-secondary)' }}>
+                    <ListItemIcon sx={{ minWidth: 26, color: active ? 'var(--mars-orange)' : 'var(--text-secondary)' }}>
                       <Icon sx={{ fontSize: 16 }} />
                     </ListItemIcon>
                     <ListItemText
                       primary={entry.label}
                       secondary={timeAgo(entry.timestamp, t)}
-                      primaryTypographyProps={{ fontSize: '0.78rem', noWrap: true }}
+                      primaryTypographyProps={{ fontSize: '0.78rem', noWrap: true, color: active ? 'var(--mars-orange)' : undefined }}
                       secondaryTypographyProps={{ fontSize: '0.65rem' }}
                     />
                   </ListItemButton>
+                  </Tooltip>
                 );
               })}
               <Box sx={{ display: 'flex', gap: 0.5, mt: 0.3 }}>
-                {history.length > 5 && (
-                  <ListItemButton
-                    onClick={() => setHistoryDrawerOpen(true)}
-                    sx={{ borderRadius: '6px', py: 0.3, px: 1, flex: 1 }}
-                  >
-                    <ListItemText
-                      primary={t('history.seeAll', { count: history.length })}
-                      primaryTypographyProps={{ fontSize: '0.72rem', color: 'secondary.main', textAlign: 'center' }}
-                    />
-                  </ListItemButton>
-                )}
                 <ListItemButton
-                  onClick={clearHistory}
-                  sx={{ borderRadius: '6px', py: 0.3, px: 1, flex: history.length > 5 ? 0 : 1, minWidth: 'auto' }}
+                  onClick={() => setHistoryDialogOpen(true)}
+                  sx={{ borderRadius: '6px', py: 0.3, px: 1, flex: 1 }}
                 >
-                  <ListItemIcon sx={{ minWidth: 26, color: 'var(--text-secondary)' }}>
-                    <DeleteIcon sx={{ fontSize: 14 }} />
-                  </ListItemIcon>
-                  {history.length <= 5 && (
-                    <ListItemText
-                      primary={t('history.clear')}
-                      primaryTypographyProps={{ fontSize: '0.72rem', color: 'text.secondary' }}
-                    />
-                  )}
+                  <ListItemText
+                    primary={t('history.seeAll', { count: history.length })}
+                    primaryTypographyProps={{ fontSize: '0.72rem', color: 'secondary.main', textAlign: 'center' }}
+                  />
                 </ListItemButton>
+                <Tooltip title={confirmClear ? t('history.clearConfirm') : t('history.clear')} placement="top" arrow>
+                  <ListItemButton
+                    onClick={requestClear}
+                    sx={{ borderRadius: '6px', py: 0.3, px: 1, flex: confirmClear ? 1 : 0, minWidth: 'auto' }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 26, color: confirmClear ? 'var(--mars-orange)' : 'var(--text-secondary)' }}>
+                      <DeleteIcon sx={{ fontSize: 14 }} />
+                    </ListItemIcon>
+                    {confirmClear && (
+                      <ListItemText
+                        primary={t('history.clearConfirm')}
+                        primaryTypographyProps={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--mars-orange)' }}
+                      />
+                    )}
+                  </ListItemButton>
+                </Tooltip>
               </Box>
             </List>
           </Collapse>
         </Box>
       )}
 
-      {/* --- History full drawer --- */}
-      <Drawer
-        anchor="left"
-        open={historyDrawerOpen}
-        onClose={() => setHistoryDrawerOpen(false)}
-        PaperProps={{ sx: { width: 320, background: 'var(--bg-surface)', backdropFilter: 'blur(var(--glass-blur))' } }}
-        slotProps={{ backdrop: { sx: { backgroundColor: 'rgba(2, 8, 24, 0.5)' } } }}
-      >
-        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--glass-border)' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <HistoryIcon fontSize="small" sx={{ color: 'var(--text-secondary)' }} />
-            <Typography variant="subtitle1" fontWeight={600}>{t('history.title')}</Typography>
-          </Box>
-          <IconButton size="small" onClick={() => setHistoryDrawerOpen(false)} sx={{ color: 'var(--text-secondary)' }}>
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </Box>
-        <List sx={{ flex: 1, overflow: 'auto', px: 1, py: 0.5 }}>
-          {history.map(entry => {
-            const Icon = PAGE_ICONS[entry.page] || ExploreIcon;
-            return (
-              <ListItemButton
-                key={entry.id}
-                component={Link}
-                to={entry.permalink || entry.page}
-                onClick={() => { setHistoryDrawerOpen(false); onClose(); }}
-                sx={{
-                  borderRadius: '8px',
-                  py: 0.8,
-                  px: 1.5,
-                  mb: 0.3,
-                  '&:hover': { background: 'var(--bg-surface-hover)' },
-                }}
-              >
-                <ListItemIcon sx={{ minWidth: 32, color: 'var(--text-secondary)' }}>
-                  <Icon sx={{ fontSize: 18 }} />
-                </ListItemIcon>
-                <ListItemText
-                  primary={entry.label}
-                  secondary={timeAgo(entry.timestamp, t)}
-                  primaryTypographyProps={{ fontSize: '0.85rem', noWrap: true }}
-                  secondaryTypographyProps={{ fontSize: '0.7rem' }}
-                />
-              </ListItemButton>
-            );
-          })}
-        </List>
-        <Box sx={{ p: 1.5, borderTop: '1px solid var(--glass-border)' }}>
-          <ListItemButton
-            onClick={() => { clearHistory(); setHistoryDrawerOpen(false); }}
-            sx={{ borderRadius: '8px', py: 0.6, justifyContent: 'center' }}
-          >
-            <DeleteIcon sx={{ fontSize: 16, mr: 0.5, color: 'var(--text-secondary)' }} />
-            <Typography variant="body2" color="text.secondary">{t('history.clear')}</Typography>
-          </ListItemButton>
-        </Box>
-      </Drawer>
+      {/* --- Historique : fenêtre complète (groupée, recherche, favoris) --- */}
+      <HistoryDialog open={historyDialogOpen} onClose={() => setHistoryDialogOpen(false)} />
 
       {/* --- Pied --- */}
       <Box
@@ -485,6 +471,14 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
             <Typography variant="caption" color="inherit">{t('shortcuts.title')}</Typography>
             <Typography variant="caption" sx={{ ml: 'auto', fontFamily: 'monospace', fontSize: '0.65rem', opacity: 0.6 }}>?</Typography>
           </Box>
+        )}
+        {/* Historique (accès en mode replié, où l'aperçu est masqué) */}
+        {collapsed && history.length > 0 && (
+          <Tooltip title={t('history.title')} placement="right" arrow>
+            <IconButton onClick={() => setHistoryDialogOpen(true)} aria-label={t('history.title')} sx={{ color: 'var(--text-secondary)', p: 1 }}>
+              <HistoryIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         )}
         {/* Theme toggle */}
         {collapsed ? (
@@ -524,42 +518,33 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
           </Box>
         )}
         {!collapsed && <LanguageSwitcher />}
-        {/* Lien open source vers le dépôt GitHub */}
+        {/* À propos : projet, source des données et liens utiles */}
         {collapsed ? (
-          <Tooltip title={t('nav.sourceCode')} placement="right" arrow>
+          <Tooltip title={t('about.title')} placement="right" arrow>
             <IconButton
-              component="a"
-              href={GITHUB_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={t('nav.sourceCode')}
+              onClick={() => setAboutOpen(true)}
+              aria-label={t('about.title')}
               sx={{ color: 'var(--text-secondary)', p: 1, '&:hover': { color: 'var(--text-primary)' } }}
             >
-              <GitHubIcon fontSize="small" />
+              <AboutIcon fontSize="small" />
             </IconButton>
           </Tooltip>
         ) : (
           <Box
-            component="a"
-            href={GITHUB_URL}
-            target="_blank"
-            rel="noopener noreferrer"
+            onClick={() => setAboutOpen(true)}
             sx={{
               display: 'flex', alignItems: 'center', gap: 0.8, cursor: 'pointer',
-              color: 'var(--text-secondary)', fontSize: '0.75rem', textDecoration: 'none',
+              color: 'var(--text-secondary)', fontSize: '0.75rem',
               '&:hover': { color: 'var(--text-primary)' },
             }}
           >
-            <GitHubIcon sx={{ fontSize: 16 }} />
-            <Typography variant="caption" color="inherit">{t('nav.sourceCode')}</Typography>
+            <AboutIcon sx={{ fontSize: 16 }} />
+            <Typography variant="caption" color="inherit">{t('about.title')}</Typography>
           </Box>
         )}
-        {!collapsed && (
-          <Typography variant="caption" color="text.secondary" display="block">
-            v{__APP_VERSION__}
-          </Typography>
-        )}
       </Box>
+
+      <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </Box>
   );
 }

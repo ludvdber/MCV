@@ -102,9 +102,6 @@ public class StatsCalculator {
     }
 
     /**
-     * Calcule le percentile p (0-100) d'un tableau trié par interpolation linéaire.
-     */
-    /**
      * Calcule la différence élément par élément entre deux grilles 2D (A - B).
      */
     public static float[][] computeGridDifference(float[][] a, float[][] b) {
@@ -119,6 +116,7 @@ public class StatsCalculator {
         return diff;
     }
 
+    /** Percentile p (0-100) d'un tableau trié, par interpolation linéaire. */
     private static double percentile(double[] sorted, double p) {
         if (sorted.length == 1) return sorted[0];
         double rank = (p / 100.0) * (sorted.length - 1);

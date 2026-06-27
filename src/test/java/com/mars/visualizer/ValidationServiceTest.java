@@ -194,6 +194,13 @@ class ValidationServiceTest {
             assertThatThrownBy(() -> validationService.validateLatitude(-91.0))
                     .isInstanceOf(ValidationException.class);
         }
+
+        @Test
+        @DisplayName("Latitude NaN — ValidationException levée (pas un index 0 silencieux)")
+        void latitudeNaNLeveException() {
+            assertThatThrownBy(() -> validationService.validateLatitude(Double.NaN))
+                    .isInstanceOf(ValidationException.class);
+        }
     }
 
     // =========================================================================
@@ -236,6 +243,13 @@ class ValidationServiceTest {
         @DisplayName("Longitude -181.0 — ValidationException levée")
         void longitudeMoins181LeveException() {
             assertThatThrownBy(() -> validationService.validateLongitude(-181.0))
+                    .isInstanceOf(ValidationException.class);
+        }
+
+        @Test
+        @DisplayName("Longitude NaN — ValidationException levée (pas un index 0 silencieux)")
+        void longitudeNaNLeveException() {
+            assertThatThrownBy(() -> validationService.validateLongitude(Double.NaN))
                     .isInstanceOf(ValidationException.class);
         }
     }

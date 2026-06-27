@@ -8,7 +8,7 @@
  *   onRemoveResult (id: string) => void — ferme un onglet
  *   onExportCSV    ()           => void — déclenche l'export CSV du résultat actif
  */
-import { useState, useRef, useMemo, useCallback } from 'react';
+import { useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box, Paper, Typography, Tabs, Tab, IconButton, Chip, Tooltip,
@@ -23,7 +23,6 @@ import {
   CompareArrows as AnomalyIcon,
   Air as WindIcon,
   Functions as LogIcon,
-  BarChart as BarChartIcon,
 } from '@mui/icons-material';
 import { LOCATION_COLORS, LOCATION_TYPE_KEYS } from '../../data/marsLocations';
 import { COLORSCALE_OPTIONS, RDBU_VARIABLES } from '../../utils/colorscales';
@@ -50,7 +49,6 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExp
   const { t } = useTranslation();
   const state    = useExploreState();
   const dispatch = useExploreDispatch();
-  const [showDetails, setShowDetails] = useState(true);
 
   const {
     resultsById, resultOrder, activeResult,
@@ -378,19 +376,6 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExp
             />
           </Box>
         )}
-
-        {/* Details toggle + split view */}
-        <Box sx={{ display: 'flex', gap: 0.3, ml: 1, flexShrink: 0, borderLeft: '1px solid var(--glass-border)', pl: 1 }}>
-          {/* Toggle stats/details panels */}
-          {isLatLonHeatmap && (
-            <Tooltip title={showDetails ? t('explore.hideDetails') : t('explore.showDetails')} arrow>
-              <IconButton size="small" onClick={() => setShowDetails(v => !v)}
-                sx={{ color: showDetails ? 'var(--mars-orange)' : 'var(--text-secondary)' }}>
-                <BarChartIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-        </Box>
       </Paper>
 
 
@@ -434,7 +419,7 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExp
             <Box>
               {r.type === 'slice' && <SliceViewer sliceData={effectiveSliceData} variableCode={r.params.variable} datasetLabel={r.datasetLabel} showLocations={showLocations} showSurface={showSurface && !showAnomaly} colorscaleName={resolvedColorscale.name} reverseColorscale={resolvedColorscale.reverse} customZMin={showAnomaly ? -(anomalyZRange || 1) : customZMin} customZMax={showAnomaly ? (anomalyZRange || 1) : customZMax} showDetailedTooltip={showDetailedTooltip} windData={showWind ? windData : null} logScale={showLog} externalPlotRef={sharedPlotRef} noExportMenu />}
               {r.type === 'timeseries' && <TimeSeriesChart timeSeriesData={rData} variableCode={r.params.variable} datasetLabel={r.datasetLabel} externalPlotRef={sharedPlotRef} noExportMenu />}
-              {r.type === 'animation' && <AnimationPlayer animationData={rData} variableCode={r.params.variable} datasetLabel={r.datasetLabel} showLocations={showLocations} showSurface={showSurface} colorscaleName={resolvedColorscale.name} reverseColorscale={resolvedColorscale.reverse} customZMin={customZMin} customZMax={customZMax} logScale={showLog} externalPlotRef={sharedPlotRef} noExportMenu />}
+              {r.type === 'animation' && <AnimationPlayer animationData={rData} variableCode={r.params.variable} datasetLabel={r.datasetLabel} showLocations={showLocations} showSurface={showSurface} showDetailedTooltip={showDetailedTooltip} colorscaleName={resolvedColorscale.name} reverseColorscale={resolvedColorscale.reverse} customZMin={customZMin} customZMax={customZMax} logScale={showLog} externalPlotRef={sharedPlotRef} noExportMenu />}
               {r.type === 'profile' && <ProfileViewer profiles={Array.isArray(rData) ? rData : [rData]} variableCode={r.params.variable} datasetLabel={r.datasetLabel} externalPlotRef={sharedPlotRef} noExportMenu />}
               {r.type === 'crosssection' && <CrossSectionViewer crossSectionData={rData} variableCode={r.params.variable} datasetLabel={r.datasetLabel} colorscaleName={resolvedColorscale.name} reverseColorscale={resolvedColorscale.reverse} customZMin={customZMin} customZMax={customZMax} logScale={showLog} externalPlotRef={sharedPlotRef} noExportMenu />}
               {r.type === 'hovmoller' && <HovmollerViewer hovmollerData={rData} variableCode={r.params.variable} datasetLabel={r.datasetLabel} colorscaleName={resolvedColorscale.name} reverseColorscale={resolvedColorscale.reverse} customZMin={customZMin} customZMax={customZMax} logScale={showLog} externalPlotRef={sharedPlotRef} noExportMenu />}
@@ -446,7 +431,7 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExp
           );
         })()}
 
-        {isLatLonHeatmap && activeResultObj && showDetails && (
+        {isLatLonHeatmap && activeResultObj && (
           <DetailPanel
             resultData={activeData}
             resultType={activeResultObj.type}

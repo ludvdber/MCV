@@ -17,9 +17,11 @@ import PageLoader from '../components/PageLoader';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { triggerApiDownload } from '../utils/exportUtils';
+import { intParam, floatParam } from '../utils/urlParams';
 import { useVisualizationPage } from '../hooks/useVisualizationPage';
 import { INDIVIDUAL_PREFIX } from '../constants';
 import ChartOrTable from '../components/ChartOrTable';
+import ViewExplainer from '../components/ViewExplainer';
 
 function WindRosePage() {
   const {
@@ -44,9 +46,9 @@ function WindRosePage() {
       const ds = sp.get('ds');
       if (!ds) return false;
       setSelectedDataset(ds);
-      const alt = sp.get('alt'); if (alt != null) setSelectedAltitude(parseInt(alt, 10));
-      const lat = sp.get('lat'); if (lat != null) setSelectedLatitude(parseFloat(lat));
-      const lon = sp.get('lon'); if (lon != null) setSelectedLongitude(parseFloat(lon));
+      const alt = intParam(sp, 'alt'); if (alt != null) setSelectedAltitude(alt);
+      const lat = floatParam(sp, 'lat'); if (lat != null) setSelectedLatitude(lat);
+      const lon = floatParam(sp, 'lon'); if (lon != null) setSelectedLongitude(lon);
       return true;
     },
     fetchData: useCallback(() =>
@@ -166,6 +168,7 @@ function WindRosePage() {
           </>
         )}
       </ChartOrTable>
+      <ViewExplainer id="windrose" />
     </Container>
   );
 }

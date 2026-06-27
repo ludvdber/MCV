@@ -144,7 +144,7 @@ public class CatalogService {
 
             // 1. Extraire les noms de variables
             variables = ncfile.getVariables().stream()
-                    .map(ucar.nc2.Variable::getShortName)
+                    .map(v -> v.getShortName())
                     .toList();
 
             // 2. Extraire les dimensions standards
@@ -216,7 +216,7 @@ public class CatalogService {
     public Optional<String> getFilenameById(String id) {
         return catalog.stream()
                 .filter(ds -> ds.id().equals(id))
-                .map(DatasetMetadata::filename)
+                .map(ds -> ds.filename())
                 .findFirst();
     }
 }

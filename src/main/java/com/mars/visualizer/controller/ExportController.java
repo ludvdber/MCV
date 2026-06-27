@@ -182,23 +182,6 @@ public class ExportController extends AbstractDataController {
 				dataset, datasetResolver.formatCoord(latitude), datasetResolver.formatCoord(longitude), altitude));
 	}
 
-	@GetMapping("/csv/windmap")
-	public ResponseEntity<String> exportWindMapCSV(
-			@RequestParam String dataset,
-			@RequestParam(defaultValue = "0") int time,
-			@RequestParam(defaultValue = "49") int altitude) {
-
-		var resolved = resolveDataset(dataset, time);
-		validationService.validateTimestep(resolved.time());
-		validationService.validateAltitude(altitude);
-
-		WindMapData wm = netcdfService.extractWindMap(resolved.filename(), resolved.time(), altitude);
-		String csv = CSVBuilder.grid2D(wm.windSpeed(), wm.latitudes(), wm.longitudes(),
-				"latitude", "longitude", "wind_speed_m_s");
-
-		return csvResponse(csv, String.format("windmap_%s_t%d_alt%d.csv", dataset, resolved.time(), altitude));
-	}
-
 	@GetMapping("/csv/difference")
 	public ResponseEntity<String> exportDifferenceCSV(
 			@RequestParam String datasetA,

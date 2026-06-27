@@ -309,12 +309,6 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
         </>
       )}
 
-      {vizType === 'animation' && (
-        <Typography variant="caption" color="text.secondary">
-          {t('page.explore.animCaption')}
-        </Typography>
-      )}
-
       {/* ═══ Sticky actions at bottom ═══ */}
       <Box sx={{
         position: 'sticky',

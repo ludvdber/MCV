@@ -12,7 +12,7 @@ public final class CSVBuilder {
 
 	/**
 	 * Construit un CSV pour une grille 2D (latitude × longitude × valeur).
-	 * Utilisé par slice, windmap, et comme base pour crosssection/hovmoller/zonalmean.
+	 * Utilisé par slice et comme base pour crosssection/hovmoller/zonalmean.
 	 */
 	public static String grid2D(float[][] data, double[] rowCoords, double[] colCoords,
 			String rowLabel, String colLabel, String valueLabel) {

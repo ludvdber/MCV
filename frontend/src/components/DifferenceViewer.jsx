@@ -99,12 +99,12 @@ function DifferenceViewer({ differenceData, variableCode, datasetLabelA, dataset
       },
       font: { color: fontColor },
       xaxis: {
-        title: t('viz.longitude'),
+        title: { text: t('viz.longitude') },
         color: fontColor,
         gridcolor: gridColor,
       },
       yaxis: {
-        title: t('viz.latitude'),
+        title: { text: t('viz.latitude') },
         color: fontColor,
         gridcolor: gridColor,
       },

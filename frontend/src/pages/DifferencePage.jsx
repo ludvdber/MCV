@@ -22,9 +22,11 @@ import { Functions as LogIcon, Place as PlaceIcon, Map as MapIcon } from '@mui/i
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { triggerApiDownload } from '../utils/exportUtils';
+import { intParam } from '../utils/urlParams';
 import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
 import { useVisualizationPage } from '../hooks/useVisualizationPage';
 import ChartOrTable from '../components/ChartOrTable';
+import ViewExplainer from '../components/ViewExplainer';
 import { gridToTable } from '../utils/dataToTable';
 
 function DifferencePage() {
@@ -62,8 +64,8 @@ function DifferencePage() {
       setSelectedDataset(dsA);
       const dsB = sp.get('dsB'); if (dsB) setDatasetB(dsB);
       const v = sp.get('var'); if (v) handleVariableChange(v);
-      const time = sp.get('t'); if (time != null) setSelectedTime(parseInt(time, 10));
-      const alt = sp.get('alt'); if (alt != null) setSelectedAltitude(parseInt(alt, 10));
+      const time = intParam(sp, 't'); if (time != null) setSelectedTime(time);
+      const alt = intParam(sp, 'alt'); if (alt != null) setSelectedAltitude(alt);
       return true;
     },
     fetchData: useCallback(() =>
@@ -212,6 +214,7 @@ function DifferencePage() {
           </>
         )}
       </ChartOrTable>
+      <ViewExplainer id="difference" />
     </Container>
   );
 }

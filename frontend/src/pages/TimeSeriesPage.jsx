@@ -27,7 +27,9 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useRecentHistory } from '../hooks/useRecentHistory';
 import { isSurfaceVariable as checkIsSurface } from '../utils/variableUtils';
 import ChartOrTable from '../components/ChartOrTable';
+import ViewExplainer from '../components/ViewExplainer';
 import { timeSeriesToTable } from '../utils/dataToTable';
+import { intParam, floatParam } from '../utils/urlParams';
 import { VARIABLES_MAP } from '../components/VariableSelector';
 
 const MAX_POINTS = 4;
@@ -59,6 +61,9 @@ function TimeSeriesPage() {
   const [searchParams] = useSearchParams();
   const lastSearchRef = useRef(undefined);
   const pendingAutoLaunch = useRef(false);
+  // Force un rendu après restauration même si les setters sont des no-op
+  // (params identiques à la sélection courante), pour que l'auto-launch tourne.
+  const [, forceRestoreRender] = useState(0);
   const showToast = useToast();
   const { addEntry } = useRecentHistory();
 
@@ -76,8 +81,8 @@ function TimeSeriesPage() {
     setSelectedDataset(ds);
     const v = searchParams.get('var');
     if (v) handleVariableChange(v);
-    const alt = searchParams.get('alt');
-    if (alt != null) setSelectedAltitude(parseInt(alt, 10));
+    const alt = intParam(searchParams, 'alt');
+    if (alt != null) setSelectedAltitude(alt);
     const pts = searchParams.get('pts');
     if (pts) {
       try {
@@ -89,13 +94,14 @@ function TimeSeriesPage() {
         }
       } catch { /* ignore */ }
     } else {
-      const lat = searchParams.get('lat');
-      const lon = searchParams.get('lon');
+      const lat = floatParam(searchParams, 'lat');
+      const lon = floatParam(searchParams, 'lon');
       if (lat != null && lon != null) {
-        setPoints([{ lat: parseFloat(lat), lon: parseFloat(lon) }]);
+        setPoints([{ lat, lon }]);
       }
     }
     pendingAutoLaunch.current = true;
+    forceRestoreRender(n => n + 1);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalogLoading, searchParams]);
 
@@ -124,7 +130,10 @@ function TimeSeriesPage() {
         if (selectedDataset) pp.set('ds', selectedDataset);
         if (selectedVariable) pp.set('var', selectedVariable);
         pp.set('alt', String(selectedAltitude));
-        pp.set('pts', JSON.stringify(points));
+        // On ne sérialise QUE lat/lon : l'id est un détail interne (clés React).
+        // L'inclure rendrait deux analyses des mêmes points distinctes selon
+        // l'historique d'ajout/suppression -> doublons dans l'historique.
+        pp.set('pts', JSON.stringify(points.map(p => ({ lat: p.lat, lon: p.lon }))));
         addEntry({
           page: '/timeseries',
           permalink: `/timeseries?${pp.toString()}`,
@@ -138,9 +147,14 @@ function TimeSeriesPage() {
       .finally(() => setLoading(false));
   };
 
-  if (pendingAutoLaunch.current && dataset && !loading) {
+  // Auto-lance après restauration de l'URL (ou signale un dataset introuvable).
+  // Évalué pendant le rendu : on attend le rendu où les valeurs de l'URL sont
+  // appliquées au contexte, sinon on lancerait avec le point de la page précédente.
+  const shouldAutoLaunch = pendingAutoLaunch.current && !loading && !catalogLoading;
+  if (shouldAutoLaunch && (dataset || selectedDataset)) {
     pendingAutoLaunch.current = false;
-    setTimeout(handleAnalyze, 0);
+    if (dataset) setTimeout(handleAnalyze, 0);
+    else setTimeout(() => setError(t('error.datasetNotFound', { id: selectedDataset })), 0);
   }
 
   const addPoint = () => {
@@ -325,6 +339,7 @@ function TimeSeriesPage() {
           </>
         )}
       </ChartOrTable>
+      <ViewExplainer id="timeseries" />
     </Container>
   );
 }

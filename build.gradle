@@ -18,6 +18,8 @@ configurations {
 	compileOnly {
 		extendsFrom annotationProcessor
 	}
+	// Mockito chargé comme agent Java explicite (voir la tâche test).
+	mockitoAgent
 }
 
 repositories {
@@ -51,11 +53,16 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	// Même version que celle tirée par starter-test (gérée par le BOM Spring Boot),
+	// isolée sans ses transitives pour servir uniquement d'agent -javaagent.
+	mockitoAgent('org.mockito:mockito-core') { transitive = false }
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
-	jvmArgs '-XX:+EnableDynamicAgentLoading'
+	// Charge Mockito comme agent au démarrage de la JVM de test : évite
+	// l'auto-attachement déprécié de l'inline-mock-maker (sera interdit par le JDK).
+	jvmArgs "-javaagent:${configurations.mockitoAgent.asPath}"
 }
 
 tasks.named('jar') {

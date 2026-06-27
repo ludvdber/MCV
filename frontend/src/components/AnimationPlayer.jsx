@@ -191,7 +191,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
       title: { ...plotTitle, font: { ...plotTitle.font, color: fontColor } },
       font: { color: fontColor },
       xaxis: {
-        title: t('viz.longitude'),
+        title: { text: t('viz.longitude') },
         range: [lonMin, lonMax],
         showgrid: false,
         zeroline: false,
@@ -199,7 +199,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
         color: fontColor
       },
       yaxis: {
-        title: t('viz.latitude'),
+        title: { text: t('viz.latitude') },
         range: [latMin, latMax],
         showgrid: false,
         zeroline: false,
@@ -317,7 +317,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
       title: { ...plotTitle, font: { ...plotTitle.font, color: fontColor } },
       font: { color: fontColor },
       xaxis: {
-        title: t('viz.longitude'),
+        title: { text: t('viz.longitude') },
         range: [lonMin, lonMax],
         showgrid: false,
         zeroline: false,
@@ -325,7 +325,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
         color: fontColor
       },
       yaxis: {
-        title: t('viz.latitude'),
+        title: { text: t('viz.latitude') },
         range: [latMin, latMax],
         showgrid: false,
         zeroline: false,
