@@ -74,8 +74,12 @@ public class DatasetResolver {
 		if (marsYear < 0 || marsYear > 200) {
 			throw new ValidationException("error.individual.year.not.available", marsYear);
 		}
-		if (targetLs < 0 || targetLs >= 360) {
+		if (targetLs < 0 || targetLs > 360) {
 			throw new ValidationException("error.dataset.individual.format", dataset);
+		}
+		// Ls est cyclique : 360 pointe le meme instant que 0 (comme parseLsFromFilename normalise le fichier ls360).
+		if (targetLs == 360.0) {
+			targetLs = 0.0;
 		}
 
 		Path filePath = individualCatalogService.findClosestFile(marsYear, targetLs);

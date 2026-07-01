@@ -6,6 +6,9 @@ import {
 import { useTranslation } from 'react-i18next';
 import { INDIVIDUAL_PREFIX } from '../constants';
 
+/** Ls est cyclique : 360 equivaut a 0, on borne juste en dessous pour ne pas proposer un doublon. */
+const LS_CYCLE_MAX = 359.99;
+
 /**
  * Selecteur de fichier INDIVIDUAL.
  * Permet de choisir une annee martienne (MY) et un Ls cible via :
@@ -32,6 +35,9 @@ function IndividualSelector({ years = [], onSelect, initialYear = null, initialL
     () => years.find(y => y.marsYear === selectedYear) || null,
     [years, selectedYear]
   );
+
+  /** Borne haute reelle du slider : on exclut 360 (== 0) pour eviter l'ambiguite. */
+  const effectiveLsMax = yearInfo ? Math.min(yearInfo.lsMax, LS_CYCLE_MAX) : 0;
 
   /** Sync depuis les props (restore permalien) — se declenche quand initialYear/initialLs changent */
   useEffect(() => {
@@ -67,7 +73,7 @@ function IndividualSelector({ years = [], onSelect, initialYear = null, initialL
     const parsed = parseFloat(raw);
     if (!isNaN(parsed) && yearInfo) {
       // Mise a jour du slider en temps reel (sans clamping pendant la frappe)
-      setTargetLs(Math.min(Math.max(parsed, yearInfo.lsMin), yearInfo.lsMax));
+      setTargetLs(Math.min(Math.max(parsed, yearInfo.lsMin), effectiveLsMax));
     }
   };
 
@@ -77,7 +83,7 @@ function IndividualSelector({ years = [], onSelect, initialYear = null, initialL
     const parsed = parseFloat(textValue);
     const clamped = isNaN(parsed)
       ? targetLs
-      : Math.min(Math.max(parsed, yearInfo.lsMin), yearInfo.lsMax);
+      : Math.min(Math.max(parsed, yearInfo.lsMin), effectiveLsMax);
     setTargetLs(clamped);
     setTextValue(clamped.toFixed(2));
   };
@@ -90,8 +96,9 @@ function IndividualSelector({ years = [], onSelect, initialYear = null, initialL
   const sliderMarks = useMemo(() => {
     if (!yearInfo) return [];
     const marks = [];
+    const maxLs = Math.min(yearInfo.lsMax, LS_CYCLE_MAX);
     const start = Math.ceil(yearInfo.lsMin / 90) * 90;
-    for (let v = start; v <= yearInfo.lsMax; v += 90) {
+    for (let v = start; v <= maxLs; v += 90) {
       marks.push({ value: v, label: `${v}°` });
     }
     return marks;
@@ -130,7 +137,7 @@ function IndividualSelector({ years = [], onSelect, initialYear = null, initialL
                 value={targetLs}
                 onChange={handleSliderChange}
                 min={yearInfo.lsMin}
-                max={yearInfo.lsMax}
+                max={effectiveLsMax}
                 step={0.01}
                 marks={sliderMarks}
                 valueLabelDisplay="auto"
@@ -146,7 +153,7 @@ function IndividualSelector({ years = [], onSelect, initialYear = null, initialL
               value={textValue}
               onChange={handleTextChange}
               onBlur={handleTextBlur}
-              slotProps={{ htmlInput: { step: 0.01, min: yearInfo.lsMin, max: yearInfo.lsMax } }}
+              slotProps={{ htmlInput: { step: 0.01, min: yearInfo.lsMin, max: effectiveLsMax } }}
               sx={{
                 width: 130,
                 flexShrink: 0,
