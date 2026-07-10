@@ -23,9 +23,5 @@ public class CorsConfig implements WebMvcConfigurer {
                 .allowedMethods("GET", "OPTIONS")
                 .allowedHeaders("Accept-Language", "Content-Type", "Accept")
                 .maxAge(3600);
-        // Swagger UI needs access to /v3/api-docs from same origin
-        registry.addMapping("/v3/api-docs/**")
-                .allowedOriginPatterns(allowedOrigin)
-                .allowedMethods("GET");
     }
 }

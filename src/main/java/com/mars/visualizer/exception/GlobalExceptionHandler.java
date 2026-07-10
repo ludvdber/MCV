@@ -99,6 +99,17 @@ public class GlobalExceptionHandler {
                 .body(buildErrorBody("Not Found", "The requested resource was not found"));
     }
 
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFoundException ex) {
+        Locale locale = LocaleContextHolder.getLocale();
+        String message = messageSource.getMessage(ex.getMessageKey(), ex.getMessageArgs(), locale);
+        log.warn("Not found [{}]: {}", ex.getMessageKey(), message);
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(buildErrorBody("Not Found", message));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
         Locale locale = LocaleContextHolder.getLocale();

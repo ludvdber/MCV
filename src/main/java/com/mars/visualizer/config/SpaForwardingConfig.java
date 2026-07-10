@@ -13,8 +13,8 @@ public class SpaForwardingConfig implements WebMvcConfigurer {
 
 	@Override
 	public void addViewControllers(ViewControllerRegistry registry) {
-		// Toute route SPA sans extension, hors /api, /swagger-ui, /api-docs → forward vers index.html
-		registry.addViewController("/{path:(?!api|swagger-ui|api-docs|v3)[^\\.]*}").setViewName("forward:/index.html");
-		registry.addViewController("/{path1:(?!api|swagger-ui|api-docs|v3)[^\\.]*}/{path2:[^\\.]*}").setViewName("forward:/index.html");
+		// Toute route SPA sans extension, hors /api → forward vers index.html
+		registry.addViewController("/{path:(?!api)[^\\.]*}").setViewName("forward:/index.html");
+		registry.addViewController("/{path1:(?!api)[^\\.]*}/{path2:[^\\.]*}").setViewName("forward:/index.html");
 	}
 }

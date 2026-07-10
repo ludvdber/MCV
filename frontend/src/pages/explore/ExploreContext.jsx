@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- fichier contexte : Provider + hooks colocalises (pattern React standard) */
 /**
  * Contexte React pour la page d'exploration.
  *

@@ -320,7 +320,7 @@ function ExplorePageContent() {
       controller.signal,
     )
       .then(res => dispatch({ type: A.SET_WIND_DATA, value: res.data }))
-      .catch(err => {
+      .catch(() => {
         if (!controller.signal.aborted) dispatch({ type: A.SET_WIND_DATA, value: null });
       });
     return () => controller.abort();

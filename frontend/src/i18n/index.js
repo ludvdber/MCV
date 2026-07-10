@@ -36,4 +36,13 @@ i18n
     interpolation: { escapeValue: false },
   });
 
+// Garde l'attribut lang du <html> synchronise avec la langue active (accessibilite + SEO).
+function syncHtmlLang(lng) {
+  if (typeof document !== 'undefined') {
+    document.documentElement.lang = (lng || 'en').split('-')[0];
+  }
+}
+i18n.on('languageChanged', syncHtmlLang);
+syncHtmlLang(i18n.language);
+
 export default i18n;

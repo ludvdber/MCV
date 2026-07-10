@@ -14,6 +14,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.mars.visualizer.config.DataPathConfig;
 import com.mars.visualizer.exception.NetCDFException;
+import com.mars.visualizer.exception.ValidationException;
 import com.mars.visualizer.dto.internal.ProfileData;
 import com.mars.visualizer.dto.internal.SliceData;
 
@@ -112,14 +113,14 @@ class NetCDFReaderServiceTest {
     @DisplayName("assertPathSafe rejette un chemin hors du dossier autorisé")
     void assertPathSafe_rejetteCheminHors() {
         Path evil = tempDir.resolve("../../etc/passwd");
-        assertThrows(NetCDFException.class, () -> service.assertPathSafe(evil, tempDir));
+        assertThrows(ValidationException.class, () -> service.assertPathSafe(evil, tempDir));
     }
 
     @Test
     @DisplayName("assertPathSafe rejette un chemin avec traversal normalisé (..)")
     void assertPathSafe_rejetteTraversalNormalise() {
         Path evil = tempDir.resolve("subdir/../../../etc");
-        assertThrows(NetCDFException.class, () -> service.assertPathSafe(evil, tempDir));
+        assertThrows(ValidationException.class, () -> service.assertPathSafe(evil, tempDir));
     }
 
     @Test

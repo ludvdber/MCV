@@ -22,6 +22,7 @@ import com.mars.visualizer.dto.internal.WindFieldData;
 import com.mars.visualizer.dto.internal.WindRoseData;
 import com.mars.visualizer.dto.internal.ZonalMeanData;
 import com.mars.visualizer.exception.NetCDFException;
+import com.mars.visualizer.exception.ResourceNotFoundException;
 import com.mars.visualizer.exception.ValidationException;
 import com.mars.visualizer.util.MarsConstants;
 
@@ -104,9 +105,8 @@ public class NetCDFReaderService {
 		}
 
 		if (!Files.exists(filePath)) {
-			String errorMsg = "Fichier NetCDF introuvable : " + filePath;
-			log.error(errorMsg);
-			throw new IOException(errorMsg);
+			log.warn("Fichier NetCDF introuvable : {}", filePath);
+			throw new ResourceNotFoundException("error.dataset.not.found", filePath.getFileName().toString());
 		}
 
 		log.debug("Ouverture fichier NetCDF : {}", filePath);
@@ -123,14 +123,14 @@ public class NetCDFReaderService {
 	 *
 	 * @param file        chemin du fichier résolu
 	 * @param allowedRoot répertoire racine autorisé
-	 * @throws NetCDFException si le chemin sort du répertoire autorisé
+	 * @throws ValidationException si le chemin sort du répertoire autorisé
 	 */
 	void assertPathSafe(Path file, Path allowedRoot) {
 		Path normalizedFile = file.normalize().toAbsolutePath();
 		Path normalizedRoot = allowedRoot.normalize().toAbsolutePath();
 		if (!normalizedFile.startsWith(normalizedRoot)) {
 			log.error("Path traversal bloqué : {} hors de {}", normalizedFile, normalizedRoot);
-			throw new NetCDFException("error.path.traversal", normalizedFile.toString());
+			throw new ValidationException("error.path.traversal", normalizedFile.getFileName().toString());
 		}
 	}
 
