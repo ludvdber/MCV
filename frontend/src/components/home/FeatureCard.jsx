@@ -3,7 +3,7 @@ import { Paper, Box, Typography, Chip } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
   GridOn as SliceIcon,
-  PlayCircleOutline as AnimationIcon,
+  PlayCircleOutlined as AnimationIcon,
   ShowChart as TimeSeriesIcon,
   AlignVerticalBottom as ProfileIcon,
   CropFree as CrossSectionIcon,

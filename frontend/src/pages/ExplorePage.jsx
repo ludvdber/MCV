@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { useToast } from '../context/ToastContext';
 import { VARIABLES_MAP } from '../components/VariableSelector';
-import { triggerApiDownload, downloadAnimationCSV } from '../utils/exportUtils';
+import { triggerApiDownload, downloadAnimationCSV, downloadTextFile } from '../utils/exportUtils';
 import {
   getSlice, getTimeSeries, getProfile, getCrossSection, getWind,
   getTemporalProfile, getTransect,
@@ -36,7 +36,7 @@ import ExploreParamsPanel from './explore/ExploreParamsPanel.jsx';
 import ExploreResultsPanel from './explore/ExploreResultsPanel.jsx';
 import ExploreSidePanel from './explore/ExploreSidePanel.jsx';
 import GuidedTour from '../components/GuidedTour';
-import { genLabel } from './explore/exploreUtils.js';
+import { genLabel, weightedStats } from './explore/exploreUtils.js';
 import { formatTime } from '../utils/formatTime';
 
 /* Etapes de la visite guidee de la console. Les cibles portent un attribut
@@ -404,29 +404,17 @@ function ExplorePageContent() {
    *  Repli non pondéré si `latitudes` absent/incohérent. Ignore null/NaN. */
   const gridStats = (grid, latitudes = null) => {
     const canWeight = Array.isArray(latitudes) && latitudes.length === grid.length;
-    let min = Infinity, max = -Infinity, wSum = 0, wTot = 0;
     const vals = [], wts = [];
     for (let i = 0; i < grid.length; i++) {
       const w = canWeight ? Math.max(0, Math.cos(latitudes[i] * Math.PI / 180)) : 1;
       for (const v of grid[i]) {
-        if (v != null && !Number.isNaN(v)) {
-          if (v < min) min = v;
-          if (v > max) max = v;
-          wSum += w * v; wTot += w;
-          vals.push(v); wts.push(w);
-        }
+        if (v != null && !Number.isNaN(v)) { vals.push(v); wts.push(w); }
       }
     }
-    if (vals.length === 0 || wTot <= 0) return null;
-    const mean = wSum / wTot;
-    let varSum = 0;
-    for (let k = 0; k < vals.length; k++) varSum += wts[k] * (vals[k] - mean) ** 2;
-    const stddev = Math.sqrt(varSum / wTot);
-    const order = vals.map((_, k) => k).sort((a, b) => vals[a] - vals[b]);
-    const half = wTot / 2;
-    let run = 0, median = vals[order[0]];
-    for (const k of order) { run += wts[k]; if (run >= half) { median = vals[k]; break; } }
-    return { min, max, mean, stddev, median };
+    const s = weightedStats(vals, wts);
+    if (!s) return null;
+    // Couches dérivées : on privilégie les moments PONDÉRÉS cos(lat).
+    return { min: s.min, max: s.max, mean: s.weightedMean, stddev: s.weightedStddev, median: s.weightedMedian };
   };
 
   /**
@@ -557,13 +545,7 @@ function ExplorePageContent() {
           if (v != null && !Number.isNaN(v)) rows.push(`${latitudes[i]},${longitudes[j]},${v}`);
         }
       }
-      const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `derived_${activeResultObj.derived}_${activeResultObj.params.variable}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
+      downloadTextFile(rows.join('\n'), `derived_${activeResultObj.derived}_${activeResultObj.params.variable}.csv`);
       return;
     }
 
@@ -643,13 +625,7 @@ function ExplorePageContent() {
             }
           }
         }
-        const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `transect_${params.variable}_t${params.time}.csv`;
-        link.click();
-        URL.revokeObjectURL(url);
+        downloadTextFile(rows.join('\n'), `transect_${params.variable}_t${params.time}.csv`);
         break;
       }
       case 'tides': {
@@ -661,13 +637,7 @@ function ExplorePageContent() {
             rows.push(`${d.latitudes[i]},${d.longitudes[j]},${d.mean[i][j]},${d.amplitudeDiurnal[i][j]},${d.phaseDiurnal[i][j]},${d.amplitudeSemidiurnal[i][j]},${d.phaseSemidiurnal[i][j]}`);
           }
         }
-        const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `tides_${params.variable}_alt${params.altitude}.csv`;
-        link.click();
-        URL.revokeObjectURL(url);
+        downloadTextFile(rows.join('\n'), `tides_${params.variable}_alt${params.altitude}.csv`);
         break;
       }
     }
@@ -844,7 +814,7 @@ function ExplorePageContent() {
 
   if (catalogLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
         <CircularProgress />
       </Box>
     );

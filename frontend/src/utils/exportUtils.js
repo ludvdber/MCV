@@ -37,6 +37,19 @@ export function triggerApiDownload(promise, filename) {
 }
 
 /**
+ * Construit un Blob texte (CSV par défaut) et déclenche son téléchargement.
+ * Regroupe le motif « new Blob → createObjectURL → triggerDownload » qui était
+ * recopié dans plusieurs pages (exports client dérivés, transect, marées…).
+ *
+ * @param {string} content  - contenu texte du fichier
+ * @param {string} filename - nom du fichier téléchargé
+ * @param {string} [mime]   - type MIME (défaut : CSV UTF-8)
+ */
+export function downloadTextFile(content, filename, mime = 'text/csv;charset=utf-8;') {
+  triggerDownload(URL.createObjectURL(new Blob([content], { type: mime })), filename);
+}
+
+/**
  * Construit un CSV de statistiques par frame (min/max/moyenne)
  * pour une animation diurne et déclenche son téléchargement.
  *
@@ -68,6 +81,5 @@ export function downloadAnimationCSV(frames, variable, altitude) {
       (sum / count).toFixed(4),
     ].join(',');
   });
-  const blob = new Blob([[header, ...rows].join('\n')], { type: 'text/csv;charset=utf-8;' });
-  triggerDownload(URL.createObjectURL(blob), `animation_${variable}_alt${altitude}.csv`);
+  downloadTextFile([header, ...rows].join('\n'), `animation_${variable}_alt${altitude}.csv`);
 }

@@ -17,6 +17,7 @@ import {
   Movie as VideoIcon,
 } from '@mui/icons-material';
 import { exportPlotImage } from '../utils/plotExport';
+import { triggerDownload } from '../utils/exportUtils';
 
 /**
  * Menu dropdown d'export pour les graphiques Plotly.
@@ -42,13 +43,6 @@ function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, onNetCDF 
 
   const handleOpen = (e) => setAnchorEl(e.currentTarget);
   const handleClose = () => setAnchorEl(null);
-
-  const triggerDownload = (url, name) => {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    a.click();
-  };
 
   /* Le rendu hors ecran en theme clair vit dans utils/plotExport.js :
    * partage avec le montage de grille et l'export video WebM. */

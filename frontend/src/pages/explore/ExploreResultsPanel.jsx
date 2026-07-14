@@ -26,7 +26,7 @@ import {
   KeyboardDoubleArrowLeft as PanelHideIcon,
   KeyboardDoubleArrowRight as PanelShowIcon,
   Add as AddIcon,
-  HelpOutline as HelpIcon,
+  HelpOutlined as HelpIcon,
   Tune as TuneIcon,
   CropSquare as SingleViewIcon,
   GridView as GridViewIcon,
@@ -52,6 +52,7 @@ import SessionChips from './SessionChips.jsx';
 import { useSyncZoom } from './useSyncZoom.js';
 import MiniColorbar from './MiniColorbar.jsx';
 import { computeRegionStats, resultLabel } from './exploreUtils.js';
+import { triggerDownload } from '../../utils/exportUtils';
 import { exportGridMontage } from '../../utils/plotExport';
 import { exportAnimationWebM, webmSupported, downloadBlob } from '../../utils/videoExport';
 import { formatTime } from '../../utils/formatTime';
@@ -352,10 +353,7 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExp
     if (cells.length === 0) return;
     try {
       const url = await exportGridMontage(cells, { title: t('export.pubGridHeader'), credit: PUB_CREDIT });
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'mcv_grid_publication.png';
-      a.click();
+      triggerDownload(url, 'mcv_grid_publication.png');
       showToast(t('toast.pngExported'));
     } catch {
       showToast(t('export.pngError'), 'error');

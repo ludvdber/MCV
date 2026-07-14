@@ -1,7 +1,7 @@
 import { Paper, Box, Typography } from '@mui/material';
 import {
   Layers as SliceIcon,
-  PlayCircleOutline as AnimationIcon,
+  PlayCircleOutlined as AnimationIcon,
   ShowChart as TimeSeriesIcon,
   AlignVerticalBottom as ProfileIcon,
   Landscape as CrossSectionIcon,

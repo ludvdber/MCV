@@ -10,7 +10,7 @@ import {
   Home as HomeIcon,
   Layers as SliceIcon,
   ShowChart as TimeSeriesIcon,
-  PlayCircleOutline as AnimationIcon,
+  PlayCircleOutlined as AnimationIcon,
   Landscape as CrossSectionIcon,
   Explore as ExploreIcon,
   AlignVerticalBottom as ProfileIcon,
@@ -166,7 +166,7 @@ function NavItem({ labelKey, to, icon: Icon, collapsed, onClose, nested = false 
       {!collapsed && (
         <ListItemText
           primary={t(labelKey)}
-          primaryTypographyProps={{ fontSize: nested ? '0.82rem' : '0.9rem', fontWeight: 500 }}
+          slotProps={{ primary: { fontSize: nested ? '0.82rem' : '0.9rem', fontWeight: 500 } }}
         />
       )}
     </ListItemButton>
@@ -218,10 +218,10 @@ function NavSection({ group, collapsed, onClose, open, onToggle }) {
       >
         <ListItemText
           primary={t(group.labelKey)}
-          primaryTypographyProps={{
+          slotProps={{ primary: {
             fontSize: '0.66rem', fontWeight: 700, letterSpacing: '0.1em',
-            textTransform: 'uppercase', color: 'var(--text-secondary)', sx: { opacity: 0.72 },
-          }}
+            color: 'var(--text-secondary)', sx: { opacity: 0.72, textTransform: 'uppercase' },
+          } }}
         />
         {open
           ? <ExpandLess sx={{ fontSize: 16, color: 'var(--text-secondary)', opacity: 0.72 }} />
@@ -268,7 +268,7 @@ function ExplorerNavItem({ collapsed, onClose }) {
       {!collapsed && (
         <ListItemText
           primary={t('nav.explore')}
-          primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: 700 }}
+          slotProps={{ primary: { fontSize: '0.9rem', fontWeight: 700 } }}
         />
       )}
       {!collapsed && (
@@ -419,7 +419,7 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
             </ListItemIcon>
             <ListItemText
               primary={t('history.title')}
-              primaryTypographyProps={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-secondary)' }}
+              slotProps={{ primary: { fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-secondary)' } }}
             />
             {historyOpen ? <ExpandLess sx={{ fontSize: 18, color: 'var(--text-secondary)' }} /> : <ExpandMore sx={{ fontSize: 18, color: 'var(--text-secondary)' }} />}
           </ListItemButton>
@@ -450,8 +450,10 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
                     <ListItemText
                       primary={entry.label}
                       secondary={timeAgo(entry.timestamp, t)}
-                      primaryTypographyProps={{ fontSize: '0.78rem', noWrap: true, color: active ? 'var(--mars-orange)' : undefined }}
-                      secondaryTypographyProps={{ fontSize: '0.65rem' }}
+                      slotProps={{
+                        primary: { fontSize: '0.78rem', noWrap: true, color: active ? 'var(--mars-orange)' : undefined },
+                        secondary: { fontSize: '0.65rem' },
+                      }}
                     />
                   </ListItemButton>
                   </Tooltip>
@@ -464,7 +466,7 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
                 >
                   <ListItemText
                     primary={t('history.seeAll', { count: history.length })}
-                    primaryTypographyProps={{ fontSize: '0.72rem', color: 'secondary.main', textAlign: 'center' }}
+                    slotProps={{ primary: { fontSize: '0.72rem', color: 'secondary.main', textAlign: 'center' } }}
                   />
                 </ListItemButton>
                 <Tooltip title={confirmClear ? t('history.clearConfirm') : t('history.clear')} placement="top" arrow>
@@ -478,7 +480,7 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
                     {confirmClear && (
                       <ListItemText
                         primary={t('history.clearConfirm')}
-                        primaryTypographyProps={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--mars-orange)' }}
+                        slotProps={{ primary: { fontSize: '0.72rem', fontWeight: 600, color: 'var(--mars-orange)' } }}
                       />
                     )}
                   </ListItemButton>

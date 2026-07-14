@@ -13,7 +13,7 @@
  */
 import { useState, useEffect, useMemo } from 'react';
 import { Box, Typography, Tooltip, IconButton } from '@mui/material';
-import { HelpOutline as HelpIcon } from '@mui/icons-material';
+import { HelpOutlined as HelpIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import MethodologyDialog from '../../components/MethodologyDialog';
 import { VARIABLES_MAP } from '../../components/VariableSelector';

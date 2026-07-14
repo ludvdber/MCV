@@ -1,7 +1,7 @@
 import {
   GridOn as GridOnIcon,
   ShowChart as ShowChartIcon,
-  PlayCircleOutline as PlayCircleIcon,
+  PlayCircleOutlined as PlayCircleIcon,
   BarChart as BarChartIcon,
   Landscape as LandscapeIcon,
   ViewTimeline as HovmollerIcon,

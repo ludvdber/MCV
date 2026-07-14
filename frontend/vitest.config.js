@@ -5,9 +5,9 @@ import { defineConfig } from 'vitest/config';
  * les plugins de build — PWA, manualChunks — pendant les tests).
  */
 export default defineConfig({
-  // Transforme le JSX avec le runtime automatique (pas besoin d'importer React
-  // dans chaque test de composant).
-  esbuild: { jsx: 'automatic' },
+  // Vite 8 transforme le JSX via oxc, dont le runtime automatique est le défaut
+  // (pas besoin d'importer React dans chaque test de composant) — aucune option
+  // à passer. L'ancien `esbuild: { jsx: 'automatic' }` était ignoré par oxc.
   test: {
     environment: 'jsdom',
     globals: true,

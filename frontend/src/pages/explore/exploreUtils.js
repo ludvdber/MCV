@@ -5,12 +5,48 @@ import { VARIABLES_MAP } from '../../components/VariableSelector';
 import { formatTime } from '../../utils/formatTime';
 
 /**
- * Statistiques d'une region rectangulaire d'une grille lat/lon.
+ * Statistiques d'un échantillon pondéré. Les cellules d'une grille lat/lon
+ * régulière en degrés ne couvrent pas la même surface (les mailles polaires
+ * sont plus petites) : le poids cos(latitude) corrige ce biais. On renvoie à la
+ * fois les moments ARITHMÉTIQUES (mean, stddev) et PONDÉRÉS (weightedMean,
+ * weightedStddev, weightedMedian) pour que chaque appelant choisisse — la
+ * statistique de région privilégie l'arithmétique, les couches dérivées le
+ * pondéré. Cœur partagé de computeRegionStats et de gridStats (ExplorePage).
  *
- * En plus de la moyenne arithmetique, calcule la moyenne ponderee par
- * cos(latitude) : sur une grille reguliere en degres, les cellules polaires
- * couvrent moins de surface que les cellules equatoriales, et la moyenne
- * simple les surpondere.
+ * @param {number[]} vals  valeurs (déjà filtrées : ni null ni NaN)
+ * @param {number[]} wts   poids parallèles (même longueur)
+ * @returns {Object|null}  null si l'échantillon est vide
+ */
+export function weightedStats(vals, wts) {
+  const n = vals.length;
+  if (n === 0) return null;
+  let min = Infinity, max = -Infinity, sum = 0, wSum = 0, wvSum = 0;
+  for (let k = 0; k < n; k++) {
+    const v = vals[k], w = wts[k];
+    if (v < min) min = v;
+    if (v > max) max = v;
+    sum += v; wSum += w; wvSum += w * v;
+  }
+  const mean = sum / n;
+  const weightedMean = wSum > 0 ? wvSum / wSum : mean;
+  let varSum = 0, wVarSum = 0;
+  for (let k = 0; k < n; k++) {
+    varSum += (vals[k] - mean) ** 2;
+    wVarSum += wts[k] * (vals[k] - weightedMean) ** 2;
+  }
+  const stddev = Math.sqrt(varSum / n);
+  const weightedStddev = wSum > 0 ? Math.sqrt(wVarSum / wSum) : stddev;
+  // Médiane pondérée : seuil à Σw/2 sur les valeurs triées.
+  const order = vals.map((_, k) => k).sort((a, b) => vals[a] - vals[b]);
+  const half = wSum / 2;
+  let run = 0, weightedMedian = vals[order[0]];
+  for (const k of order) { run += wts[k]; if (run >= half) { weightedMedian = vals[k]; break; } }
+  return { n, min, max, mean, stddev, weightedMean, weightedStddev, weightedMedian };
+}
+
+/**
+ * Statistiques d'une region rectangulaire d'une grille lat/lon (moyenne
+ * arithmetique + moyenne ponderee cos(lat)). Voir {@link weightedStats}.
  *
  * @param {{data: number[][], latitudes: number[], longitudes: number[]}} gridData
  * @param {{latMin, latMax, lonMin, lonMax}} bounds
@@ -20,8 +56,7 @@ export function computeRegionStats(gridData, bounds) {
   const { data, latitudes, longitudes } = gridData ?? {};
   if (!Array.isArray(data) || !Array.isArray(latitudes) || !Array.isArray(longitudes)) return null;
 
-  const vals = [];
-  let wSum = 0, wvSum = 0;
+  const vals = [], wts = [];
   for (let i = 0; i < latitudes.length; i++) {
     const lat = latitudes[i];
     if (lat < bounds.latMin || lat > bounds.latMax) continue;
@@ -31,21 +66,15 @@ export function computeRegionStats(gridData, bounds) {
       if (lon < bounds.lonMin || lon > bounds.lonMax) continue;
       const v = data[i]?.[j];
       if (v == null || Number.isNaN(v)) continue;
-      vals.push(v);
-      wSum += w;
-      wvSum += w * v;
+      vals.push(v); wts.push(w);
     }
   }
-  if (vals.length === 0) return null;
-
-  let min = Infinity, max = -Infinity, sum = 0;
-  for (const v of vals) { if (v < min) min = v; if (v > max) max = v; sum += v; }
-  const mean = sum / vals.length;
-  const stddev = Math.sqrt(vals.reduce((s, v) => s + (v - mean) ** 2, 0) / vals.length);
+  const s = weightedStats(vals, wts);
+  if (!s) return null;
 
   return {
-    n: vals.length, min, max, mean, stddev,
-    weightedMean: wSum > 0 ? wvSum / wSum : mean,
+    n: s.n, min: s.min, max: s.max, mean: s.mean, stddev: s.stddev,
+    weightedMean: s.weightedMean,
     // Valeurs brutes de la region : l'histogramme du panneau lateral montre la
     // FORME de la distribution (bimodale, ecrasee, a queue longue) que les
     // moments seuls ne revelent pas.

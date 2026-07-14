@@ -168,7 +168,7 @@ function Home() {
           1. HERO — titre, sous-titre, description, deux boutons, globe entier
       ══════════════════════════════════════════════════════════ */}
       <Container maxWidth="lg" className="mcv-hero" component="section" sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', py: 8 }}>
-        <Grid container spacing={4} alignItems="center">
+        <Grid container spacing={4} sx={{ alignItems: 'center' }}>
           <Grid size={{ xs: 12, md: 7 }}>
             <Box {...useReveal(0)}>
               <Typography variant="h3" component="h1" sx={{
@@ -261,7 +261,7 @@ function Home() {
           </Box>
 
           {/* 3 raisons */}
-          <Grid container spacing={3} alignItems="stretch">
+          <Grid container spacing={3} sx={{ alignItems: 'stretch' }}>
             {why.reasons.map((reason, i) => (
               <Grid key={reason.icon} size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
                 <ReasonCard reason={reason} delay={i * 0.12} />
@@ -348,7 +348,7 @@ function Home() {
       <Box sx={{ py: { xs: 8, md: 12 }, background: 'radial-gradient(ellipse at 50% 50%, rgba(224,90,43,0.06) 0%, transparent 60%)' }}>
         <Container maxWidth="lg">
           <SectionHeader tag={t('home.statsTag')} title={t('home.statsTitle')} subtitle={t('home.statsSubtitle')} color="primary" />
-          <Grid container spacing={3} alignItems="stretch">
+          <Grid container spacing={3} sx={{ alignItems: 'stretch' }}>
             {stats.map((stat, i) => (
               <Grid key={stat.label} size={{ xs: 6, md: 3 }} sx={{ display: 'flex' }}>
                 <StatCard stat={stat} delay={i * 0.08} />
@@ -389,7 +389,7 @@ function Home() {
       <Box sx={{ py: { xs: 8, md: 12 }, background: 'radial-gradient(ellipse at 50% 50%, rgba(168,85,247,0.05) 0%, transparent 65%)', borderTop: '1px solid var(--glass-border)', borderBottom: '1px solid var(--glass-border)' }}>
         <Container maxWidth="lg">
           <SectionHeader tag={belgium.tag} title={belgium.title} subtitle={belgium.subtitle} color="secondary" />
-          <Grid container spacing={3} alignItems="stretch">
+          <Grid container spacing={3} sx={{ alignItems: 'stretch' }}>
             {belgium.items.map((item, i) => (
               <Grid key={item.icon} size={{ xs: 12, sm: 6, md: 4 }} sx={{ display: 'flex' }}>
                 <BelgiumCard item={item} delay={i * 0.08} />

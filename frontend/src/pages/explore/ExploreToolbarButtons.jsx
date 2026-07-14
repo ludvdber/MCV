@@ -29,7 +29,7 @@ export function DiffMenuButton({ slices, onSelect, t }) {
         {slices.map(s => (
           <MenuItem key={s.id} onClick={() => { onSelect(s.id); setAnchorEl(null); }}
             sx={{ fontSize: '0.82rem' }}>
-            <ListItemText primary={s.label} primaryTypographyProps={{ fontSize: '0.82rem', noWrap: true }} />
+            <ListItemText primary={s.label} slotProps={{ primary: { fontSize: '0.82rem', noWrap: true } }} />
           </MenuItem>
         ))}
       </Menu>

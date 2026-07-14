@@ -152,7 +152,7 @@ export default function DrillDownMenu({ plotRef, onDrillDown, hiddenTypes = [] }
               </ListItemIcon>
               <ListItemText
                 primary={label}
-                primaryTypographyProps={{ fontSize: '0.82rem' }}
+                slotProps={{ primary: { fontSize: '0.82rem' } }}
               />
             </MenuItem>
           ))}

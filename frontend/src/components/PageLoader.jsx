@@ -7,7 +7,7 @@ import { Container, Box, CircularProgress } from '@mui/material';
 function PageLoader() {
   return (
     <Container>
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
         <CircularProgress />
       </Box>
     </Container>

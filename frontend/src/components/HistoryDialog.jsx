@@ -15,7 +15,7 @@ import {
   History as HistoryIcon,
   Layers as SliceIcon,
   ShowChart as TimeSeriesIcon,
-  PlayCircleOutline as AnimationIcon,
+  PlayCircleOutlined as AnimationIcon,
   Landscape as CrossSectionIcon,
   AlignVerticalBottom as ProfileIcon,
   ViewTimeline as HovmollerIcon,
@@ -124,8 +124,10 @@ function HistoryRow({ entry, onOpen, onTogglePin, onRemove }) {
         <ListItemText
           primary={t(meta.labelKey)}
           secondary={`${summary}${summary ? ' — ' : ''}${relativeTime(entry.timestamp, i18n.language)}`}
-          primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: 600 }}
-          secondaryTypographyProps={{ fontSize: '0.75rem', noWrap: true }}
+          slotProps={{
+            primary: { fontSize: '0.9rem', fontWeight: 600 },
+            secondary: { fontSize: '0.75rem', noWrap: true },
+          }}
         />
       </ListItemButton>
     </ListItem>
