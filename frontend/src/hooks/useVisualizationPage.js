@@ -47,6 +47,9 @@ export function useVisualizationPage({
   const [linkCopied, copyToClipboard] = useCopyToClipboard();
   const [searchParams] = useSearchParams();
   const pendingAutoLaunch = useRef(false);
+  // Contrôleur de la requête en vol : annulée au démontage de la page (évite de
+  // laisser tourner un chargement lourd, ex. animation 48 frames, après départ).
+  const launchAbortRef = useRef(null);
   // Keep a live ref to restoreUrl (recreated each render by the page) so the
   // restoration effect can depend only on searchParams, not on the function.
   // Assignation dans un effet (pas au rendu — react-hooks/refs) : cet effet
@@ -86,7 +89,10 @@ export function useVisualizationPage({
     setError(null);
     setIsDirty(false);
 
-    fetchData()
+    const controller = new AbortController();
+    launchAbortRef.current = controller;
+
+    fetchData(controller.signal)
       .then(res => {
         const responseData = res.data;
         setData(responseData);
@@ -101,9 +107,15 @@ export function useVisualizationPage({
           addEntry(entry);
         }
       })
-      .catch(err => setError(err.response?.data?.message || err.message))
-      .finally(() => setLoading(false));
+      .catch(err => {
+        if (err?.code === 'ERR_CANCELED') return; // annulation volontaire : on ignore
+        setError(err.response?.data?.message || err.message);
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
   }, [fetchData, buildHistoryEntry, buildPermalink, canLaunch, addEntry]);
+
+  // Annule la requête encore en vol lorsque la page est démontée.
+  useEffect(() => () => launchAbortRef.current?.abort(), []);
 
   // --- Auto-launch after URL restoration ---
   // Effet dépendant de dataset/selectedDataset : il ne lance qu'au rendu où

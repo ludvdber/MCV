@@ -28,6 +28,9 @@ api.interceptors.request.use(config => {
 api.interceptors.response.use(
   res => res,
   err => {
+    // Requête annulée volontairement (AbortController, ex: changement de page) :
+    // on relaie l'erreur telle quelle, sans la maquiller en « erreur réseau ».
+    if (axios.isCancel(err)) return Promise.reject(err);
     if (!err.response) {
       // Erreur reseau (serveur injoignable, timeout, CORS)
       if (err.code === 'ECONNABORTED') {
@@ -126,14 +129,14 @@ export const getSlice = (params, signal) => cachedGet('/data/slice', params, sig
  * @param {Object} params - { dataset, variable, latitude, longitude, altitude }
  * @returns {Promise} TimeSeriesResponse (values[], stats)
  */
-export const getTimeSeries = (params) => cachedGet('/data/timeseries', params);
+export const getTimeSeries = (params, signal) => cachedGet('/data/timeseries', params, signal);
 
 /**
  * GET /api/data/animation — ensemble de frames pour animation temporelle
  * @param {Object} params - { dataset, variable, altitude }
  * @returns {Promise} AnimationResponse (frames[], latitudes, longitudes, stats)
  */
-export const getAnimation = (params) => cachedGet('/data/animation', params);
+export const getAnimation = (params, signal) => cachedGet('/data/animation', params, signal);
 
 /**
  * GET /api/export/csv/slice — export CSV d'une coupe 2D
@@ -158,7 +161,7 @@ export const exportTimeSeriesCSV = (params) =>
  * @param {Object} params - { dataset, variable, time, latitude, longitude }
  * @returns {Promise} ProfileResponse (altitudes[], values[], stats)
  */
-export const getProfile = (params) => cachedGet('/data/profile', params);
+export const getProfile = (params, signal) => cachedGet('/data/profile', params, signal);
 
 /**
  * GET /api/data/wind — champ de vent UU/VV subsample pour superposition sur slice
@@ -173,49 +176,49 @@ export const getWind = (params, signal) => cachedGet('/data/wind', params, signa
  * @param {Object} params - { dataset, variable, time, type, fixedCoordinate }
  * @returns {Promise} CrossSectionResponse (data[][], altitudes[], horizontalCoords[], stats)
  */
-export const getCrossSection = (params) => cachedGet('/data/crosssection', params);
+export const getCrossSection = (params, signal) => cachedGet('/data/crosssection', params, signal);
 
 /**
  * GET /api/data/altitudes — tableau des altitudes en km pour un dataset/variable
  * @param {Object} params - { dataset, variable }
  * @returns {Promise} { surface: boolean, altitudes: number[] }
  */
-export const getAltitudes = (params) => cachedGet('/data/altitudes', params);
+export const getAltitudes = (params, signal) => cachedGet('/data/altitudes', params, signal);
 
 /**
  * GET /api/data/hovmoller — diagramme de Hovmoller (temps x lat ou lon)
  * @param {Object} params - { dataset, variable, altitude, type }
  * @returns {Promise} HovmollerResponse (data[][], times[], spatialCoords[], stats)
  */
-export const getHovmoller = (params) => cachedGet('/data/hovmoller', params);
+export const getHovmoller = (params, signal) => cachedGet('/data/hovmoller', params, signal);
 
 /**
  * GET /api/data/zonalmean — moyenne zonale (lat x altitude)
  * @param {Object} params - { dataset, variable, time }
  * @returns {Promise} ZonalMeanResponse (data[][], latitudes[], altitudes[], stats)
  */
-export const getZonalMean = (params) => cachedGet('/data/zonalmean', params);
+export const getZonalMean = (params, signal) => cachedGet('/data/zonalmean', params, signal);
 
 /**
  * GET /api/data/tides — marees thermiques (decomposition harmonique du cycle diurne)
  * @param {Object} params - { dataset, variable, altitude }
  * @returns {Promise} TidesResponse (amplitude/phase des modes diurne et semi-diurne)
  */
-export const getTides = (params) => cachedGet('/data/tides', params);
+export const getTides = (params, signal) => cachedGet('/data/tides', params, signal);
 
 /**
  * GET /api/data/windrose — rose des vents (UU/VV sur 48 timesteps)
  * @param {Object} params - { dataset, latitude, longitude, altitude }
  * @returns {Promise} WindRoseResponse (uu[], vv[], actualLat, actualLon)
  */
-export const getWindRose = (params) => cachedGet('/data/windrose', params);
+export const getWindRose = (params, signal) => cachedGet('/data/windrose', params, signal);
 
 /**
  * GET /api/data/difference — difference entre deux datasets (A - B)
  * @param {Object} params - { datasetA, datasetB, variable, time, altitude }
  * @returns {Promise} DifferenceResponse (data[][], stats)
  */
-export const getDifference = (params) => cachedGet('/data/difference', params);
+export const getDifference = (params, signal) => cachedGet('/data/difference', params, signal);
 
 /** GET /api/export/csv/profile — export CSV d'un profil vertical */
 export const exportProfileCSV = (params) =>
@@ -242,14 +245,14 @@ export const exportDifferenceCSV = (params) =>
   api.get('/export/csv/difference', { params, responseType: 'blob' });
 
 /** GET /api/data/temporal-profile — profil altitude x temps en un point */
-export const getTemporalProfile = (params) => cachedGet('/data/temporal-profile', params);
+export const getTemporalProfile = (params, signal) => cachedGet('/data/temporal-profile', params, signal);
 
 /**
  * GET /api/data/transect — coupe verticale le long d'un grand cercle A → B
  * @param {Object} params - { dataset, variable, time, lat1, lon1, lat2, lon2, points }
  * @returns {Promise} TransectResponse (data[][], altitudes[], distances[], lats[], lons[], stats)
  */
-export const getTransect = (params) => cachedGet('/data/transect', params);
+export const getTransect = (params, signal) => cachedGet('/data/transect', params, signal);
 
 /** GET /api/export/csv/temporal-profile */
 export const exportTemporalProfileCSV = (params) =>

@@ -1,165 +1,53 @@
 import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
-import { ThemeProvider as MuiThemeProvider, createTheme, alpha } from '@mui/material/styles';
+import { ThemeProvider as MuiThemeProvider, createTheme, alpha, useColorScheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 
 const ThemeContext = createContext(null);
 
-const STORAGE_KEY = 'mcv-theme-mode';
+const MODE_KEY = 'mcv-theme-mode';
 const CONTRAST_KEY = 'mcv-high-contrast';
 
-/** Couleurs du design system */
+/** Couleurs du design system (dark) */
 const MARS = '#e05a2b';
 const CYAN = '#38bdf8';
-
-/** Composants partages entre les deux themes */
-function sharedComponents(mars, cyan) {
-  return {
-    MuiButton: {
-      styleOverrides: {
-        containedPrimary: {
-          background: `linear-gradient(135deg, ${mars}, #ff7043)`,
-          boxShadow: `0 4px 20px ${alpha(mars, 0.4)}`,
-          fontWeight: 600,
-          letterSpacing: '0.05em',
-          '&:hover': {
-            background: `linear-gradient(135deg, #ff7043, ${mars})`,
-            boxShadow: `0 6px 28px ${alpha(mars, 0.6)}`,
-          },
-        },
-        outlinedSecondary: {
-          borderColor: alpha(cyan, 0.5),
-          color: cyan,
-          '&:hover': {
-            borderColor: cyan,
-            backgroundColor: alpha(cyan, 0.08),
-            boxShadow: `0 0 16px ${alpha(cyan, 0.2)}`,
-          },
-        },
-      },
-    },
-    MuiSlider: {
-      styleOverrides: {
-        root: {
-          color: mars,
-          '& .MuiSlider-thumb': {
-            boxShadow: `0 0 8px ${alpha(mars, 0.4)}`,
-          },
-        },
-      },
-    },
-    MuiToggleButton: {
-      styleOverrides: {
-        root: {
-          borderColor: alpha(cyan, 0.2),
-          '&.Mui-selected': {
-            backgroundColor: alpha(mars, 0.2),
-            color: '#fff',
-            borderColor: alpha(mars, 0.5),
-            '&:hover': {
-              backgroundColor: alpha(mars, 0.3),
-            },
-          },
-        },
-      },
-    },
-  };
-}
-
-/** Theme dark — spatial futuriste glassmorphism */
-const darkTheme = createTheme({
-  palette: {
-    mode: 'dark',
-    primary: { main: MARS },
-    secondary: { main: CYAN },
-    background: {
-      default: '#020818',
-      paper: 'rgba(13, 27, 64, 0.6)',
-    },
-    text: {
-      primary: 'rgba(255, 255, 255, 0.95)',
-      secondary: 'rgba(255, 255, 255, 0.75)',
-    },
-  },
-  typography: {
-    fontFamily: "'Rajdhani', 'Roboto', sans-serif",
-    h3: { fontFamily: "'Orbitron', sans-serif", fontWeight: 700 },
-    h4: { fontFamily: "'Orbitron', sans-serif", fontWeight: 700 },
-    h5: { fontFamily: "'Orbitron', sans-serif", fontWeight: 700 },
-    h6: { fontFamily: "'Orbitron', sans-serif", fontWeight: 400 },
-  },
-  shape: { borderRadius: 12 },
-  components: {
-    MuiCssBaseline: {
-      styleOverrides: {
-        body: { background: '#020818' },
-        '*, *::before, *::after': {
-          '&:focus-visible': { outline: `2px solid ${CYAN}`, outlineOffset: 2 },
-        },
-      },
-    },
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          backgroundImage: 'none',
-          backgroundColor: 'rgba(13, 27, 64, 0.6)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          border: '1px solid rgba(56, 189, 248, 0.12)',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-          borderRadius: 16,
-        },
-      },
-    },
-    MuiOutlinedInput: {
-      styleOverrides: {
-        root: {
-          '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(56, 189, 248, 0.2)' },
-          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(56, 189, 248, 0.4)' },
-          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-            borderColor: CYAN,
-            boxShadow: `0 0 12px ${alpha(CYAN, 0.15)}`,
-          },
-        },
-      },
-    },
-    MuiMenu: {
-      styleOverrides: {
-        paper: {
-          backgroundColor: 'rgba(13, 27, 64, 0.9)',
-          backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(56, 189, 248, 0.12)',
-        },
-      },
-    },
-    MuiAlert: {
-      styleOverrides: {
-        root: {
-          backdropFilter: 'blur(8px)',
-          border: '1px solid rgba(56, 189, 248, 0.12)',
-        },
-      },
-    },
-    ...sharedComponents(MARS, CYAN),
-  },
-});
-
 /** Couleurs adaptees au clair */
 const MARS_LIGHT = '#c44b1f';
 const CYAN_LIGHT = '#0284c7';
 
-/** Theme clair — fond blanc, adapte pour publications */
-const lightTheme = createTheme({
-  palette: {
-    mode: 'light',
-    primary: { main: MARS_LIGHT },
-    secondary: { main: CYAN_LIGHT },
-    background: {
-      default: '#f0f2f5',
-      paper: '#ffffff',
+/**
+ * Thème unique piloté par CSS variables (`cssVariables`) et deux color schemes.
+ *
+ * Bascule clair/sombre = MUI retourne l'attribut `data-theme` sur <html> et les
+ * variables CSS changent : AUCUN re-render de l'arbre React (contrairement à
+ * l'ancien `mode === 'dark' ? darkTheme : lightTheme`). Le sélecteur est calé
+ * sur `data-theme` pour partager l'attribut avec les variables de `index.css`
+ * (`--mars-orange`, `--bg-surface`…), qui restent la source des tokens « glass ».
+ *
+ * Les styles de composants propres à un scheme passent par `theme.applyStyles(
+ * 'dark' | 'light', …)` : on reproduit EXACTEMENT les anciens overrides, pas de
+ * dérive visuelle. Le contraste élevé reste géré à part (attribut `data-contrast`).
+ */
+const theme = createTheme({
+  cssVariables: { colorSchemeSelector: 'data-theme' },
+  defaultColorScheme: 'dark',
+  colorSchemes: {
+    dark: {
+      palette: {
+        mode: 'dark',
+        primary: { main: MARS },
+        secondary: { main: CYAN },
+        background: { default: '#020818', paper: 'rgba(13, 27, 64, 0.6)' },
+        text: { primary: 'rgba(255, 255, 255, 0.95)', secondary: 'rgba(255, 255, 255, 0.75)' },
+      },
     },
-    text: {
-      primary: '#1a1a2e',
-      secondary: '#64748b',
+    light: {
+      palette: {
+        mode: 'light',
+        primary: { main: MARS_LIGHT },
+        secondary: { main: CYAN_LIGHT },
+        background: { default: '#f0f2f5', paper: '#ffffff' },
+        text: { primary: '#1a1a2e', secondary: '#64748b' },
+      },
     },
   },
   typography: {
@@ -172,113 +60,250 @@ const lightTheme = createTheme({
   shape: { borderRadius: 12 },
   components: {
     MuiCssBaseline: {
-      styleOverrides: {
-        body: { background: '#f0f2f5' },
-        '*, *::before, *::after': {
-          '&:focus-visible': { outline: `2px solid ${MARS_LIGHT}`, outlineOffset: 2 },
+      styleOverrides: (themeParam) => ({
+        body: {
+          ...themeParam.applyStyles('dark', { background: '#020818' }),
+          ...themeParam.applyStyles('light', { background: '#f0f2f5' }),
         },
-      },
+        '*, *::before, *::after': {
+          '&:focus-visible': { outline: `2px solid ${CYAN}`, outlineOffset: 2 },
+        },
+      }),
     },
     MuiPaper: {
       styleOverrides: {
-        root: {
+        root: ({ theme: t }) => ({
           backgroundImage: 'none',
-          backgroundColor: '#ffffff',
-          border: '1px solid rgba(0, 0, 0, 0.08)',
-          boxShadow: '0 1px 4px rgba(0, 0, 0, 0.06)',
           borderRadius: 16,
-        },
+          ...t.applyStyles('dark', {
+            backgroundColor: 'rgba(13, 27, 64, 0.6)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            border: '1px solid rgba(56, 189, 248, 0.12)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+          }),
+          // En thème clair, le fond, l'aplatissement du glass et l'ombre du
+          // Paper sont pilotés par index.css ([data-theme='light'] .MuiPaper-root,
+          // en !important) : source unique qui rend toutes les surfaces blanches
+          // opaques. On ne garde ici que la bordure structurelle (largeur + style),
+          // dont index.css ne fixe que la couleur. Évite un doublon mort : l'ancienne
+          // ombre 0 1px 4px était déjà écrasée par le 0 1px 6px d'index.css.
+          ...t.applyStyles('light', {
+            border: '1px solid rgba(0, 0, 0, 0.08)',
+          }),
+        }),
       },
     },
     MuiOutlinedInput: {
       styleOverrides: {
-        root: {
-          '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(0, 0, 0, 0.18)' },
-          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(0, 0, 0, 0.35)' },
-          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-            borderColor: MARS_LIGHT,
-            boxShadow: `0 0 8px ${alpha(MARS_LIGHT, 0.15)}`,
-          },
-        },
+        root: ({ theme: t }) => ({
+          ...t.applyStyles('dark', {
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(56, 189, 248, 0.2)' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(56, 189, 248, 0.4)' },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+              borderColor: CYAN,
+              boxShadow: `0 0 12px ${alpha(CYAN, 0.15)}`,
+            },
+          }),
+          ...t.applyStyles('light', {
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(0, 0, 0, 0.18)' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(0, 0, 0, 0.35)' },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+              borderColor: MARS_LIGHT,
+              boxShadow: `0 0 8px ${alpha(MARS_LIGHT, 0.15)}`,
+            },
+          }),
+        }),
       },
     },
     MuiMenu: {
       styleOverrides: {
-        paper: {
-          backgroundColor: '#ffffff',
-          border: '1px solid rgba(0, 0, 0, 0.1)',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.12)',
-        },
+        paper: ({ theme: t }) => ({
+          ...t.applyStyles('dark', {
+            backgroundColor: 'rgba(13, 27, 64, 0.9)',
+            backdropFilter: 'blur(16px)',
+            border: '1px solid rgba(56, 189, 248, 0.12)',
+          }),
+          ...t.applyStyles('light', {
+            backgroundColor: '#ffffff',
+            border: '1px solid rgba(0, 0, 0, 0.1)',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.12)',
+          }),
+        }),
       },
     },
     MuiAlert: {
       styleOverrides: {
-        root: {
-          border: '1px solid rgba(0, 0, 0, 0.1)',
-        },
+        root: ({ theme: t }) => ({
+          ...t.applyStyles('dark', {
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(56, 189, 248, 0.12)',
+          }),
+          ...t.applyStyles('light', {
+            border: '1px solid rgba(0, 0, 0, 0.1)',
+          }),
+        }),
       },
     },
     MuiListItemButton: {
       styleOverrides: {
-        root: {
-          '&.active': {
-            backgroundColor: alpha(MARS_LIGHT, 0.08),
-            borderLeftColor: MARS_LIGHT,
-            color: MARS_LIGHT,
-          },
-        },
+        root: ({ theme: t }) => ({
+          ...t.applyStyles('light', {
+            '&.active': {
+              backgroundColor: alpha(MARS_LIGHT, 0.08),
+              borderLeftColor: MARS_LIGHT,
+              color: MARS_LIGHT,
+            },
+          }),
+        }),
       },
     },
-    ...sharedComponents(MARS_LIGHT, CYAN_LIGHT),
+    MuiButton: {
+      styleOverrides: {
+        containedPrimary: ({ theme: t }) => ({
+          fontWeight: 600,
+          letterSpacing: '0.05em',
+          ...t.applyStyles('dark', {
+            background: `linear-gradient(135deg, ${MARS}, #ff7043)`,
+            boxShadow: `0 4px 20px ${alpha(MARS, 0.4)}`,
+            '&:hover': {
+              background: `linear-gradient(135deg, #ff7043, ${MARS})`,
+              boxShadow: `0 6px 28px ${alpha(MARS, 0.6)}`,
+            },
+          }),
+          ...t.applyStyles('light', {
+            background: `linear-gradient(135deg, ${MARS_LIGHT}, #ff7043)`,
+            boxShadow: `0 4px 20px ${alpha(MARS_LIGHT, 0.4)}`,
+            '&:hover': {
+              background: `linear-gradient(135deg, #ff7043, ${MARS_LIGHT})`,
+              boxShadow: `0 6px 28px ${alpha(MARS_LIGHT, 0.6)}`,
+            },
+          }),
+        }),
+        outlinedSecondary: ({ theme: t }) => ({
+          ...t.applyStyles('dark', {
+            borderColor: alpha(CYAN, 0.5),
+            color: CYAN,
+            '&:hover': {
+              borderColor: CYAN,
+              backgroundColor: alpha(CYAN, 0.08),
+              boxShadow: `0 0 16px ${alpha(CYAN, 0.2)}`,
+            },
+          }),
+          ...t.applyStyles('light', {
+            borderColor: alpha(CYAN_LIGHT, 0.5),
+            color: CYAN_LIGHT,
+            '&:hover': {
+              borderColor: CYAN_LIGHT,
+              backgroundColor: alpha(CYAN_LIGHT, 0.08),
+              boxShadow: `0 0 16px ${alpha(CYAN_LIGHT, 0.2)}`,
+            },
+          }),
+        }),
+      },
+    },
+    MuiSlider: {
+      styleOverrides: {
+        root: ({ theme: t }) => ({
+          ...t.applyStyles('dark', {
+            color: MARS,
+            '& .MuiSlider-thumb': { boxShadow: `0 0 8px ${alpha(MARS, 0.4)}` },
+          }),
+          ...t.applyStyles('light', {
+            color: MARS_LIGHT,
+            '& .MuiSlider-thumb': { boxShadow: `0 0 8px ${alpha(MARS_LIGHT, 0.4)}` },
+          }),
+        }),
+      },
+    },
+    MuiToggleButton: {
+      styleOverrides: {
+        root: ({ theme: t }) => ({
+          ...t.applyStyles('dark', {
+            borderColor: alpha(CYAN, 0.2),
+            '&.Mui-selected': {
+              backgroundColor: alpha(MARS, 0.2),
+              color: '#fff',
+              borderColor: alpha(MARS, 0.5),
+              '&:hover': { backgroundColor: alpha(MARS, 0.3) },
+            },
+          }),
+          ...t.applyStyles('light', {
+            borderColor: alpha(CYAN_LIGHT, 0.2),
+            '&.Mui-selected': {
+              backgroundColor: alpha(MARS_LIGHT, 0.2),
+              color: '#fff',
+              borderColor: alpha(MARS_LIGHT, 0.5),
+              '&:hover': { backgroundColor: alpha(MARS_LIGHT, 0.3) },
+            },
+          }),
+        }),
+      },
+    },
   },
 });
 
-function loadMode() {
+/** Lecture directe du localStorage : sert de valeur initiale avant que
+ *  useColorScheme ne se résolve (évite un flash de mode au premier rendu). */
+function storedMode() {
   try {
-    return localStorage.getItem(STORAGE_KEY) || 'dark';
-  } catch {
-    return 'dark';
-  }
+    const m = localStorage.getItem(MODE_KEY);
+    if (m === 'light' || m === 'dark') return m;
+  } catch { /* accès localStorage refusé */ }
+  return 'dark';
 }
 
-export function AppThemeProvider({ children }) {
-  const [mode, setMode] = useState(loadMode);
-  const [highContrast, setHighContrast] = useState(() => localStorage.getItem(CONTRAST_KEY) === 'true');
+/**
+ * Pont entre useColorScheme (MUI) et l'API historique useThemeMode.
+ * Doit vivre SOUS le MuiThemeProvider (useColorScheme requiert le contexte vars).
+ */
+function ThemeModeBridge({ children }) {
+  const { mode, systemMode, setMode } = useColorScheme();
+  // mode peut être 'system' ou undefined (avant résolution) -> on retombe sur le
+  // scheme effectif, avec le localStorage comme filet initial.
+  const resolved = (mode === 'system' ? systemMode : mode) || storedMode();
 
-  // Sync data-theme and data-contrast attributes on <html>
+  const [highContrast, setHighContrast] = useState(() => {
+    try { return localStorage.getItem(CONTRAST_KEY) === 'true'; } catch { return false; }
+  });
+
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', mode);
     if (highContrast) document.documentElement.setAttribute('data-contrast', 'high');
     else document.documentElement.removeAttribute('data-contrast');
-  }, [mode, highContrast]);
+  }, [highContrast]);
 
   const toggleTheme = useCallback(() => {
-    setMode(prev => {
-      const next = prev === 'dark' ? 'light' : 'dark';
-      localStorage.setItem(STORAGE_KEY, next);
-      return next;
-    });
-  }, []);
+    setMode(resolved === 'dark' ? 'light' : 'dark');
+  }, [resolved, setMode]);
 
   const toggleContrast = useCallback(() => {
     setHighContrast(prev => {
       const next = !prev;
-      localStorage.setItem(CONTRAST_KEY, String(next));
+      try { localStorage.setItem(CONTRAST_KEY, String(next)); } catch { /* ignore */ }
       return next;
     });
   }, []);
 
-  const theme = mode === 'dark' ? darkTheme : lightTheme;
+  const ctx = useMemo(
+    () => ({ mode: resolved, toggleTheme, highContrast, toggleContrast }),
+    [resolved, toggleTheme, highContrast, toggleContrast],
+  );
 
-  const ctx = useMemo(() => ({ mode, toggleTheme, highContrast, toggleContrast }), [mode, toggleTheme, highContrast, toggleContrast]);
+  return <ThemeContext.Provider value={ctx}>{children}</ThemeContext.Provider>;
+}
 
+export function AppThemeProvider({ children }) {
   return (
-    <ThemeContext.Provider value={ctx}>
-      <MuiThemeProvider theme={theme}>
-        <CssBaseline />
-        {children}
-      </MuiThemeProvider>
-    </ThemeContext.Provider>
+    <MuiThemeProvider
+      theme={theme}
+      defaultMode="dark"
+      modeStorageKey={MODE_KEY}
+      colorSchemeStorageKey="mcv-color-scheme"
+      disableTransitionOnChange
+    >
+      <CssBaseline />
+      <ThemeModeBridge>{children}</ThemeModeBridge>
+    </MuiThemeProvider>
   );
 }
 

@@ -4,6 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+    <!-- Applique le thème avant le premier paint : évite le flash clair/sombre.
+         Doit rester synchrone et en tête de <head>. Aligné sur MUI cssVariables
+         (attribut data-theme) et le mode par défaut « dark ». -->
+    <script>
+      (function () {
+        try {
+          var m = localStorage.getItem('mcv-theme-mode') || 'dark';
+          if (m === 'system') {
+            m = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.setAttribute('data-theme', m);
+          if (localStorage.getItem('mcv-high-contrast') === 'true') {
+            document.documentElement.setAttribute('data-contrast', 'high');
+          }
+        } catch (e) { /* localStorage indisponible : on garde le défaut CSS (dark) */ }
+      })();
+    </script>
+
     <!-- SEO -->
     <title>Mars Climate Viewer — Interactive Mars Atmospheric Data Visualization</title>
     <meta name="description" content="Open-source interactive visualization platform for Mars atmospheric data from the GEM-Mars climate model. Explore temperature, winds, pressure, and dust across 103 altitude levels." />

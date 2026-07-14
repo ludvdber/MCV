@@ -1,38 +1,70 @@
 # Mars Climate Viewer
 
-Visualisation web des données atmosphériques martiennes issues du modèle **GEM-Mars**.
+**Le climat de Mars, dans votre navigateur.**
 
-**TFE Bachelier en Informatique - ISFCE 2026**
+Une interface web qui ouvre les simulations atmosphériques du modèle **GEM-Mars**, sans script Python ni logiciel spécialisé. On choisit un jeu de données, une variable, un instant, une altitude, et la carte interactive s'affiche.
+
+![Java 21](https://img.shields.io/badge/Java-21-ED8B00?style=flat-square&logo=openjdk&logoColor=white)
+![Spring Boot 4.1](https://img.shields.io/badge/Spring_Boot-4.1-6DB33F?style=flat-square&logo=springboot&logoColor=white)
+![React 19](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)
+![Vite 8](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white)
+![Licence MIT](https://img.shields.io/badge/Licence-MIT-blue?style=flat-square)
 
 ![La page de visualisation 2D de Mars Climate Viewer](docs/images/vue2d.png)
 
-*La page de visualisation 2D. On choisit le jeu de données, la variable, l'instant et l'altitude, puis la carte interactive s'affiche avec ses statistiques, son permalien et ses options d'export.*
+*La page de visualisation 2D. On règle le jeu de données, la variable, l'instant et l'altitude, puis la carte s'affiche avec ses statistiques, son permalien et ses options d'export.*
 
 ---
 
-## À propos
+## Pourquoi cet outil
 
-Mars Climate Viewer (MCV) rend accessibles les données climatiques de Mars produites par le modèle atmosphérique GEM-Mars à l'Institut royal d'Aéronomie Spatiale de Belgique (IASB).
+Les simulations du modèle GEM-Mars, produites à l'Institut royal d'Aéronomie Spatiale de Belgique (IASB), décrivent l'atmosphère de Mars heure par heure, du sol jusqu'à la haute atmosphère. Elles sont stockées dans des fichiers NetCDF : un format scientifique très riche, mais peu accueillant. Pour en tirer une simple carte, il faut d'ordinaire connaître la structure des fichiers, écrire un script, ou passer par un logiciel expert comme Panoply ou ParaView. Ces outils sont excellents pour une analyse poussée, mais lourds dès qu'on veut juste jeter un œil.
 
-Ces simulations sont stockées dans des fichiers NetCDF, un format scientifique puissant mais peu commode : pour consulter un résultat, il faut généralement connaître la structure des fichiers, écrire un script Python ou passer par un logiciel spécialisé comme Panoply ou ParaView. Ces outils sont parfaits pour une analyse poussée, mais lourds pour une consultation rapide. MCV comble ce vide. Depuis un simple navigateur, on choisit un jeu de données, une variable, un instant, une altitude ou une zone, et on obtient une visualisation interactive.
+Mars Climate Viewer comble ce vide. Depuis un navigateur, sans rien installer, on explore les données GEM-Mars en quelques clics : une carte, un profil vertical, un cycle diurne, une comparaison entre deux saisons. L'outil ne remplace pas l'analyse experte, il la précède. Assez simple pour ouvrir ces données à un public large, assez rigoureux pour que ce qu'on lit à l'écran reste juste.
 
-Le cœur technique tient en une idée : **l'application ne télécharge jamais un fichier complet**. Pour chaque demande, le serveur lit uniquement le sous-ensemble réellement nécessaire (un slice, un profil, un pas de temps) directement sur le disque via `variable.read(origin, shape)`, puis renvoie une réponse légère. Les données volumineuses restent protégées côté serveur, et l'interface reste fluide quelle que soit la taille des simulations.
-
-MCV ne cherche pas à remplacer les outils scientifiques experts. C'est une solution intermédiaire : assez simple pour ouvrir les données GEM-Mars à différents profils d'utilisateurs, tout en conservant les informations nécessaires à une interprétation correcte.
+Le principe qui rend tout cela possible tient en une phrase : **l'application ne télécharge jamais un fichier complet.** Pour chaque demande, le serveur lit sur le disque uniquement le sous-ensemble utile (un slice, un profil, un pas de temps) via `variable.read(origin, shape)`, puis renvoie une réponse légère. Les téraoctets de simulations restent côté serveur, et l'interface reste vive quelle que soit la taille des données.
 
 ---
 
-## Points techniques notables
+## Aperçu des visualisations
 
-- **Lecture partielle des NetCDF** : seul le sous-ensemble demandé est lu sur le disque, jamais le fichier entier.
-- **JAR autonome** : `./gradlew build` compile le frontend et l'embarque dans le JAR du backend. Un seul artefact à déployer, frontend et API servis sur la même origine.
-- **Internationalisation** : 5 langues (anglais, français, néerlandais, allemand, espagnol) avec détection automatique de la langue du navigateur.
-- **Thème clair / sombre** persistant, et interface installable en PWA (mise en cache des assets pour un chargement rapide).
-- **Permaliens** : chaque vue génère une URL partageable qui restaure exactement les paramètres choisis.
-- **Historique récent** des visualisations (stocké localement, avec épinglage des vues favorites).
-- **Exports** CSV (toutes les vues) et NetCDF (slice), pour reprendre les données dans Python ou Matlab.
-- **Backend robuste** : threads virtuels (Java 21 / Project Loom), compression gzip, limitation de débit par IP, arrêt gracieux, validation systématique des paramètres.
-- **Cache client** (5 min) sur les appels API pour éviter les requêtes redondantes.
+![Quatre types de visualisation proposés par MCV](docs/images/vue_composite_MCV_4_visualisations_x2.png)
+
+*Quatre des onze types de vues : rose des vents, profil vertical, moyenne zonale et diagramme de Hovmöller.*
+
+| Vue | Ce qu'elle montre |
+|---|---|
+| **Slice 2D** (`/slice`) | Une carte lat/lon à un instant et une altitude donnés |
+| **Animation** (`/animation`) | Le cycle diurne complet, joué comme un petit film (48 images) |
+| **Série temporelle** (`/timeseries`) | L'évolution d'une variable au fil de la journée, en un point |
+| **Profil vertical** (`/profile`) | Une variable sur toute la colonne d'air, du sol à la haute atmosphère |
+| **Coupe verticale** (`/crosssection`) | L'atmosphère vue en tranche, méridionale ou zonale (altitude × coordonnée) |
+| **Moyenne zonale** (`/zonalmean`) | La moyenne tout autour de la planète, altitude × latitude |
+| **Hovmöller** (`/hovmoller`) | Espace et temps réunis sur une seule image, pour suivre un motif |
+| **Profil temporel** (`/temporal-profile`) | Altitude et heure de la journée réunies au-dessus d'un point |
+| **Rose des vents** (`/windrose`) | La direction et la force du vent en un point, au fil de la journée |
+| **Différence** (`/difference`) | L'écart entre deux jeux de données, affiché en carte d'anomalies |
+| **Exploration** (`/explore`) | La console avancée : jusqu'à 4 vues côte à côte, sonde liée, statistiques de région, années individuelles |
+
+Toutes les vues partagent le même socle : permaliens, export CSV et image (PNG/SVG), échelle logarithmique (log₁₀) et choix de palette de couleurs.
+
+![La page Exploration de MCV](docs/images/explorer.png)
+
+*La console Exploration : on empile jusqu'à quatre vues, avec sonde liée, statistiques de région, distribution et moyenne zonale calculées en direct sur la vue active.*
+
+---
+
+## Sous le capot
+
+- **Lecture partielle des NetCDF.** Seul le sous-ensemble demandé quitte le disque, jamais le fichier entier. C'est ce qui garde l'interface fluide et les données lourdes protégées côté serveur.
+- **Un seul artefact à déployer.** `./gradlew build` compile le frontend et l'embarque dans le JAR du backend. Interface et API sont servies sur la même origine, sans configuration croisée.
+- **Cinq langues.** Anglais, français, néerlandais, allemand et espagnol, avec détection automatique de la langue du navigateur. Les codes scientifiques, les unités et les noms de datasets, eux, restent tels quels.
+- **Thème clair et sombre** persistant, interface installable en PWA (les assets sont mis en cache pour un démarrage rapide).
+- **Permaliens.** Chaque vue produit une URL partageable qui restaure exactement les paramètres choisis.
+- **Historique local** des visualisations, avec épinglage des vues favorites.
+- **Exports scientifiques.** CSV sur toutes les vues, NetCDF sur les slices, pour reprendre les données dans Python ou Matlab.
+- **Un backend taillé pour la charge.** Threads virtuels (Java 21 / Project Loom), compression gzip, limitation de débit par IP, arrêt gracieux et validation systématique des paramètres.
+- **Cache client** de 5 minutes sur les appels API, pour éviter les requêtes redondantes.
 
 ---
 
@@ -40,108 +72,51 @@ MCV ne cherche pas à remplacer les outils scientifiques experts. C'est une solu
 
 | Couche | Technologies |
 |---|---|
-| **Backend** | Spring Boot 4.1.0, Java 21, NetCDF-Java (cdm-core 5.9.1), Gradle 9 |
-| **Frontend** | React 19, Vite 8, Plotly.js, Three.js / React-Three-Fiber, Material-UI 7, i18next, Axios |
+| **Backend** | Spring Boot 4.1, Java 21, NetCDF-Java (cdm-core 5.9), Gradle 9 |
+| **Frontend** | React 19, Vite 8, Plotly.js, Three.js / React-Three-Fiber, Material-UI 9, i18next, Axios |
 
 ---
 
-## Structure du projet
+## Démarrage rapide
 
-```
-mars-visualizer/
-├── src/main/java/          # Backend Spring Boot (API REST, lecture NetCDF)
-├── frontend/src/
-│   ├── components/         # Composants React réutilisables (viewers, selectors, UI)
-│   ├── hooks/              # Hooks personnalisés (useVisualizationPage, usePlotRef, …)
-│   ├── pages/              # Pages de visualisation (Slice, Animation, Profile, …)
-│   ├── utils/              # Utilitaires (palettes, export, analyse, URL)
-│   ├── context/            # Contextes globaux (Mars, thème, toasts)
-│   ├── i18n/               # Traductions (5 langues)
-│   └── services/           # Client API (Axios, cache)
-└── build.gradle
-```
+**Prérequis :** Java 21, Node.js 20+, et des fichiers NetCDF GEM-Mars dans les dossiers configurés (voir [Configuration](#configuration)).
 
----
+**Build de production** (un JAR autonome dans `build/libs/`) :
 
-## Installation
-
-### Prérequis
-- Java 21
-- Node.js 20+
-- Jeux de données NetCDF dans les répertoires configurés (voir [Configuration](#configuration))
-
-### Build
 ```bash
 cd frontend && npm install && cd ..
 ./gradlew build
-```
-
-Le build compile le frontend, l'embarque dans les ressources statiques, puis produit un JAR autonome dans `build/libs/`.
-
----
-
-## Lancement
-
-### En développement
-```bash
-# Backend (port 8080)
-./gradlew bootRun
-
-# Frontend (port 5173, proxy /api vers :8080)
-cd frontend && npm run dev
-```
-
-### En production
-```bash
 java -jar build/libs/mars-visualizer-0.0.1-SNAPSHOT.jar
 ```
-Le JAR sert à la fois l'API et l'interface sur le port 8080.
+
+Le JAR sert l'API et l'interface sur le port 8080.
+
+**En développement**, on lance les deux serveurs en parallèle :
+
+```bash
+./gradlew bootRun                 # Backend, port 8080
+cd frontend && npm run dev        # Frontend, port 5173 (proxy /api vers :8080)
+```
 
 ---
 
 ## Configuration
 
-Les chemins par défaut pointent vers un poste de développement Windows. En production, on les surcharge par variables d'environnement.
+Les chemins par défaut pointent vers un poste de développement. En production, on les surcharge par variables d'environnement.
 
 | Variable | Rôle | Défaut |
 |---|---|---|
 | `NETCDF_MEAN_PATH` | Dossier des fichiers NetCDF MEAN | `C:/Users/User/Desktop/mars-data/mean` |
-| `NETCDF_INDIVIDUAL_PATH` | Dossier des fichiers NetCDF par année martienne | `C:/Users/User/Desktop/mars-data/individual` |
+| `NETCDF_INDIVIDUAL_PATH` | Dossier des fichiers par année martienne | `C:/Users/User/Desktop/mars-data/individual` |
 | `SERVER_PORT` | Port HTTP | `8080` |
 
-Autres réglages utiles dans `application.properties` : limitation de débit (`ratelimit.requests-per-minute`), origine CORS autorisée (`cors.allowed-origin`, utile seulement quand le frontend est servi séparément en dev), et `netcdf.individual.my_base` (première année martienne présente dans le dossier individual).
-
----
-
-## Fonctionnalités
-
-![Quatre types de visualisation proposés par MCV](docs/images/vue_composite_MCV_4_visualisations_x2.png)
-
-*Quatre des onze types de vues proposées : rose des vents, profil vertical, moyenne zonale et diagramme de Hovmöller.*
-
-| Page | Description |
-|---|---|
-| **Slice 2D** (`/slice`) | Carte heatmap lat/lon à un pas de temps et une altitude |
-| **Animation** (`/animation`) | Cycle diurne animé (48 frames) |
-| **Série temporelle** (`/timeseries`) | Courbe diurne en un point géographique |
-| **Profil vertical** (`/profile`) | Valeur d'une variable sur tous les niveaux d'altitude |
-| **Coupe verticale** (`/crosssection`) | Coupe méridionale ou zonale (heatmap altitude × coordonnée) |
-| **Moyenne zonale** (`/zonalmean`) | Moyenne tout autour de la planète, selon l'altitude et la latitude |
-| **Diagramme de Hovmöller** (`/hovmoller`) | Un motif suivi à la fois dans l'espace et dans le temps sur une seule image |
-| **Profil temporel** (`/temporal-profile`) | Altitude et heure de la journée réunies au-dessus d'un point |
-| **Rose des vents** (`/windrose`) | Directions et forces du vent en un point au fil de la journée |
-| **Différence** (`/difference`) | Comparaison de deux datasets, affichée sous forme de carte d'écarts |
-| **Exploration** (`/explore`) | Comparaison multi-variables, multi-datasets |
-
-Toutes les pages supportent : permaliens, export CSV, export PNG/SVG (Plotly), échelle logarithmique (log₁₀) et choix de palette de couleurs.
-
-![La page Exploration de MCV](docs/images/explorer.png)
-
-*La page Exploration : comparer plusieurs variables et plusieurs jeux de données côte à côte, avec distribution et moyenne zonale.*
+Autres réglages dans `application.properties` : limitation de débit (`ratelimit.requests-per-minute`), origine CORS autorisée (`cors.allowed-origin`, utile seulement quand le frontend est servi séparément en développement) et `netcdf.individual.my_base` (première année martienne présente dans le dossier individual).
 
 ---
 
 ## API REST
+
+Documentation interactive complète via **Swagger UI** sur `/swagger-ui` (et `/api-docs` pour le JSON OpenAPI).
 
 ### Données
 
@@ -151,7 +126,7 @@ Toutes les pages supportent : permaliens, export CSV, export PNG/SVG (Plotly), �
 | `GET /api/catalog/individual` | Catalogue des années martiennes individuelles |
 | `GET /api/data/slice` | Extraction 2D [lat][lon] |
 | `GET /api/data/timeseries` | Série temporelle (48 pas de temps) |
-| `GET /api/data/animation` | 48 frames pour animation diurne |
+| `GET /api/data/animation` | 48 images pour l'animation diurne |
 | `GET /api/data/profile` | Profil vertical en un point |
 | `GET /api/data/crosssection` | Coupe verticale méridionale ou zonale |
 | `GET /api/data/zonalmean` | Moyenne zonale (altitude × latitude) |
@@ -160,29 +135,16 @@ Toutes les pages supportent : permaliens, export CSV, export PNG/SVG (Plotly), �
 | `GET /api/data/difference` | Différence entre deux datasets |
 | `GET /api/data/wind` | Champ de vent sous-échantillonné (UU/VV) |
 | `GET /api/data/windrose` | Rose des vents en un point |
+| `GET /api/data/transect` | Transect grand-cercle entre deux points |
+| `GET /api/data/tides` | Marées thermiques (harmoniques diurne et semi-diurne) |
 | `GET /api/data/altitudes` | Niveaux d'altitude disponibles pour une variable |
 
-La documentation interactive complète est exposée via Swagger UI sur `/swagger-ui` (et `/api-docs` pour le JSON OpenAPI).
-
-### Exports CSV
+### Exports
 
 | Endpoint | Description |
 |---|---|
-| `GET /api/export/csv/slice` | Export CSV d'un slice |
-| `GET /api/export/csv/timeseries` | Export CSV d'une série temporelle |
-| `GET /api/export/csv/profile` | Export CSV d'un profil vertical |
-| `GET /api/export/csv/crosssection` | Export CSV d'une coupe verticale |
-| `GET /api/export/csv/zonalmean` | Export CSV d'une moyenne zonale |
-| `GET /api/export/csv/hovmoller` | Export CSV d'un diagramme de Hovmöller |
-| `GET /api/export/csv/temporal-profile` | Export CSV d'un profil temporel |
-| `GET /api/export/csv/difference` | Export CSV d'une différence |
-| `GET /api/export/csv/windrose` | Export CSV d'une rose des vents |
-
-### Export NetCDF
-
-| Endpoint | Description |
-|---|---|
-| `GET /api/export/netcdf/slice` | Export NetCDF d'un slice (format scientifique pour Python/Matlab) |
+| `GET /api/export/csv/*` | Export CSV de chaque type de vue (slice, timeseries, profile, crosssection, zonalmean, hovmoller, temporal-profile, difference, windrose) |
+| `GET /api/export/netcdf/slice` | Export NetCDF d'un slice, pour Python ou Matlab |
 
 ---
 
@@ -192,11 +154,11 @@ La documentation interactive complète est exposée via Swagger UI sur `/swagger
 
 | Hook | Rôle |
 |---|---|
-| `useVisualizationPage` | Logique commune à toutes les pages : état, restauration d'URL, lancement, raccourcis, historique |
-| `usePlotRef` | Ref conteneur viewer + ref synthétique Plotly pour l'export |
+| `useVisualizationPage` | Le socle commun à toutes les pages : état, restauration d'URL, lancement, raccourcis, historique |
+| `usePlotRef` | Ref du conteneur viewer et ref synthétique Plotly pour l'export |
 | `useRecentHistory` | Historique des visualisations (localStorage, déduplication, épinglage) |
 | `useCopyToClipboard` | Copie presse-papier avec retour visuel temporaire |
-| `useResolvedColorscale` | Résolution de palette automatique (RdBu pour températures, Viridis sinon) |
+| `useResolvedColorscale` | Palette automatique : RdBu pour les températures, Viridis sinon |
 
 ### Composants partagés
 
@@ -214,8 +176,8 @@ La documentation interactive complète est exposée via Swagger UI sur `/swagger
 
 ## Tests
 
-- **Backend** : suite JUnit 5 (services, contrôleurs, validation, exports).
-- **Frontend** : Vitest + Testing Library (hooks, historique, restauration des permaliens, scénarios nominaux et non-nominaux).
+- **Backend :** suite JUnit 5 (services, contrôleurs, validation, exports).
+- **Frontend :** Vitest et Testing Library (hooks, historique, restauration des permaliens, scénarios nominaux et non-nominaux).
 
 ```bash
 ./gradlew test                 # tests backend
@@ -224,6 +186,12 @@ cd frontend && npm run test    # tests frontend
 
 ---
 
-## Contexte
+## Origine
 
-Projet développé dans le cadre du Travail de Fin d'Études du Bachelier en Informatique de l'ISFCE (2026), dans la continuité d'un stage à l'IASB consacré à la conversion des sorties brutes de GEM-Mars vers le format NetCDF.
+Mars Climate Viewer est né d'un stage à l'IASB consacré à la conversion des sorties brutes de GEM-Mars vers le format NetCDF. De ce travail est venue une question simple : comment rendre ces simulations consultables par le plus grand nombre, sans dupliquer des téraoctets ni imposer un logiciel expert ? MCV est une réponse à cette question.
+
+Les données GEM-Mars sont produites à l'Institut royal d'Aéronomie Spatiale de Belgique (IASB).
+
+## Licence
+
+Distribué sous licence **MIT**. © 2026 Ludovic Vanden Berghe.

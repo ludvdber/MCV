@@ -58,8 +58,8 @@ function ZonalMeanPage() {
       const cs = sp.get('cs'); if (cs) setColorscale(cs);
       return true;
     },
-    fetchData: useCallback(() =>
-      getZonalMean({ dataset: selectedDataset, variable: selectedVariable, time: selectedTime }),
+    fetchData: useCallback((signal) =>
+      getZonalMean({ dataset: selectedDataset, variable: selectedVariable, time: selectedTime }, signal),
     [selectedDataset, selectedVariable, selectedTime]),
     buildPermalink: useCallback(() => {
       const p = new URLSearchParams();

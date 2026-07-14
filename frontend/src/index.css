@@ -378,7 +378,11 @@ body {
   border-color: rgba(0, 0, 0, 0.15);
 }
 
-/* MUI Paper — remove dark bg, clean shadows */
+/* Surfaces en thème clair = source AUTORITAIRE du rendu des Paper.
+   ThemeContext (MuiPaper) ne définit QUE le glass sombre ; ici, ce !important
+   aplatit TOUTES les surfaces en blanc opaque (aucun glassmorphism en clair),
+   quel que soit le fond `sx` prévu pour le mode sombre. Ne pas retirer sans
+   auditer chaque Paper à fond custom (Drawer mobile transparent, cartes…). */
 [data-theme='light'] .MuiPaper-root {
   background-color: #ffffff !important;
   backdrop-filter: none !important;
@@ -497,11 +501,6 @@ body {
   /* Sidebar: auto-collapse on tablet */
   nav[style*="width: 220px"] {
     width: 64px !important;
-  }
-
-  /* Grid: 2 columns max on tablet */
-  .MuiGrid2-container > .MuiGrid2-root {
-    min-width: 45% !important;
   }
 
   /* Plotly modebar slightly smaller */

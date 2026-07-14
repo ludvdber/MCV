@@ -68,9 +68,9 @@ function AnimationPage() {
       const cs = sp.get('cs'); if (cs) setColorscale(cs);
       return true;
     },
-    fetchData: useCallback(() => {
+    fetchData: useCallback((signal) => {
       const altitudeToSend = isSurfaceVariable(selectedVariable) ? 0 : selectedAltitude;
-      return getAnimation({ dataset: selectedDataset, variable: selectedVariable, altitude: altitudeToSend });
+      return getAnimation({ dataset: selectedDataset, variable: selectedVariable, altitude: altitudeToSend }, signal);
     }, [selectedDataset, selectedVariable, selectedAltitude]),
     buildPermalink: useCallback(() => {
       const p = new URLSearchParams();

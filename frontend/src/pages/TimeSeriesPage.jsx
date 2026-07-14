@@ -52,6 +52,8 @@ function TimeSeriesPage() {
 
   const [seriesData, setSeriesData] = useState(null);
   const nextId = useRef(1);
+  // Contrôleur des requêtes en vol : annulées au démontage de la page.
+  const analyzeAbortRef = useRef(null);
   const [points, setPoints] = useState([{ id: 0, lat: 0, lon: 0 }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -114,6 +116,9 @@ function TimeSeriesPage() {
 
     const altitudeToSend = isSurfaceVariable ? 0 : selectedAltitude;
 
+    const controller = new AbortController();
+    analyzeAbortRef.current = controller;
+
     Promise.all(
       points.map(p =>
         getTimeSeries({
@@ -122,7 +127,7 @@ function TimeSeriesPage() {
           latitude: p.lat,
           longitude: p.lon,
           altitude: altitudeToSend,
-        }).then(res => res.data)
+        }, controller.signal).then(res => res.data)
       )
     )
       .then(results => {
@@ -144,9 +149,15 @@ function TimeSeriesPage() {
           label: `${selectedVariable} (${points.map(p => `${p.lat},${p.lon}`).join(' | ')})`,
         });
       })
-      .catch(err => setError(err.response?.data?.message || err.message))
-      .finally(() => setLoading(false));
+      .catch(err => {
+        if (err?.code === 'ERR_CANCELED') return; // annulation volontaire : on ignore
+        setError(err.response?.data?.message || err.message);
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
   };
+
+  // Annule les requêtes encore en vol au démontage de la page.
+  useEffect(() => () => analyzeAbortRef.current?.abort(), []);
 
   // Auto-lance après restauration de l'URL (ou signale un dataset introuvable).
   // Évalué pendant le rendu : on attend le rendu où les valeurs de l'URL sont

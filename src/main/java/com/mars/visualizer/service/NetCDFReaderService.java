@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Service;
 
@@ -47,6 +49,19 @@ import ucar.nc2.NetcdfFiles;
  *   <li>Animation (48 frames, 1 altitude) : ×103 moins</li>
  *   <li>Profil vertical (1 colonne) : ×6 000 000 moins</li>
  *   <li>Coupe verticale : ×17 000 moins</li>
+ * </ul>
+ *
+ * <p><b>Deux mutualisations transverses</b> évitent la duplication et les
+ * accès disque redondants :
+ * <ul>
+ *   <li>{@link #readFile(String, String, NcReader)} : squelette commun
+ *       (ouverture try-with-resources + fermeture + mapping d'{@link IOException}
+ *       vers {@link NetCDFException}) partagé par toutes les méthodes
+ *       {@code extract*} ;</li>
+ *   <li>{@link #cachedCoordinates(NetcdfFile, String, String)} : mémorisation
+ *       des tableaux de coordonnées (lat/lon/altitude), identiques d'une requête
+ *       à l'autre pour un même fichier et jusqu'ici relus du disque à chaque
+ *       extraction.</li>
  * </ul>
  */
 @Service
@@ -89,6 +104,21 @@ public class NetCDFReaderService {
 	private static final int WIND_SUBSAMPLE_STEP = 3;
 
 	private final DataPathConfig pathConfig;
+
+	/**
+	 * Cache mémoire des tableaux de coordonnées (lat, lon, altitudeT/M) par fichier.
+	 *
+	 * <p>Les coordonnées sont IDENTIQUES pour toutes les requêtes portant sur un
+	 * même fichier (la grille GEM-Mars est figée), mais {@link #extractCoordinates}
+	 * les relisait entièrement du disque à CHAQUE extraction. On mémorise ici le
+	 * tableau lu la première fois : les lectures suivantes évitent l'accès disque.
+	 *
+	 * <p>Clé = {@code filename + '|' + coordName}. Aucune invalidation : les
+	 * fichiers NetCDF ne changent jamais en cours d'exécution (pipeline figée).
+	 * La taille est bornée par (nombre de fichiers × nombre de coordonnées),
+	 * soit quelques kilo-octets au total.
+	 */
+	private final Map<String, double[]> coordCache = new ConcurrentHashMap<>();
 
 	public NetCDFReaderService(DataPathConfig pathConfig) {
 		this.pathConfig = pathConfig;
@@ -191,7 +221,7 @@ public class NetCDFReaderService {
 		log.info("Extraction slice 2D avec coordonnées : fichier={}, variable={}, time={}, altitude={}",
 				filename, variableName, timeIndex, altitudeIndex);
 
-		try (NetcdfFile ncfile = openMeanFile(filename)) {
+		return readFile(filename, "error.netcdf.read.slice", ncfile -> {
 			ucar.nc2.Variable variable = requireVariable(ncfile, variableName);
 
 			int[]     varShape  = variable.getShape();
@@ -212,15 +242,12 @@ public class NetCDFReaderService {
 				}
 			}
 
-			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
-			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
+			double[] latitudes  = cachedCoordinates(ncfile, filename, COORD_LAT);
+			double[] longitudes = cachedCoordinates(ncfile, filename, COORD_LON);
 
 			log.info("Slice 2D extraite avec coordonnées : {}x{} (surface={})", nLat, nLon, isSurface);
 			return new SliceData(slice, latitudes, longitudes);
-
-		} catch (IOException e) {
-			throw new NetCDFException(e, "error.netcdf.read.slice", filename);
-		}
+		});
 	}
 
 	/**
@@ -240,11 +267,11 @@ public class NetCDFReaderService {
 		log.info("Extraction série temporelle : fichier={}, variable={}, lat={}, lon={}, altitude={}",
 				filename, variableName, latitude, longitude, altitudeIndex);
 
-		try (NetcdfFile ncfile = openMeanFile(filename)) {
+		return readFile(filename, "error.netcdf.read.timeseries", ncfile -> {
 			ucar.nc2.Variable variable = requireVariable(ncfile, variableName);
 
-			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
-			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
+			double[] latitudes  = cachedCoordinates(ncfile, filename, COORD_LAT);
+			double[] longitudes = cachedCoordinates(ncfile, filename, COORD_LON);
 			int      latIdx     = findNearestIndex(latitudes,  latitude);
 			int      lonIdx     = findNearestLonIndex(longitudes, longitude);
 
@@ -266,10 +293,7 @@ public class NetCDFReaderService {
 
 			log.debug("Série temporelle extraite : {} valeurs (surface={})", series.size(), isSurface);
 			return series;
-
-		} catch (IOException e) {
-			throw new NetCDFException(e, "error.netcdf.read.timeseries", filename);
-		}
+		});
 	}
 
 	/**
@@ -283,7 +307,7 @@ public class NetCDFReaderService {
 		log.info("Extraction frames animation : fichier={}, variable={}, altitude={}",
 				filename, variableName, altitudeIndex);
 
-		try (NetcdfFile ncfile = openMeanFile(filename)) {
+		return readFile(filename, "error.netcdf.read.animation", ncfile -> {
 			ucar.nc2.Variable variable = requireVariable(ncfile, variableName);
 
 			int[]   varShape  = variable.getShape();
@@ -310,17 +334,14 @@ public class NetCDFReaderService {
 				frames.add(frame);
 			}
 
-			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
-			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
+			double[] latitudes  = cachedCoordinates(ncfile, filename, COORD_LAT);
+			double[] longitudes = cachedCoordinates(ncfile, filename, COORD_LON);
 
 			log.debug("Frames animation extraites : {} frames de {}x{} (surface={})",
 					nTime, nLat, nLon, isSurface);
 
 			return new AnimationData(frames, latitudes, longitudes);
-
-		} catch (IOException e) {
-			throw new NetCDFException(e, "error.netcdf.read.animation", filename);
-		}
+		});
 	}
 
 	/**
@@ -336,7 +357,7 @@ public class NetCDFReaderService {
 		log.info("Extraction profil vertical : fichier={}, variable={}, time={}, lat={}, lon={}",
 				filename, variableName, timeIndex, latitude, longitude);
 
-		try (NetcdfFile ncfile = openMeanFile(filename)) {
+		return readFile(filename, "error.netcdf.read.profile", ncfile -> {
 			ucar.nc2.Variable variable = requireVariable(ncfile, variableName);
 
 			int[] varShape = variable.getShape();
@@ -344,13 +365,13 @@ public class NetCDFReaderService {
 				throw new ValidationException("error.netcdf.surface.no.profile", variableName);
 			}
 
-			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
-			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
+			double[] latitudes  = cachedCoordinates(ncfile, filename, COORD_LAT);
+			double[] longitudes = cachedCoordinates(ncfile, filename, COORD_LON);
 			int      latIdx     = findNearestIndex(latitudes,  latitude);
 			int      lonIdx     = findNearestLonIndex(longitudes, longitude);
 
 			String   altDimName = variable.getDimension(1).getShortName();
-			double[] altCoords  = extractCoordinates(ncfile, altDimName);
+			double[] altCoords  = cachedCoordinates(ncfile, filename, altDimName);
 			int      nAlt       = varShape[1];
 
 			ucar.ma2.Array data  = readSection(variable,
@@ -364,10 +385,7 @@ public class NetCDFReaderService {
 
 			log.info("Profil vertical extrait : {} niveaux", nAlt);
 			return new ProfileData(values, altCoords, latitudes[latIdx], longitudes[lonIdx]);
-
-		} catch (IOException e) {
-			throw new NetCDFException(e, "error.netcdf.read.profile", filename);
-		}
+		});
 	}
 
 	/**
@@ -383,7 +401,7 @@ public class NetCDFReaderService {
 		log.info("Extraction profil temporel : fichier={}, variable={}, lat={}, lon={}",
 				filename, variableName, latitude, longitude);
 
-		try (NetcdfFile ncfile = openMeanFile(filename)) {
+		return readFile(filename, "error.netcdf.read.profile", ncfile -> {
 			ucar.nc2.Variable variable = requireVariable(ncfile, variableName);
 
 			int[] varShape = variable.getShape();
@@ -394,13 +412,13 @@ public class NetCDFReaderService {
 			int nTime = varShape[0];
 			int nAlt  = varShape[1];
 
-			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
-			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
+			double[] latitudes  = cachedCoordinates(ncfile, filename, COORD_LAT);
+			double[] longitudes = cachedCoordinates(ncfile, filename, COORD_LON);
 			int      latIdx     = findNearestIndex(latitudes,  latitude);
 			int      lonIdx     = findNearestLonIndex(longitudes, longitude);
 
 			String   altDimName = variable.getDimension(1).getShortName();
-			double[] altCoords  = extractCoordinates(ncfile, altDimName);
+			double[] altCoords  = cachedCoordinates(ncfile, filename, altDimName);
 
 			// Read all times and altitudes at the fixed lat/lon point
 			ucar.ma2.Array data  = readSection(variable,
@@ -416,10 +434,7 @@ public class NetCDFReaderService {
 
 			log.info("Profil temporel extrait : {}x{} (alt x time)", nAlt, nTime);
 			return new TemporalProfileData(grid, altCoords, latitudes[latIdx], longitudes[lonIdx]);
-
-		} catch (IOException e) {
-			throw new NetCDFException(e, "error.netcdf.read.profile", filename);
-		}
+		});
 	}
 
 	/**
@@ -435,7 +450,7 @@ public class NetCDFReaderService {
 		log.info("Extraction coupe verticale : fichier={}, variable={}, time={}, type={}, fixed={}",
 				filename, variableName, timeIndex, type, fixedCoordinate);
 
-		try (NetcdfFile ncfile = openMeanFile(filename)) {
+		return readFile(filename, "error.netcdf.read.crosssection", ncfile -> {
 			ucar.nc2.Variable variable = requireVariable(ncfile, variableName);
 
 			int[] varShape = variable.getShape();
@@ -443,10 +458,10 @@ public class NetCDFReaderService {
 				throw new ValidationException("error.netcdf.surface.no.crosssection", variableName);
 			}
 
-			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
-			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
+			double[] latitudes  = cachedCoordinates(ncfile, filename, COORD_LAT);
+			double[] longitudes = cachedCoordinates(ncfile, filename, COORD_LON);
 			String   altDimName = variable.getDimension(1).getShortName();
-			double[] altCoords  = extractCoordinates(ncfile, altDimName);
+			double[] altCoords  = cachedCoordinates(ncfile, filename, altDimName);
 
 			int nAlt = varShape[1];
 			int nLat = varShape[2];
@@ -501,10 +516,7 @@ public class NetCDFReaderService {
 
 			log.info("Coupe verticale {} extraite : {}x{}", type, section.length, section[0].length);
 			return new CrossSectionData(section, altCoords, hCoords, actualFixed);
-
-		} catch (IOException e) {
-			throw new NetCDFException(e, "error.netcdf.read.crosssection", filename);
-		}
+		});
 	}
 
 	/**
@@ -518,7 +530,7 @@ public class NetCDFReaderService {
 
 		log.info("Extraction champ de vent : fichier={}, time={}, altitude={}", filename, timeIndex, altitudeIndex);
 
-		try (NetcdfFile ncfile = openMeanFile(filename)) {
+		return readFile(filename, "error.netcdf.read.wind", ncfile -> {
 			ucar.nc2.Variable uuVar = ncfile.findVariable(VAR_UU);
 			ucar.nc2.Variable vvVar = ncfile.findVariable(VAR_VV);
 
@@ -527,8 +539,8 @@ public class NetCDFReaderService {
 				return new WindFieldData(new double[0], new double[0], new double[0], new double[0]);
 			}
 
-			double[] latCoords = extractCoordinates(ncfile, COORD_LAT);
-			double[] lonCoords = extractCoordinates(ncfile, COORD_LON);
+			double[] latCoords = cachedCoordinates(ncfile, filename, COORD_LAT);
+			double[] lonCoords = cachedCoordinates(ncfile, filename, COORD_LON);
 			int      nLat      = latCoords.length;
 			int      nLon      = lonCoords.length;
 
@@ -564,10 +576,7 @@ public class NetCDFReaderService {
 
 			log.info("Champ de vent extrait : {} vecteurs ({}x{} grid, step={})", k, cLat, cLon, WIND_SUBSAMPLE_STEP);
 			return new WindFieldData(latsArr, lonsArr, uArr, vArr);
-
-		} catch (IOException e) {
-			throw new NetCDFException(e, "error.netcdf.read.wind", filename);
-		}
+		});
 	}
 
 	/**
@@ -580,12 +589,12 @@ public class NetCDFReaderService {
 
 		log.info("Extraction rose des vents : fichier={}, lat={}, lon={}, altitude={}", filename, latitude, longitude, altitudeIndex);
 
-		try (NetcdfFile ncfile = openMeanFile(filename)) {
+		return readFile(filename, "error.netcdf.read.wind", ncfile -> {
 			ucar.nc2.Variable uuVar = requireVariable(ncfile, VAR_UU);
 			ucar.nc2.Variable vvVar = requireVariable(ncfile, VAR_VV);
 
-			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
-			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
+			double[] latitudes  = cachedCoordinates(ncfile, filename, COORD_LAT);
+			double[] longitudes = cachedCoordinates(ncfile, filename, COORD_LON);
 			int      latIdx     = findNearestIndex(latitudes,  latitude);
 			int      lonIdx     = findNearestLonIndex(longitudes, longitude);
 
@@ -606,10 +615,7 @@ public class NetCDFReaderService {
 
 			log.info("Rose des vents extraite : {} vecteurs, lat={}, lon={}", nTime, latitudes[latIdx], longitudes[lonIdx]);
 			return new WindRoseData(uu, vv, latitudes[latIdx], longitudes[lonIdx]);
-
-		} catch (IOException e) {
-			throw new NetCDFException(e, "error.netcdf.read.wind", filename);
-		}
+		});
 	}
 
 
@@ -628,7 +634,7 @@ public class NetCDFReaderService {
 		log.info("Extraction Hovmöller : fichier={}, variable={}, altitude={}, type={}",
 				filename, variableName, altitudeIndex, type);
 
-		try (NetcdfFile ncfile = openMeanFile(filename)) {
+		return readFile(filename, "error.netcdf.read.hovmoller", ncfile -> {
 			ucar.nc2.Variable variable = requireVariable(ncfile, variableName);
 
 			int[]   varShape  = variable.getShape();
@@ -643,8 +649,8 @@ public class NetCDFReaderService {
 
 			ucar.ma2.Index index = data.getIndex();
 
-			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
-			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
+			double[] latitudes  = cachedCoordinates(ncfile, filename, COORD_LAT);
+			double[] longitudes = cachedCoordinates(ncfile, filename, COORD_LON);
 
 			boolean isLatitude = "latitude".equals(type);
 			int     nSpatial   = isLatitude ? nLat : nLon;
@@ -681,10 +687,7 @@ public class NetCDFReaderService {
 
 			log.info("Hovmöller {} extrait : {}x{}", type, nTime, nSpatial);
 			return new HovmollerData(hovmoller, times, spatialCoords);
-
-		} catch (IOException e) {
-			throw new NetCDFException(e, "error.netcdf.read.hovmoller", filename);
-		}
+		});
 	}
 
 	/**
@@ -699,7 +702,7 @@ public class NetCDFReaderService {
 		log.info("Extraction Zonal Mean : fichier={}, variable={}, time={}",
 				filename, variableName, timeIndex);
 
-		try (NetcdfFile ncfile = openMeanFile(filename)) {
+		return readFile(filename, "error.netcdf.read.zonalmean", ncfile -> {
 			ucar.nc2.Variable variable = requireVariable(ncfile, variableName);
 
 			int[] varShape = variable.getShape();
@@ -715,9 +718,9 @@ public class NetCDFReaderService {
 				new int[]{timeIndex, 0, 0, 0}, new int[]{1, nAlt, nLat, nLon});
 			ucar.ma2.Index index = data.getIndex();
 
-			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
+			double[] latitudes  = cachedCoordinates(ncfile, filename, COORD_LAT);
 			String   altDimName = variable.getDimension(1).getShortName();
-			double[] altCoords  = extractCoordinates(ncfile, altDimName);
+			double[] altCoords  = cachedCoordinates(ncfile, filename, altDimName);
 
 			float[][] zonalMean = new float[nAlt][nLat];
 
@@ -738,10 +741,7 @@ public class NetCDFReaderService {
 
 			log.info("Zonal Mean extrait : {}x{}", nAlt, nLat);
 			return new ZonalMeanData(zonalMean, latitudes, altCoords);
-
-		} catch (IOException e) {
-			throw new NetCDFException(e, "error.netcdf.read.zonalmean", filename);
-		}
+		});
 	}
 
 	/**
@@ -759,7 +759,7 @@ public class NetCDFReaderService {
 		log.info("Extraction transect : fichier={}, variable={}, time={}, A=({}, {}), B=({}, {}), n={}",
 				filename, variableName, timeIndex, lat1, lon1, lat2, lon2, nPoints);
 
-		try (NetcdfFile ncfile = openMeanFile(filename)) {
+		return readFile(filename, "error.netcdf.read.transect", ncfile -> {
 			ucar.nc2.Variable variable = requireVariable(ncfile, variableName);
 
 			int[] varShape = variable.getShape();
@@ -771,10 +771,10 @@ public class NetCDFReaderService {
 			int nLat = varShape[2];
 			int nLon = varShape[3];
 
-			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
-			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
+			double[] latitudes  = cachedCoordinates(ncfile, filename, COORD_LAT);
+			double[] longitudes = cachedCoordinates(ncfile, filename, COORD_LON);
 			String   altDimName = variable.getDimension(1).getShortName();
-			double[] altCoords  = extractCoordinates(ncfile, altDimName);
+			double[] altCoords  = cachedCoordinates(ncfile, filename, altDimName);
 
 			ucar.ma2.Array data = readSection(variable,
 				new int[]{timeIndex, 0, 0, 0}, new int[]{1, nAlt, nLat, nLon});
@@ -802,10 +802,7 @@ public class NetCDFReaderService {
 			log.info("Transect extrait : {}x{} ({} km)", nAlt, nPoints,
 					Math.round(distances[nPoints - 1]));
 			return new TransectData(section, altCoords, distances, lats, lons);
-
-		} catch (IOException e) {
-			throw new NetCDFException(e, "error.netcdf.read.transect", filename);
-		}
+		});
 	}
 
 	/**
@@ -839,7 +836,7 @@ public class NetCDFReaderService {
 	public double[] extractAltitudeArray(String filename, String variableName) {
 		log.debug("Extraction tableau altitudes : fichier={}, variable={}", filename, variableName);
 
-		try (NetcdfFile ncfile = openMeanFile(filename)) {
+		return readFile(filename, "error.netcdf.read.altitude", ncfile -> {
 			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
 			if (variable == null) {
 				throw new ValidationException("error.netcdf.variable.not.in.file", variableName, filename);
@@ -852,13 +849,10 @@ public class NetCDFReaderService {
 			}
 
 			String altDimName = variable.getDimension(1).getShortName();
-			double[] altCoords = extractCoordinates(ncfile, altDimName);
+			double[] altCoords = cachedCoordinates(ncfile, filename, altDimName);
 			log.debug("Tableau altitudes extrait : {} niveaux", altCoords.length);
 			return altCoords;
-
-		} catch (IOException e) {
-			throw new NetCDFException(e, "error.netcdf.read.altitude", filename);
-		}
+		});
 	}
 
 	/**
@@ -869,7 +863,7 @@ public class NetCDFReaderService {
 		log.debug("Extraction altitude réelle : fichier={}, variable={}, index={}",
 				filename, variableName, altitudeIndex);
 
-		try (NetcdfFile ncfile = openMeanFile(filename)) {
+		return readFile(filename, "error.netcdf.read.altitude", ncfile -> {
 			ucar.nc2.Variable variable = ncfile.findVariable(variableName);
 			if (variable == null) {
 				throw new ValidationException("error.netcdf.variable.not.in.file", variableName, filename);
@@ -882,7 +876,7 @@ public class NetCDFReaderService {
 			}
 
 			String   altDimName = variable.getDimension(1).getShortName();
-			double[] altCoords  = extractCoordinates(ncfile, altDimName);
+			double[] altCoords  = cachedCoordinates(ncfile, filename, altDimName);
 			if (altitudeIndex >= altCoords.length) {
 				log.warn("Index d'altitude hors bornes : {} >= {}", altitudeIndex, altCoords.length);
 				return null;
@@ -891,15 +885,69 @@ public class NetCDFReaderService {
 			double value = altCoords[altitudeIndex];
 			log.debug("Altitude réelle : index {} → {} km", altitudeIndex, value);
 			return value;
-
-		} catch (IOException e) {
-			throw new NetCDFException(e, "error.netcdf.read.altitude", filename);
-		}
+		});
 	}
 
 	// =========================================================================
 	// Méthodes utilitaires
 	// =========================================================================
+
+	/**
+	 * Fonction d'extraction exécutée avec un fichier NetCDF déjà ouvert.
+	 * Peut propager une {@link IOException} : {@link #readFile} la convertit en
+	 * {@link NetCDFException} (runtime) avec la clé i18n adéquate.
+	 */
+	@FunctionalInterface
+	private interface NcReader<T> {
+		T read(NetcdfFile ncfile) throws IOException;
+	}
+
+	/**
+	 * Squelette commun à toutes les extractions. Ouvre le fichier MEAN en
+	 * try-with-resources, délègue l'extraction à {@code body}, garantit la
+	 * fermeture du fichier, et mappe toute {@link IOException} de lecture vers
+	 * une {@link NetCDFException} portant {@code errorKey}. Élimine la répétition
+	 * du même bloc {@code try/catch(IOException)} dans chaque méthode {@code extract*}.
+	 *
+	 * <p>Les exceptions déjà « métier » (validation, ressource introuvable, index
+	 * hors bornes) sont des {@link RuntimeException} et remontent inchangées ;
+	 * seule l'{@link IOException} d'accès disque est enveloppée.
+	 *
+	 * @param filename nom (MEAN) ou chemin absolu (INDIVIDUAL) du fichier
+	 * @param errorKey clé i18n de l'erreur si la lecture échoue
+	 * @param body     logique d'extraction propre à chaque visualisation
+	 * @param <T>      type du résultat produit
+	 * @return la valeur produite par {@code body}
+	 */
+	private <T> T readFile(String filename, String errorKey, NcReader<T> body) {
+		try (NetcdfFile ncfile = openMeanFile(filename)) {
+			return body.read(ncfile);
+		} catch (IOException e) {
+			throw new NetCDFException(e, errorKey, filename);
+		}
+	}
+
+	/**
+	 * Retourne les coordonnées {@code coordName} du fichier, en mémorisant le
+	 * premier accès (voir {@link #coordCache}). Renvoie toujours une COPIE
+	 * défensive : les appelants gardent la liberté de stocker le tableau dans un
+	 * DTO ou de le transformer sans risque de corrompre l'entrée partagée du cache.
+	 *
+	 * @param ncfile    fichier ouvert (source de lecture en cas de cache miss)
+	 * @param filename  identifiant du fichier (composante de la clé de cache)
+	 * @param coordName nom de la coordonnée (lat, lon, altitudeT…)
+	 * @return copie du tableau de coordonnées (jamais null)
+	 * @throws IOException si la première lecture disque échoue
+	 */
+	private double[] cachedCoordinates(NetcdfFile ncfile, String filename, String coordName) throws IOException {
+		String key = filename + '|' + coordName;
+		double[] coords = coordCache.get(key);
+		if (coords == null) {
+			coords = extractCoordinates(ncfile, coordName);
+			coordCache.putIfAbsent(key, coords);
+		}
+		return coords.clone();
+	}
 
 	/**
 	 * Lecture partielle d'une variable NetCDF (section).
@@ -952,7 +1000,9 @@ public class NetCDFReaderService {
 	}
 
 	/**
-	 * Extrait les valeurs d'une coordonnée (lat, lon, altitudeT, altitudeM…).
+	 * Extrait les valeurs d'une coordonnée (lat, lon, altitudeT, altitudeM…)
+	 * directement du fichier. Passer par {@link #cachedCoordinates} pour bénéficier
+	 * de la mémorisation ; cette méthode reste l'accès disque brut sous-jacent.
 	 *
 	 * @param ncfile    fichier NetCDF ouvert
 	 * @param coordName nom de la coordonnée

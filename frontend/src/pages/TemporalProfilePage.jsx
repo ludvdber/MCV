@@ -57,11 +57,11 @@ function TemporalProfilePage() {
       const cs = sp.get('cs'); if (cs) setColorscale(cs);
       return true;
     },
-    fetchData: useCallback(() =>
+    fetchData: useCallback((signal) =>
       getTemporalProfile({
         dataset: selectedDataset, variable: selectedVariable,
         latitude: selectedLatitude, longitude: selectedLongitude,
-      }),
+      }, signal),
     [selectedDataset, selectedVariable, selectedLatitude, selectedLongitude]),
     buildPermalink: useCallback(() => {
       const p = new URLSearchParams();

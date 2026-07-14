@@ -72,11 +72,11 @@ function DifferencePage() {
       const alt = intParam(sp, 'alt'); if (alt != null) setSelectedAltitude(alt);
       return true;
     },
-    fetchData: useCallback(() =>
+    fetchData: useCallback((signal) =>
       getDifference({
         datasetA: selectedDataset, datasetB: datasetB,
         variable: selectedVariable, time: selectedTime, altitude: selectedAltitude,
-      }),
+      }, signal),
     [selectedDataset, datasetB, selectedVariable, selectedTime, selectedAltitude]),
     buildPermalink: useCallback(() => {
       const p = new URLSearchParams();

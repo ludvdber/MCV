@@ -74,8 +74,8 @@ function CrossSectionPage() {
       const cs = sp.get('cs'); if (cs) setColorscale(cs);
       return true;
     },
-    fetchData: useCallback(() =>
-      getCrossSection({ dataset: selectedDataset, variable: selectedVariable, time: selectedTime, type: csType, fixedCoordinate }),
+    fetchData: useCallback((signal) =>
+      getCrossSection({ dataset: selectedDataset, variable: selectedVariable, time: selectedTime, type: csType, fixedCoordinate }, signal),
     [selectedDataset, selectedVariable, selectedTime, csType, fixedCoordinate]),
     buildPermalink: useCallback(() => {
       const p = new URLSearchParams();

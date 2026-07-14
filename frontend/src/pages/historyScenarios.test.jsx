@@ -257,7 +257,8 @@ describe('Historique — restauration et permaliens des pages', () => {
     renderPage('/crosssection?ds=mean_test&var=TT&t=6&type=zonal&fixed=45', '/crosssection', <CrossSectionPage />);
     await waitFor(() => expect(api.getCrossSection).toHaveBeenCalled());
     expect(api.getCrossSection).toHaveBeenCalledWith(
-      expect.objectContaining({ dataset: 'mean_test', variable: 'TT', type: 'zonal', fixedCoordinate: 45 })
+      expect.objectContaining({ dataset: 'mean_test', variable: 'TT', type: 'zonal', fixedCoordinate: 45 }),
+      expect.anything()
     );
   });
 
@@ -280,7 +281,8 @@ describe('Historique — restauration et permaliens des pages', () => {
     renderPage('/hovmoller?ds=mean_test&var=TT&alt=30&type=longitude', '/hovmoller', <HovmollerPage />);
     await waitFor(() => expect(api.getHovmoller).toHaveBeenCalled());
     expect(api.getHovmoller).toHaveBeenCalledWith(
-      expect.objectContaining({ dataset: 'mean_test', variable: 'TT', type: 'longitude' })
+      expect.objectContaining({ dataset: 'mean_test', variable: 'TT', type: 'longitude' }),
+      expect.anything()
     );
   });
 
@@ -288,7 +290,8 @@ describe('Historique — restauration et permaliens des pages', () => {
     renderPage('/timeseries?ds=mean_test&var=TT&alt=30&pts=NOT_JSON', '/timeseries', <TimeSeriesPage />);
     await waitFor(() => expect(api.getTimeSeries).toHaveBeenCalled());
     expect(api.getTimeSeries).toHaveBeenCalledWith(
-      expect.objectContaining({ latitude: 0, longitude: 0 })
+      expect.objectContaining({ latitude: 0, longitude: 0 }),
+      expect.anything()
     );
   });
 

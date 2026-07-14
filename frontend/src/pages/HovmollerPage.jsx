@@ -58,8 +58,8 @@ function HovmollerPage() {
       const cs = sp.get('cs'); if (cs) setColorscale(cs);
       return true;
     },
-    fetchData: useCallback(() =>
-      getHovmoller({ dataset: selectedDataset, variable: selectedVariable, altitude: selectedAltitude, type: hovType }),
+    fetchData: useCallback((signal) =>
+      getHovmoller({ dataset: selectedDataset, variable: selectedVariable, altitude: selectedAltitude, type: hovType }, signal),
     [selectedDataset, selectedVariable, selectedAltitude, hovType]),
     buildPermalink: useCallback(() => {
       const p = new URLSearchParams();

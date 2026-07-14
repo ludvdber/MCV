@@ -86,7 +86,8 @@ describe('Historique — restauration fidèle des permaliens', () => {
 
     await waitFor(() => expect(api.getSlice).toHaveBeenCalled());
     expect(api.getSlice).toHaveBeenCalledWith(
-      expect.objectContaining({ dataset: 'mean_test', variable: 'TT', time: 12, altitude: 30 })
+      expect.objectContaining({ dataset: 'mean_test', variable: 'TT', time: 12, altitude: 30 }),
+      expect.anything()
     );
     await waitFor(() => expect(savedHistory().length).toBeGreaterThan(0));
     const entry = savedHistory()[0];
@@ -99,7 +100,8 @@ describe('Historique — restauration fidèle des permaliens', () => {
 
     await waitFor(() => expect(api.getWindRose).toHaveBeenCalled());
     expect(api.getWindRose).toHaveBeenCalledWith(
-      expect.objectContaining({ dataset: 'mean_test', altitude: 80, latitude: 12, longitude: 34 })
+      expect.objectContaining({ dataset: 'mean_test', altitude: 80, latitude: 12, longitude: 34 }),
+      expect.anything()
     );
     const entry = savedHistory()[0];
     expect(entry.permalink).toContain('alt=80');
@@ -156,7 +158,8 @@ describe('Historique — restauration fidèle des permaliens', () => {
 
     await waitFor(() => expect(api.getTimeSeries).toHaveBeenCalled());
     expect(api.getTimeSeries).toHaveBeenCalledWith(
-      expect.objectContaining({ dataset: 'mean_test', variable: 'TT', latitude: 12, longitude: 34, altitude: 30 })
+      expect.objectContaining({ dataset: 'mean_test', variable: 'TT', latitude: 12, longitude: 34, altitude: 30 }),
+      expect.anything()
     );
     const entry = savedHistory()[0];
     expect(entry.permalink).toContain('pts=');

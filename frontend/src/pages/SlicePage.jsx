@@ -67,8 +67,8 @@ function SlicePage() {
       const cs = sp.get('cs'); if (cs) setColorscale(cs);
       return true;
     },
-    fetchData: useCallback(() =>
-      getSlice({ dataset: selectedDataset, variable: selectedVariable, time: selectedTime, altitude: selectedAltitude }),
+    fetchData: useCallback((signal) =>
+      getSlice({ dataset: selectedDataset, variable: selectedVariable, time: selectedTime, altitude: selectedAltitude }, signal),
     [selectedDataset, selectedVariable, selectedTime, selectedAltitude]),
     buildPermalink: useCallback(() => {
       const p = new URLSearchParams();

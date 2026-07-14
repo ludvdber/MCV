@@ -51,11 +51,11 @@ function WindRosePage() {
       const lon = floatParam(sp, 'lon'); if (lon != null) setSelectedLongitude(lon);
       return true;
     },
-    fetchData: useCallback(() =>
+    fetchData: useCallback((signal) =>
       getWindRose({
         dataset: selectedDataset, latitude: selectedLatitude,
         longitude: selectedLongitude, altitude: selectedAltitude,
-      }),
+      }, signal),
     [selectedDataset, selectedLatitude, selectedLongitude, selectedAltitude]),
     buildPermalink: useCallback(() => {
       const p = new URLSearchParams();
