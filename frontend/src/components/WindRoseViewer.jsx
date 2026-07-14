@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import Plotly from 'plotly.js-dist-min';
+import Plotly, { renderPlot } from '../plotlyBundle';
 import { Paper, Typography, Box } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import ExportMenu from './ExportMenu';
@@ -41,11 +41,18 @@ function computeWindRose(uu, vv) {
   return bins.map(sectorBins => sectorBins.map(count => (count / n) * 100));
 }
 
-function WindRoseViewer({ windRoseData, datasetLabel, noExportMenu = false, externalPlotRef = null, onCSV = null }) {
+function WindRoseViewer({ windRoseData, datasetLabel, noExportMenu = false, compact = false, externalPlotRef = null, onCSV = null }) {
   const { t, i18n } = useTranslation();
   const { fontColor, gridColor, paperBg, plotBg, titleSize, margin: responsiveMargin } = usePlotlyTheme();
   const internalPlotRef = useRef(null);
   const plotRef = externalPlotRef ?? internalPlotRef;
+
+  // Purge Plotly uniquement au demontage : les mises a jour passent par
+  // Plotly.react (pas de destruction/recreation du graphe a chaque prop).
+  useEffect(() => {
+    const el = plotRef.current;
+    return () => { if (el) Plotly.purge(el); };
+  }, [plotRef]);
 
   useEffect(() => {
     const el = plotRef.current;
@@ -63,8 +70,8 @@ function WindRoseViewer({ windRoseData, datasetLabel, noExportMenu = false, exte
       hovertemplate: '%{theta}: %{r:.1f}%<extra>' + bin.label + '</extra>',
     }));
 
-    Plotly.newPlot(el, traces, {
-      title: {
+    renderPlot(el, traces, {
+      title: compact ? undefined : {
         text: `${datasetLabel || ''} — ${t('page.windrose.title')} — (${actualLat}°, ${actualLon}°)`,
         font: { size: titleSize, color: fontColor },
       },
@@ -85,22 +92,20 @@ function WindRoseViewer({ windRoseData, datasetLabel, noExportMenu = false, exte
         },
       },
       barmode: 'stack',
-      legend: {
+      legend: compact ? { font: { color: fontColor, size: 10 }, bgcolor: 'transparent' } : {
         font: { color: fontColor, size: 13 },
         bgcolor: paperBg,
         bordercolor: gridColor,
         borderwidth: 1,
       },
-      margin: responsiveMargin,
+      margin: compact ? { l: 20, r: 20, t: 20, b: 20 } : responsiveMargin,
       paper_bgcolor: paperBg,
       plot_bgcolor: plotBg,
     }, {
       responsive: true,
       displaylogo: false,
     });
-
-    return () => Plotly.purge(el);
-  }, [windRoseData, datasetLabel, i18n.language, fontColor, gridColor, paperBg, plotBg, titleSize, responsiveMargin]);
+  }, [windRoseData, datasetLabel, compact, i18n.language, fontColor, gridColor, paperBg, plotBg, titleSize, responsiveMargin]);
 
   if (!windRoseData) {
     return (
@@ -119,10 +124,10 @@ function WindRoseViewer({ windRoseData, datasetLabel, noExportMenu = false, exte
           <ExportMenu plotRef={plotRef} filename="mars_windrose" onCSV={onCSV} />
         </Box>
       )}
-      <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        <div ref={plotRef} role="img" aria-label={t('viz.aria.windrose')} style={{ width: '100%', minHeight: 500 }} />
+      <Paper elevation={compact ? 0 : 2} sx={{ borderRadius: 2, overflow: 'hidden', ...(compact ? { bgcolor: 'transparent', backgroundImage: 'none' } : {}) }}>
+        <div ref={plotRef} role="img" aria-label={t('viz.aria.windrose')} style={{ width: '100%', minHeight: compact ? 300 : 500 }} />
       </Paper>
-      {windRoseData.stats && <StatsBar stats={windRoseData.stats} />}
+      {!compact && windRoseData.stats && <StatsBar stats={windRoseData.stats} />}
     </Box>
   );
 }

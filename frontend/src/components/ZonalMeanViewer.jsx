@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import Plotly from 'plotly.js-dist-min';
+import Plotly, { renderPlot } from '../plotlyBundle';
 import { Paper, Typography, Box } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { VARIABLES_MAP } from './VariableSelector';
@@ -17,11 +17,18 @@ import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
  * @param {string}      datasetLabel - label du dataset pour le titre
  * @param {boolean}     logScale     - afficher l'échelle en log10
  */
-function ZonalMeanViewer({ zonalMeanData, variableCode, datasetLabel, colorscaleName, reverseColorscale, customZMin, customZMax, onExportCSV = null, noExportMenu = false, externalPlotRef = null, logScale = false }) {
+function ZonalMeanViewer({ zonalMeanData, variableCode, datasetLabel, colorscaleName, reverseColorscale, customZMin, customZMax, onExportCSV = null, noExportMenu = false, compact = false, externalPlotRef = null, logScale = false }) {
   const { t, i18n } = useTranslation();
   const { fontColor, paperBg, plotBg, titleSize, margin: responsiveMargin } = usePlotlyTheme();
   const internalPlotRef = useRef(null);
   const plotRef = externalPlotRef ?? internalPlotRef;
+
+  // Purge Plotly uniquement au demontage : les mises a jour passent par
+  // Plotly.react (pas de destruction/recreation du graphe a chaque prop).
+  useEffect(() => {
+    const el = plotRef.current;
+    return () => { if (el) Plotly.purge(el); };
+  }, [plotRef]);
 
   useEffect(() => {
     const el = plotRef.current;
@@ -34,7 +41,7 @@ function ZonalMeanViewer({ zonalMeanData, variableCode, datasetLabel, colorscale
 
     const useRdBu = RDBU_VARIABLES.includes(variableCode);
     const finalColorscale = colorscaleName || (useRdBu ? 'RdBu' : 'Viridis');
-    const finalReverse = reverseColorscale != null ? reverseColorscale : useRdBu;
+    const finalReverse = reverseColorscale ?? false; // RdBu Plotly est deja bleu(bas)->rouge(haut)
 
 
     // ── Log scale transform ───────────────────────────────────────────────
@@ -57,7 +64,7 @@ function ZonalMeanViewer({ zonalMeanData, variableCode, datasetLabel, colorscale
       hoverTemplate = `${t('viz.hover_lat')}: %{x}°<br>${t('viz.hover_alt')}: %{y:.1f} km<br>log\u2081\u2080: %{z:.3f}<br>${t('viz.hover_value')}: %{customdata:.6g} ${unit}<extra></extra>`;
     }
 
-    Plotly.newPlot(el, [{
+    renderPlot(el, [{
       type: 'contour',
       x: latitudes,
       y: altitudes,
@@ -75,6 +82,7 @@ function ZonalMeanViewer({ zonalMeanData, variableCode, datasetLabel, colorscale
         labelfont: { size: 10, color: fontColor },
       },
       connectgaps: true,
+      showscale: !compact,
       colorbar: {
         title: {
           text: logScale ? `log\u2081\u2080(${variableLabel})` : `${variableLabel} (${unit})`,
@@ -89,25 +97,25 @@ function ZonalMeanViewer({ zonalMeanData, variableCode, datasetLabel, colorscale
       },
       hovertemplate: hoverTemplate,
     }], {
-      title: {
+      title: compact ? undefined : {
         text: `${t('viz.zonalmean.title')} — ${datasetLabel || ''} — ${variableLabel}`,
         font: { size: titleSize, color: fontColor }
       },
       font: { color: fontColor },
       xaxis: {
-        title: { text: t('viz.latitude') },
+        title: compact ? undefined : { text: t('viz.latitude') },
         color: fontColor,
         showgrid: false,
         zeroline: false
       },
       yaxis: {
-        title: { text: t('viz.altitude') },
+        title: compact ? undefined : { text: t('viz.altitude') },
         color: fontColor,
         showgrid: false,
         zeroline: false,
         autorange: true
       },
-      margin: { ...responsiveMargin, r: 120 },
+      margin: compact ? { l: 42, r: 8, t: 8, b: 26 } : { ...responsiveMargin, r: 120 },
       paper_bgcolor: paperBg,
       plot_bgcolor: plotBg
     }, {
@@ -115,9 +123,7 @@ function ZonalMeanViewer({ zonalMeanData, variableCode, datasetLabel, colorscale
       displaylogo: false,
       modeBarButtonsToRemove: ['lasso2d', 'select2d']
     });
-
-    return () => Plotly.purge(el);
-  }, [zonalMeanData, variableCode, datasetLabel, colorscaleName, reverseColorscale, customZMin, customZMax, logScale, i18n.language, fontColor, paperBg, plotBg, titleSize, responsiveMargin]);
+  }, [zonalMeanData, variableCode, datasetLabel, colorscaleName, reverseColorscale, customZMin, customZMax, logScale, compact, i18n.language, fontColor, paperBg, plotBg, titleSize, responsiveMargin]);
 
   if (!zonalMeanData) {
     return (
@@ -139,10 +145,10 @@ function ZonalMeanViewer({ zonalMeanData, variableCode, datasetLabel, colorscale
           <ExportMenu plotRef={plotRef} filename={exportFilename} onCSV={onExportCSV} />
         </Box>
       )}
-      <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        <div ref={plotRef} role="img" aria-label={t('viz.aria.zonalmean')} style={{ width: '100%' }} />
+      <Paper elevation={compact ? 0 : 2} sx={{ borderRadius: 2, overflow: 'hidden', ...(compact ? { bgcolor: 'transparent', backgroundImage: 'none' } : {}) }}>
+        <div ref={plotRef} role="img" aria-label={t('viz.aria.zonalmean')} style={{ width: '100%', height: compact ? 300 : 450 }} />
       </Paper>
-      <StatsBar stats={stats} />
+      {!compact && <StatsBar stats={stats} />}
     </Box>
   );
 }

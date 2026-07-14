@@ -12,8 +12,8 @@
 import { lazy, Suspense, Component, useState, useEffect, useMemo, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { CircularProgress, Box, Typography, Button } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import i18n from './i18n';
-import Home from './pages/Home';
 import { MarsProvider } from './context/MarsContext';
 import { ToastProvider } from './context/ToastContext';
 import { AppThemeProvider, useThemeMode } from './context/ThemeContext';
@@ -27,7 +27,10 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 // mars.glb (~220 KB, meshopt-compressed) is lazy-loaded only when the Home page hero is visible.
 // No preload — the 3D globe is not worth blocking TTI on other pages.
 
-// Chargement differe : ces pages ne sont telechargees que quand l'utilisateur y navigue
+// Chargement differe : ces pages ne sont telechargees que quand l'utilisateur y navigue.
+// Home aussi : il importe Three.js/R3F (globe + systeme solaire, ~1,1 Mo) qui,
+// en import statique, se retrouvait modulepreload sur TOUTES les routes.
+const Home = lazy(() => import('./pages/Home'));
 const SlicePage = lazy(() => import('./pages/SlicePage'));
 const TimeSeriesPage = lazy(() => import('./pages/TimeSeriesPage'));
 const AnimationPage = lazy(() => import('./pages/AnimationPage'));
@@ -40,6 +43,68 @@ const WindRosePage = lazy(() => import('./pages/WindRosePage'));
 const DifferencePage = lazy(() => import('./pages/DifferencePage'));
 const TemporalProfilePage = lazy(() => import('./pages/TemporalProfilePage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+
+/* ─── SEO par route ────────────────────────────────────────────────────────
+   Une SPA ne change ni <title> ni description au fil de la navigation : les
+   moteurs voyaient douze pages identiques. Ce bloc met a jour titre, meta
+   description, balises Open Graph / Twitter et lien canonique a chaque
+   changement de route ET de langue (Google rend le JavaScript). */
+
+const SITE_URL = 'https://mars.ludovdb.be';
+const BRAND = 'Mars Climate Viewer';
+
+/** route → [cle i18n du nom de page, cle i18n de la description].
+ *  L'accueil est traite a part (titre = marque + promesse). */
+const ROUTE_META = {
+  '/slice':            ['nav.slice', 'meta.slice'],
+  '/timeseries':       ['nav.timeseries', 'meta.timeseries'],
+  '/animation':        ['nav.animation', 'meta.animation'],
+  '/explore':          ['nav.explore', 'meta.explore'],
+  '/crosssection':     ['nav.crosssection', 'meta.crosssection'],
+  '/profile':          ['nav.profile', 'meta.profile'],
+  '/hovmoller':        ['nav.hovmoller', 'meta.hovmoller'],
+  '/zonalmean':        ['nav.zonalmean', 'meta.zonalmean'],
+  '/windrose':         ['nav.windrose', 'meta.windrose'],
+  '/difference':       ['nav.difference', 'meta.difference'],
+  '/temporal-profile': ['nav.temporalprofile', 'meta.temporalprofile'],
+};
+
+function upsertMeta(attr, key, content) {
+  let el = document.head.querySelector(`meta[${attr}="${key}"]`);
+  if (!el) {
+    el = document.createElement('meta');
+    el.setAttribute(attr, key);
+    document.head.appendChild(el);
+  }
+  el.setAttribute('content', content);
+}
+
+function usePageMeta(pathname) {
+  const { t, i18n: i18next } = useTranslation();
+  useEffect(() => {
+    const entry = ROUTE_META[pathname];
+    const title = pathname === '/'
+      ? `${BRAND} · ${t('meta.homeTitle')}`
+      : entry ? `${t(entry[0])} · ${BRAND}` : BRAND;
+    const desc = t(entry ? entry[1] : 'meta.home');
+
+    document.title = title;
+    upsertMeta('name', 'description', desc);
+    upsertMeta('property', 'og:title', title);
+    upsertMeta('property', 'og:description', desc);
+    upsertMeta('property', 'og:url', SITE_URL + pathname);
+    upsertMeta('name', 'twitter:title', title);
+    upsertMeta('name', 'twitter:description', desc);
+
+    let canonical = document.head.querySelector('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement('link');
+      canonical.rel = 'canonical';
+      document.head.appendChild(canonical);
+    }
+    canonical.href = SITE_URL + pathname;
+  }, [pathname, t, i18next.language]);
+}
 
 /** Spinner affiche pendant le chargement des pages lazy */
 const Loading = () => (
@@ -78,8 +143,22 @@ function AppContent() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const sidebarWidth = sidebarCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
 
+  // Titre, description, Open Graph et canonique suivent la route et la langue.
+  usePageMeta(location.pathname);
+
   // Revient en haut de page à chaque changement de route.
   useEffect(() => { window.scrollTo(0, 0); }, [location.pathname]);
+
+  // La console Explorer réclame de la largeur : la nav se replie en rail
+  // d'icônes à l'entrée (le bouton d'expansion reste visible sur le bord),
+  // et se redéploie en quittant la page.
+  useEffect(() => {
+    // Synchro état↔route assumée (l'utilisateur peut ensuite replier/déplier).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSidebarCollapsed(location.pathname === '/explore');
+    const id = setTimeout(() => window.dispatchEvent(new Event('resize')), 260);
+    return () => clearTimeout(id);
+  }, [location.pathname]);
 
   const toggleShortcuts = useCallback(() => setShortcutsOpen(v => !v), []);
 
@@ -105,6 +184,9 @@ function AppContent() {
           component="main"
           sx={{
             flex: 1,
+            // minWidth 0 : sans lui, la min-content d'une page (ex. rangee
+            // d'onglets de l'Explorer) se propage et force un scroll horizontal.
+            minWidth: 0,
             minHeight: '100vh',
             ml: { xs: 0, md: `${sidebarWidth}px` },
             pt: { xs: 7, md: 0 },

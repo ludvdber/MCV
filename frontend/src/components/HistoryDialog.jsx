@@ -26,6 +26,7 @@ import {
   Explore as ExploreIcon,
 } from '@mui/icons-material';
 import { useRecentHistory } from '../hooks/useRecentHistory';
+import { formatDatasetId } from '../utils/datasetLabel';
 
 /** Métadonnées par route : icône, libellé i18n et catégorie (alignées sur la nav). */
 const PAGE_META = {
@@ -64,12 +65,14 @@ function relativeTime(ts, lang) {
 }
 
 /** Résumé compact des paramètres d'une entrée (dataset, variable, t, altitude, point...). */
-function paramSummary(entry) {
+function paramSummary(entry, t) {
   const p = entry.params || {};
   const parts = [];
-  if (entry.dataset) parts.push(entry.dataset);
+  // Libellé lisible « MY35 — Ls 60° à 90° » plutôt que l'id brut = nom de
+  // fichier de la pipeline (« mean_MY35_Ls60_90 »).
+  if (entry.dataset) parts.push(formatDatasetId(entry.dataset, t));
   if (entry.variable && entry.variable !== 'UU/VV') parts.push(entry.variable);
-  if (p.datasetB) parts.push(`Δ ${p.datasetB}`);
+  if (p.datasetB) parts.push(`Δ ${formatDatasetId(p.datasetB, t)}`);
   if (p.time != null) parts.push(`t${p.time}`);
   if (p.altitude != null) parts.push(`alt ${p.altitude}`);
   if (p.lat != null && p.lon != null) parts.push(`(${p.lat}°, ${p.lon}°)`);
@@ -81,7 +84,8 @@ function matchesSearch(entry, q, t) {
   if (!q) return true;
   const meta = PAGE_META[entry.page];
   const name = meta ? t(meta.labelKey) : entry.page;
-  const hay = `${name} ${entry.label || ''} ${paramSummary(entry)}`.toLowerCase();
+  // On garde l'id brut dans le foin : chercher par nom de fichier reste possible.
+  const hay = `${name} ${entry.label || ''} ${entry.dataset || ''} ${paramSummary(entry, t)}`.toLowerCase();
   return hay.includes(q);
 }
 
@@ -90,7 +94,7 @@ function HistoryRow({ entry, onOpen, onTogglePin, onRemove }) {
   const { t, i18n } = useTranslation();
   const meta = PAGE_META[entry.page] || { icon: ExploreIcon, labelKey: 'nav.explore' };
   const Icon = meta.icon;
-  const summary = paramSummary(entry);
+  const summary = paramSummary(entry, t);
   return (
     <ListItem
       disablePadding

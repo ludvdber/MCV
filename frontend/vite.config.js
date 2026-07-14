@@ -16,6 +16,9 @@ export default defineConfig(() => ({
   define: {
     // eslint-disable-next-line no-undef
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '0.0.0'),
+    // plotly.js (build source CJS, cf. src/plotlyBundle.js) reference `global`
+    // qui n'existe pas dans le navigateur — on le mappe sur globalThis.
+    global: 'globalThis',
   },
   plugins: [
     react(),
@@ -41,16 +44,7 @@ export default defineConfig(() => ({
             handler: 'CacheFirst',
             options: { cacheName: 'large-assets', expiration: { maxEntries: 5, maxAgeSeconds: 30 * 24 * 60 * 60 } },
           },
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: { cacheName: 'google-fonts-cache', expiration: { maxEntries: 10, maxAgeSeconds: 365 * 24 * 60 * 60 } },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: { cacheName: 'gstatic-fonts-cache', expiration: { maxEntries: 10, maxAgeSeconds: 365 * 24 * 60 * 60 } },
-          },
+          // Polices desormais auto-hebergees dans public/fonts (precache via globPatterns woff2)
         ],
       },
       manifest: {
@@ -77,8 +71,31 @@ export default defineConfig(() => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('plotly.js-dist-min')) return 'plotly';
-          if (id.includes('node_modules/three/') || id.includes('@react-three/')) return 'three';
+          // Bundle Plotly personnalise (plotly.js/lib/core + traces) — voir src/plotlyBundle.js
+          const nid = id.replace(/\\/g, '/');
+          if (nid.includes('node_modules/plotly.js/')) return 'plotly';
+          // Three + ecosysteme R3F (avec ses deps exclusives) : charge uniquement par Home
+          if (nid.includes('node_modules/three/')
+            || nid.includes('node_modules/three-stdlib/')
+            || nid.includes('@react-three/')
+            || nid.includes('node_modules/react-reconciler/')
+            || nid.includes('node_modules/its-fine/')
+            || nid.includes('node_modules/zustand/')
+            || nid.includes('node_modules/suspend-react/')) return 'three';
+          // Runtime React universel + petits shims PARTAGES entre l'entree et R3F.
+          // use-sync-external-store doit etre ici : rolldown l'hebergeait sinon dans
+          // le chunk three, que l'entree importait alors statiquement -> 1,1 Mo
+          // modulepreload sur toutes les routes.
+          if (nid.includes('node_modules/react/')
+            || nid.includes('node_modules/react-dom/')
+            || nid.includes('node_modules/scheduler/')
+            || nid.includes('node_modules/use-sync-external-store/')
+            || nid.includes('node_modules/@babel/runtime/')) return 'react';
+          // Runtime React universel : chunk dedie pour eviter que rolldown ne le
+          // loge dans 'three' (ce qui forcait toutes les pages a precharger 1,1 Mo)
+          if (nid.includes('node_modules/react/')
+            || nid.includes('node_modules/react-dom/')
+            || nid.includes('node_modules/scheduler/')) return 'react';
         },
       },
     },

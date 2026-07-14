@@ -119,7 +119,7 @@ export const getIndividualCatalog = () => api.get('/catalog/individual');
  * @param {Object} params - { dataset, variable, time, altitude }
  * @returns {Promise} SliceResponse (data[][], latitudes, longitudes, stats)
  */
-export const getSlice = (params) => cachedGet('/data/slice', params);
+export const getSlice = (params, signal) => cachedGet('/data/slice', params, signal);
 
 /**
  * GET /api/data/timeseries — serie temporelle en un point geographique
@@ -197,6 +197,13 @@ export const getHovmoller = (params) => cachedGet('/data/hovmoller', params);
 export const getZonalMean = (params) => cachedGet('/data/zonalmean', params);
 
 /**
+ * GET /api/data/tides — marees thermiques (decomposition harmonique du cycle diurne)
+ * @param {Object} params - { dataset, variable, altitude }
+ * @returns {Promise} TidesResponse (amplitude/phase des modes diurne et semi-diurne)
+ */
+export const getTides = (params) => cachedGet('/data/tides', params);
+
+/**
  * GET /api/data/windrose — rose des vents (UU/VV sur 48 timesteps)
  * @param {Object} params - { dataset, latitude, longitude, altitude }
  * @returns {Promise} WindRoseResponse (uu[], vv[], actualLat, actualLon)
@@ -236,6 +243,13 @@ export const exportDifferenceCSV = (params) =>
 
 /** GET /api/data/temporal-profile — profil altitude x temps en un point */
 export const getTemporalProfile = (params) => cachedGet('/data/temporal-profile', params);
+
+/**
+ * GET /api/data/transect — coupe verticale le long d'un grand cercle A → B
+ * @param {Object} params - { dataset, variable, time, lat1, lon1, lat2, lon2, points }
+ * @returns {Promise} TransectResponse (data[][], altitudes[], distances[], lats[], lons[], stats)
+ */
+export const getTransect = (params) => cachedGet('/data/transect', params);
 
 /** GET /api/export/csv/temporal-profile */
 export const exportTemporalProfileCSV = (params) =>

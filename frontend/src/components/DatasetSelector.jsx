@@ -27,9 +27,15 @@ function DatasetSelector({ datasets, value, onChange, disabled = false, individu
 
   const showToggle = individualYears.length > 0;
 
+  /* Les trois effets ci-dessous synchronisent le mode avec les props : c'est
+     une machine a etats pilotee de l'exterieur (vizType, permalien, page),
+     pas un anti-pattern de cascade — les resets sont gardes et convergent en
+     un rendu. Desactivations ciblees de react-hooks/set-state-in-effect. */
+
   /** Revenir en mode MEAN si INDIVIDUAL est desactive (vizType incompatible) */
   useEffect(() => {
     if (disableIndividual && mode === 'individual') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMode('mean');
       onChange(null);
     }
@@ -37,11 +43,13 @@ function DatasetSelector({ datasets, value, onChange, disabled = false, individu
 
   /** Basculer automatiquement en mode INDIVIDUAL si value est un IND_ (restore permalien) */
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (value?.startsWith(INDIVIDUAL_PREFIX) && showToggle) setMode('individual');
   }, [value, showToggle]);
 
   /** Revenir en mode MEAN quand le toggle n'est pas disponible (pages legacy sans individualYears) */
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!showToggle) setMode('mean');
   }, [showToggle]);
 

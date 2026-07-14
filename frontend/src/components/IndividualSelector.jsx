@@ -40,6 +40,8 @@ function IndividualSelector({ years = [], onSelect, initialYear = null, initialL
   const effectiveLsMax = yearInfo ? Math.min(yearInfo.lsMax, LS_CYCLE_MAX) : 0;
 
   /** Sync depuis les props (restore permalien) — se declenche quand initialYear/initialLs changent */
+  /* eslint-disable react-hooks/set-state-in-effect -- synchronisation
+     prop -> etat assumee : le permalien pilote MY/Ls, gardee et convergente */
   useEffect(() => {
     if (initialYear == null || !years.length) return;
     setSelectedYear(initialYear);
@@ -47,6 +49,7 @@ function IndividualSelector({ years = [], onSelect, initialYear = null, initialL
     setTargetLs(ls);
     setTextValue(ls.toFixed(2));
   }, [initialYear, initialLs, years]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   /* ---- Changement d'annee ---- */
   const handleYearChange = (e) => {

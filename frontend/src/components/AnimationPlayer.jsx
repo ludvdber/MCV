@@ -1,17 +1,20 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import Plotly from 'plotly.js-dist-min';
+import Plotly, { renderPlot } from '../plotlyBundle';
 import { Paper, Box, Slider, IconButton, Typography, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import { PlayArrow, Pause } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
-import { formatTime } from './TimeSelector';
+import { formatTime } from '../utils/formatTime';
 import { VARIABLES_MAP } from './VariableSelector';
 import { buildLocationTrace } from '../data/marsLocations';
 import { computeHeatmapCustomData } from '../utils/heatmapAnalysis';
 import { RDBU_VARIABLES } from '../utils/colorscales';
+import { upsampleLatLonGrid, nativeStep } from '../utils/gridInterpolation';
 import { downloadAnimationCSV } from '../utils/exportUtils';
+import { exportAnimationWebM, webmSupported, downloadBlob } from '../utils/videoExport';
 import ExportMenu from './ExportMenu';
 import StatsBar from './StatsBar';
 import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
+import { useToast } from '../context/ToastContext';
 
 /** Duree de base d'une frame en ms (vitesse 1x = ~3.3 fps) */
 const BASE_FRAME_MS = 300;
@@ -29,10 +32,9 @@ const scrubMarks = [0, 7, 15, 23, 31, 39, 47].map(t => ({
  * Lecteur d'animation du cycle diurne martien (48 frames de heatmap lat/lon).
  *
  * Utilise Plotly.js directement via useRef (meme approche que SliceViewer).
- * - Plotly.newPlot() a la reception des donnees (animationData change)
- * - Plotly.react() pour les changements de frame (plus performant que newPlot
- *   car reutilise le graphique existant)
- * - Plotly.purge() au demontage pour liberer la memoire
+ * - Plotly.react() partout : creation a la reception des donnees ET changements
+ *   de frame (reutilise le graphique existant, pas de destruction/recreation)
+ * - Plotly.purge() au demontage uniquement, pour liberer la memoire
  *
  * L'animation utilise requestAnimationFrame avec accumulation de temps
  * (au lieu de setInterval) pour un rendu plus fluide et une pause automatique
@@ -47,18 +49,37 @@ const scrubMarks = [0, 7, 15, 23, 31, 39, 47].map(t => ({
  * @param {string|null} variableCode - code variable pour le titre de la colorbar
  * @param {boolean}     logScale     - afficher l'echelle en log10 (pour variables a faibles valeurs)
  */
-function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocations = false, showSurface = false, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip = false, noExportMenu = false, externalPlotRef = null, logScale = false }) {
+function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocations = false, showSurface = false, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip = false, noExportMenu = false, compact = false, externalPlotRef = null, logScale = false, smooth = true, interpStep = 0 }) {
   const { t, i18n } = useTranslation();
+  const showToast = useToast();
   const { fontColor, paperBg, plotBg, titleSize, margin: responsiveMargin } = usePlotlyTheme();
   const internalPlotRef = useRef(null);
   const plotRef = externalPlotRef ?? internalPlotRef;
+
+  // Purge Plotly uniquement au demontage : les mises a jour passent par
+  // Plotly.react (pas de destruction/recreation du graphe a chaque prop).
+  useEffect(() => {
+    const el = plotRef.current;
+    return () => { if (el) Plotly.purge(el); };
+  }, [plotRef]);
   const rafRef = useRef(null);
   const lastTimeRef = useRef(null);
   const frameCountRef = useRef(48);
   const customDataCacheRef = useRef(new Map());
+  const interpCacheRef = useRef(new Map());
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
+
+  /** Grille d'une frame (sur-echantillonnee si interpStep, avec cache par index). */
+  const gridForFrame = useCallback((frames, latitudes, longitudes, idx) => {
+    if (!interpStep) return { data: frames[idx], latitudes, longitudes, text: null };
+    if (!interpCacheRef.current.has(idx)) {
+      interpCacheRef.current.set(idx,
+        upsampleLatLonGrid(frames[idx], latitudes, longitudes, interpStep, t('viz.interpolated')));
+    }
+    return interpCacheRef.current.get(idx);
+  }, [interpStep, t]);
 
   /** Unite physique de la variable (ex: 'K', 'Pa', 'm/s') */
   const unit = VARIABLES_MAP.get(variableCode)?.unit || '';
@@ -112,10 +133,14 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
 
     // Mettre a jour le nombre de frames pour la boucle d'animation
     frameCountRef.current = animationData.frameCount ?? animationData.frames?.length ?? 48;
-    // Vider le cache customData (les frames ont change)
+    // Vider les caches (les frames ou la resolution d'affichage ont change)
     customDataCacheRef.current.clear();
+    interpCacheRef.current.clear();
 
-    const { frames, latitudes, longitudes } = animationData;
+    const grid0 = gridForFrame(animationData.frames, animationData.latitudes, animationData.longitudes, 0);
+    const { latitudes, longitudes } = grid0;
+    const frame0 = grid0.data;
+    const interpSuffix = grid0.text ? ' %{text}' : '';
 
     const lonMin = Math.min(...longitudes);
     const lonMax = Math.max(...longitudes);
@@ -124,36 +149,36 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
 
     const useRdBu = RDBU_VARIABLES.includes(variableCode);
     const finalColorscale = colorscaleName || (useRdBu ? 'RdBu' : 'Viridis');
-    const finalReverse = reverseColorscale != null ? reverseColorscale : useRdBu;
+    const finalReverse = reverseColorscale ?? false; // RdBu Plotly est deja bleu(bas)->rouge(haut)
     const dataIs0to360 = longitudes.some(l => l > 180);
 
     // ── Log scale transform (frame 0) ────────────────────────────────────
-    let initFrame = frames[0];
+    let initFrame = frame0;
     let logColorbarExtra = {};
     let logZMin = null, logZMax = null;
     let initCustomdata;
     let hoverTemplate;
 
     if (logScale) {
-      initFrame = frames[0].map(row => row.map(v => (v != null && v > 0) ? Math.log10(v) : null));
+      initFrame = frame0.map(row => row.map(v => (v != null && v > 0) ? Math.log10(v) : null));
       const logTicks = computeLogTicks(animationData.stats);
       logColorbarExtra = logTicks.colorbar;
       logZMin = logTicks.zMin;
       logZMax = logTicks.zMax;
-      initCustomdata = frames[0];
-      hoverTemplate = `${t('viz.hover_lon')}: %{x}\u00b0<br>${t('viz.hover_lat')}: %{y}\u00b0<br>${t('viz.hover_value')}: %{customdata:.6g} ${unit}<br>log\u2081\u2080 = %{z:.3f}<extra></extra>`;
+      initCustomdata = frame0;
+      hoverTemplate = `${t('viz.hover_lon')}: %{x}\u00b0<br>${t('viz.hover_lat')}: %{y}\u00b0<br>${t('viz.hover_value')}: %{customdata:.6g} ${unit}${interpSuffix}<br>log\u2081\u2080 = %{z:.3f}<extra></extra>`;
     } else if (showDetailedTooltip) {
       if (!customDataCacheRef.current.has(0))
-        customDataCacheRef.current.set(0, computeHeatmapCustomData(frames[0], latitudes, longitudes));
+        customDataCacheRef.current.set(0, computeHeatmapCustomData(frame0, latitudes, longitudes));
       initCustomdata = customDataCacheRef.current.get(0);
-      hoverTemplate = `${t('viz.hover_lon')}: %{x}\u00b0  ${t('viz.hover_lat')}: %{y}\u00b0<br><b>%{z:.6g} ${unit}</b><br>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500<br>` +
+      hoverTemplate = `${t('viz.hover_lon')}: %{x}\u00b0  ${t('viz.hover_lat')}: %{y}\u00b0<br><b>%{z:.6g} ${unit}${interpSuffix}</b><br>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500<br>` +
         `${t('viz.hover_zonal_anom')}: %{customdata[0]:+.6g}<br>` +
         `\u2202/\u2202lat: %{customdata[1]:.2e} /\u00b0<br>` +
         `\u2202/\u2202lon: %{customdata[2]:.2e} /\u00b0<br>` +
         `${t('viz.hover_percentile')}: %{customdata[3]:.0f}%<br>` +
         `${t('viz.hover_poi')}: %{customdata[4]} (%{customdata[5]} km)<extra></extra>`;
     } else {
-      hoverTemplate = `${t('viz.hover_lon')}: %{x}\u00b0<br>${t('viz.hover_lat')}: %{y}\u00b0<br>${t('viz.hover_value')}: %{z:.6g} ${unit}<extra></extra>`;
+      hoverTemplate = `${t('viz.hover_lon')}: %{x}\u00b0<br>${t('viz.hover_lat')}: %{y}\u00b0<br>${t('viz.hover_value')}: %{z:.6g} ${unit}${interpSuffix}<extra></extra>`;
     }
 
     const initTraces = [{
@@ -166,10 +191,12 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
       ...(logScale
         ? (logZMin != null ? { zmin: logZMin, zmax: logZMax } : {})
         : { zmin: customZMin ?? animationData.stats?.min ?? undefined, zmax: customZMax ?? animationData.stats?.max ?? undefined }),
+      ...(grid0.text ? { text: grid0.text } : {}),
       ...(initCustomdata ? { customdata: initCustomdata } : {}),
-      zsmooth: 'best',
+      zsmooth: smooth ? 'best' : false,
       connectgaps: true,
       opacity: showSurface ? 0.55 : 1,
+      showscale: !compact,
       colorbar: {
         title: {
           text: logScale ? `log\u2081\u2080(${variableLabel})` : `${variableLabel} (${unit})`,
@@ -188,10 +215,10 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
     if (showLocations) initTraces.push(buildLocationTrace(longitudes));
 
     const layout = {
-      title: { ...plotTitle, font: { ...plotTitle.font, color: fontColor } },
+      title: compact ? undefined : { ...plotTitle, font: { ...plotTitle.font, color: fontColor } },
       font: { color: fontColor },
       xaxis: {
-        title: { text: t('viz.longitude') },
+        title: compact ? undefined : { text: t('viz.longitude') },
         range: [lonMin, lonMax],
         showgrid: false,
         zeroline: false,
@@ -199,14 +226,14 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
         color: fontColor
       },
       yaxis: {
-        title: { text: t('viz.latitude') },
+        title: compact ? undefined : { text: t('viz.latitude') },
         range: [latMin, latMax],
         showgrid: false,
         zeroline: false,
         autorange: false,
         color: fontColor
       },
-      margin: { ...responsiveMargin, r: 120 },
+      margin: compact ? { l: 42, r: 8, t: 8, b: 26 } : { ...responsiveMargin, r: 120 },
       paper_bgcolor: paperBg,
       plot_bgcolor: plotBg
     };
@@ -226,21 +253,22 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
       }];
     }
 
-    Plotly.newPlot(el, initTraces, layout, {
+    renderPlot(el, initTraces, layout, {
       responsive: true,
       displaylogo: false,
       modeBarButtonsToRemove: ['lasso2d', 'select2d']
     });
-
-    return () => Plotly.purge(el);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [animationData, variableCode, unit, stopAnimation, logScale, i18n.language, fontColor, paperBg, plotBg, titleSize, responsiveMargin]);
+  }, [animationData, variableCode, unit, stopAnimation, logScale, smooth, interpStep, gridForFrame, compact, i18n.language, fontColor, paperBg, plotBg, titleSize, responsiveMargin]);
 
   /** Mise a jour du graphique quand la frame change (Plotly.react = update performant) */
   useEffect(() => {
     if (!plotRef.current || !animationData) return;
 
-    const { frames, latitudes, longitudes } = animationData;
+    const gridCur = gridForFrame(animationData.frames, animationData.latitudes, animationData.longitudes, currentFrame);
+    const { latitudes, longitudes } = gridCur;
+    const frameCur = gridCur.data;
+    const interpSuffix = gridCur.text ? ' %{text}' : '';
 
     const lonMin = Math.min(...longitudes);
     const lonMax = Math.max(...longitudes);
@@ -249,37 +277,37 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
 
     const useRdBu = RDBU_VARIABLES.includes(variableCode);
     const finalColorscale = colorscaleName || (useRdBu ? 'RdBu' : 'Viridis');
-    const finalReverse = reverseColorscale != null ? reverseColorscale : useRdBu;
+    const finalReverse = reverseColorscale ?? false; // RdBu Plotly est deja bleu(bas)->rouge(haut)
     const dataIs0to360 = longitudes.some(l => l > 180);
 
     // ── Log scale transform (frame courante) ──────────────────────────────
-    let frameData = frames[currentFrame];
+    let frameData = frameCur;
     let logColorbarExtra = {};
     let logZMin = null, logZMax = null;
     let frameCustomdata;
     let hoverTemplate;
 
     if (logScale) {
-      frameData = frames[currentFrame].map(row => row.map(v => (v != null && v > 0) ? Math.log10(v) : null));
+      frameData = frameCur.map(row => row.map(v => (v != null && v > 0) ? Math.log10(v) : null));
       const logTicks = computeLogTicks(animationData.stats);
       logColorbarExtra = logTicks.colorbar;
       logZMin = logTicks.zMin;
       logZMax = logTicks.zMax;
-      frameCustomdata = frames[currentFrame];
-      hoverTemplate = `${t('viz.hover_lon')}: %{x}\u00b0<br>${t('viz.hover_lat')}: %{y}\u00b0<br>${t('viz.hover_value')}: %{customdata:.6g} ${unit}<br>log\u2081\u2080 = %{z:.3f}<extra></extra>`;
+      frameCustomdata = frameCur;
+      hoverTemplate = `${t('viz.hover_lon')}: %{x}\u00b0<br>${t('viz.hover_lat')}: %{y}\u00b0<br>${t('viz.hover_value')}: %{customdata:.6g} ${unit}${interpSuffix}<br>log\u2081\u2080 = %{z:.3f}<extra></extra>`;
     } else if (showDetailedTooltip) {
       // Calcul du tooltip enrichi mis en cache par index de frame
       if (!customDataCacheRef.current.has(currentFrame))
-        customDataCacheRef.current.set(currentFrame, computeHeatmapCustomData(frames[currentFrame], latitudes, longitudes));
+        customDataCacheRef.current.set(currentFrame, computeHeatmapCustomData(frameCur, latitudes, longitudes));
       frameCustomdata = customDataCacheRef.current.get(currentFrame);
-      hoverTemplate = `${t('viz.hover_lon')}: %{x}\u00b0  ${t('viz.hover_lat')}: %{y}\u00b0<br><b>%{z:.6g} ${unit}</b><br>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500<br>` +
+      hoverTemplate = `${t('viz.hover_lon')}: %{x}\u00b0  ${t('viz.hover_lat')}: %{y}\u00b0<br><b>%{z:.6g} ${unit}${interpSuffix}</b><br>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500<br>` +
         `${t('viz.hover_zonal_anom')}: %{customdata[0]:+.6g}<br>` +
         `\u2202/\u2202lat: %{customdata[1]:.2e} /\u00b0<br>` +
         `\u2202/\u2202lon: %{customdata[2]:.2e} /\u00b0<br>` +
         `${t('viz.hover_percentile')}: %{customdata[3]:.0f}%<br>` +
         `${t('viz.hover_poi')}: %{customdata[4]} (%{customdata[5]} km)<extra></extra>`;
     } else {
-      hoverTemplate = `${t('viz.hover_lon')}: %{x}\u00b0<br>${t('viz.hover_lat')}: %{y}\u00b0<br>${t('viz.hover_value')}: %{z:.6g} ${unit}<extra></extra>`;
+      hoverTemplate = `${t('viz.hover_lon')}: %{x}\u00b0<br>${t('viz.hover_lat')}: %{y}\u00b0<br>${t('viz.hover_value')}: %{z:.6g} ${unit}${interpSuffix}<extra></extra>`;
     }
 
     const frameTraces = [{
@@ -292,10 +320,12 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
       ...(logScale
         ? (logZMin != null ? { zmin: logZMin, zmax: logZMax } : {})
         : { zmin: customZMin ?? animationData.stats?.min ?? undefined, zmax: customZMax ?? animationData.stats?.max ?? undefined }),
+      ...(gridCur.text ? { text: gridCur.text } : {}),
       ...(frameCustomdata ? { customdata: frameCustomdata } : {}),
-      zsmooth: 'best',
+      zsmooth: smooth ? 'best' : false,
       connectgaps: true,
       opacity: showSurface ? 0.55 : 1,
+      showscale: !compact,
       colorbar: {
         title: {
           text: logScale ? `log\u2081\u2080(${variableLabel})` : `${variableLabel} (${unit})`,
@@ -314,10 +344,10 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
     if (showLocations) frameTraces.push(buildLocationTrace(longitudes));
 
     const layout = {
-      title: { ...plotTitle, font: { ...plotTitle.font, color: fontColor } },
+      title: compact ? undefined : { ...plotTitle, font: { ...plotTitle.font, color: fontColor } },
       font: { color: fontColor },
       xaxis: {
-        title: { text: t('viz.longitude') },
+        title: compact ? undefined : { text: t('viz.longitude') },
         range: [lonMin, lonMax],
         showgrid: false,
         zeroline: false,
@@ -325,14 +355,14 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
         color: fontColor
       },
       yaxis: {
-        title: { text: t('viz.latitude') },
+        title: compact ? undefined : { text: t('viz.latitude') },
         range: [latMin, latMax],
         showgrid: false,
         zeroline: false,
         autorange: false,
         color: fontColor
       },
-      margin: { ...responsiveMargin, r: 120 },
+      margin: compact ? { l: 42, r: 8, t: 8, b: 26 } : { ...responsiveMargin, r: 120 },
       paper_bgcolor: paperBg,
       plot_bgcolor: plotBg
     };
@@ -354,7 +384,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
 
     Plotly.react(plotRef.current, frameTraces, layout);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentFrame, animationData, variableCode, unit, datasetLabel, showLocations, showSurface, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip, logScale, i18n.language, fontColor, paperBg, plotBg, titleSize, responsiveMargin]);
+  }, [currentFrame, animationData, variableCode, unit, datasetLabel, showLocations, showSurface, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip, logScale, smooth, interpStep, gridForFrame, compact, i18n.language, fontColor, paperBg, plotBg, titleSize, responsiveMargin]);
 
   /** Duree effective d'une frame selon la vitesse choisie */
   const frameDuration = BASE_FRAME_MS / speed;
@@ -406,17 +436,44 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
   /** Export CSV client-side via l'utilitaire partage (stats par frame) */
   const handleExportCSV = () => downloadAnimationCSV(frames, variableCode, altitudeIndex);
 
+  /** Export video WebM : rejoue les pas hors ecran + MediaRecorder. */
+  const handleExportWebM = async () => {
+    const gd = plotRef.current;
+    if (!gd || !frames?.length) return;
+    showToast(t('export.webmStart'), 'info');
+    try {
+      const displayFrames = logScale
+        ? frames.map(f => f.map(row => row.map(v => (v != null && v > 0) ? Math.log10(v) : null)))
+        : frames;
+      const blob = await exportAnimationWebM(gd, displayFrames, {
+        // Coords natives : les frames sont natives, le graphe peut etre interpole.
+        x: animationData.longitudes,
+        y: animationData.latitudes,
+        timeLabel: (i) => formatTime(i),
+      });
+      downloadBlob(blob, `mars_animation_${variableCode || 'plot'}.webm`);
+      showToast(t('export.webmDone'), 'success');
+    } catch {
+      showToast(t('export.webmError'), 'error');
+    }
+  };
+
   const exportFilename = `mars_animation_${variableCode || 'plot'}`;
 
   return (
     <Box>
       {!noExportMenu && (
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
-          <ExportMenu plotRef={plotRef} filename={exportFilename} onCSV={handleExportCSV} />
+          <ExportMenu
+            plotRef={plotRef}
+            filename={exportFilename}
+            onCSV={handleExportCSV}
+            onWebM={webmSupported() ? handleExportWebM : null}
+          />
         </Box>
       )}
       <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        <div ref={plotRef} role="img" aria-label={t('viz.aria.animation')} style={{ width: '100%' }} />
+        <div ref={plotRef} role="img" aria-label={t('viz.aria.animation')} style={{ width: '100%', height: compact ? 300 : 450 }} />
       </Paper>
 
       {/* Controles : Play/Pause + Vitesse + Slider scrub */}
@@ -456,13 +513,32 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
             step={1}
             value={currentFrame}
             onChange={(_, v) => { setIsPlaying(false); setCurrentFrame(v); }}
-            marks={scrubMarks}
+            // En cellule compacte, les 7 reperes horaires se chevauchent :
+            // le champ horaire a gauche suffit.
+            marks={compact ? false : scrubMarks}
             sx={sliderSx}
           />
         </Box>
       </Paper>
 
-      <StatsBar stats={stats} />
+      {(() => {
+        const stepNative = nativeStep(animationData.latitudes);
+        const interpApplied = !!(interpStep && stepNative && Math.round(stepNative / interpStep) > 1);
+        return interpApplied && (
+          <Box sx={{ mt: 0.5, px: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              {t('viz.gridCaption', {
+                step: Number(stepNative.toFixed(1)),
+                nlat: animationData.latitudes.length,
+                nlon: animationData.longitudes.length,
+                target: interpStep,
+              })}
+            </Typography>
+          </Box>
+        );
+      })()}
+
+      {!compact && <StatsBar stats={stats} />}
     </Box>
   );
 }

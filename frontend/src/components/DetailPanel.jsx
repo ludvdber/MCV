@@ -1,6 +1,6 @@
 import { useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import Plotly from 'plotly.js-dist-min';
+import Plotly, { renderPlot } from '../plotlyBundle';
 import { Paper, Box } from '@mui/material';
 import { VARIABLES_MAP } from './VariableSelector';
 import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
@@ -24,6 +24,12 @@ function DetailPanel({ resultData, resultType, variableCode }) {
   const { fontColor, paperBg, plotBg } = usePlotlyTheme();
   const histRef = useRef(null);
   const zonalRef = useRef(null);
+
+  // Purge Plotly uniquement au demontage : les mises a jour passent par Plotly.react.
+  useEffect(() => {
+    const h = histRef.current, z = zonalRef.current;
+    return () => { if (h) Plotly.purge(h); if (z) Plotly.purge(z); };
+  }, []);
 
   const varInfo = VARIABLES_MAP.get(variableCode);
   const unit = varInfo?.unit || '';
@@ -89,7 +95,7 @@ function DetailPanel({ resultData, resultType, variableCode }) {
     const el = histRef.current;
     if (!el || flatValues.length === 0) return;
 
-    Plotly.newPlot(el, [{
+    renderPlot(el, [{
       type: 'histogram',
       x: flatValues,
       nbinsx: 50,
@@ -108,8 +114,6 @@ function DetailPanel({ resultData, resultType, variableCode }) {
       bargap: 0.02,
       height: 230,
     }, { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['lasso2d', 'select2d'] });
-
-    return () => Plotly.purge(el);
   }, [flatValues, variableLabel, unit, i18n.language, fontColor, paperBg, plotBg]);
 
   // Profil de moyenne zonale
@@ -117,7 +121,7 @@ function DetailPanel({ resultData, resultType, variableCode }) {
     const el = zonalRef.current;
     if (!el || zonalMean.length === 0) return;
 
-    Plotly.newPlot(el, [{
+    renderPlot(el, [{
       type: 'scatter',
       mode: 'lines',
       x: zonalMean,
@@ -133,8 +137,6 @@ function DetailPanel({ resultData, resultType, variableCode }) {
       plot_bgcolor: plotBg,
       height: 230,
     }, { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['lasso2d', 'select2d'] });
-
-    return () => Plotly.purge(el);
   }, [zonalMean, latitudes, variableLabel, unit, i18n.language, fontColor, paperBg, plotBg]);
 
   if (!resultData || (resultType !== 'slice' && resultType !== 'animation')) {

@@ -11,6 +11,7 @@ import TimeSelector from '../components/TimeSelector';
 import AltitudeSelector from '../components/AltitudeSelector';
 import DifferenceViewer from '../components/DifferenceViewer';
 import ColorscaleSelector from '../components/ColorscaleSelector';
+import InterpolationToggle from '../components/InterpolationToggle';
 import VisuToggle from '../components/VisuToggle';
 import ExportMenu from '../components/ExportMenu';
 import PermalienButton from '../components/PermalienButton';
@@ -18,7 +19,7 @@ import ChartSkeleton from '../components/ChartSkeleton';
 import FullscreenButton from '../components/FullscreenButton';
 import PageLoader from '../components/PageLoader';
 import LocationsLegend from '../components/LocationsLegend';
-import { Functions as LogIcon, Place as PlaceIcon, Map as MapIcon } from '@mui/icons-material';
+import { Functions as LogIcon, Place as PlaceIcon, Map as MapIcon, BlurOn as SmoothIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { triggerApiDownload } from '../utils/exportUtils';
@@ -51,6 +52,9 @@ function DifferencePage() {
   const [logScale, setLogScale] = useState(false);
   const [showLocations, setShowLocations] = useState(false);
   const [showSurface, setShowSurface] = useState(false);
+  // Defauts : lissage actif sur la grille native (interpolation en option).
+  const [smooth, setSmooth] = useState(true);
+  const [interpStep, setInterpStep] = useState(0);
 
   const {
     data: diffData, loading, error, isDirty, markDirty,
@@ -164,6 +168,8 @@ function DifferencePage() {
               <VisuToggle value={showLocations} onChange={setShowLocations} icon={<PlaceIcon />}>{t('common.toggleLocations')}</VisuToggle>
               <VisuToggle value={showSurface} onChange={setShowSurface} icon={<MapIcon />}>{t('common.toggleSurface')}</VisuToggle>
               <VisuToggle value={logScale} onChange={setLogScale} icon={<LogIcon />} title={t('common.toggleLog')}>{'Log\u2081\u2080'}</VisuToggle>
+              <VisuToggle value={smooth} onChange={setSmooth} icon={<SmoothIcon />} title={t('common.toggleSmooth')}>{t('common.toggleSmooth')}</VisuToggle>
+              <InterpolationToggle value={interpStep} onChange={setInterpStep} />
             </>
           )}
           {isDirty && (
@@ -207,6 +213,8 @@ function DifferencePage() {
                   logScale={logScale}
                   showLocations={showLocations}
                   showSurface={showSurface}
+                  smooth={smooth}
+                  interpStep={interpStep}
                   noExportMenu
                 />
               </Box>

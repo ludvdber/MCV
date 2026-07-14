@@ -18,12 +18,14 @@ import com.mars.visualizer.dto.internal.HovmollerData;
 import com.mars.visualizer.dto.internal.ProfileData;
 import com.mars.visualizer.dto.internal.SliceData;
 import com.mars.visualizer.dto.internal.TemporalProfileData;
+import com.mars.visualizer.dto.internal.TransectData;
 import com.mars.visualizer.dto.internal.WindFieldData;
 import com.mars.visualizer.dto.internal.WindRoseData;
 import com.mars.visualizer.dto.internal.ZonalMeanData;
 import com.mars.visualizer.exception.NetCDFException;
 import com.mars.visualizer.exception.ResourceNotFoundException;
 import com.mars.visualizer.exception.ValidationException;
+import com.mars.visualizer.util.GreatCircle;
 import com.mars.visualizer.util.MarsConstants;
 
 import lombok.extern.slf4j.Slf4j;
@@ -56,6 +58,34 @@ public class NetCDFReaderService {
 	private static final String COORD_LON = "lon";
 	private static final String VAR_UU    = "UU";
 	private static final String VAR_VV    = "VV";
+	private static final String VAR_MTSF  = "MTSF";
+
+	/** Seuil physique (K) au-dessus duquel une température de SURFACE est impossible
+	 *  sur Mars (max réel ~300 K au point subsolaire d'été). Sert à détecter et
+	 *  compenser temporairement le biais MTSF de la pipeline (voir ci-dessous). */
+	private static final float MTSF_MAX_PLAUSIBLE_K = 350f;
+	private static volatile boolean mtsfBiasWarned = false;
+
+	/**
+	 * Correction TEMPORAIRE du biais MTSF. La pipeline GEM-Mars actuelle
+	 * (convert_dm_pm_to_nc.py) ajoute +273,15 K à une température de surface déjà
+	 * exprimée en kelvin, produisant des valeurs ~417-561 K impossibles. On
+	 * soustrait 273,15 K UNIQUEMENT aux valeurs physiquement impossibles
+	 * (&gt; {@value #MTSF_MAX_PLAUSIBLE_K} K) : les vraies températures martiennes
+	 * (&lt; ~300 K) ne sont jamais touchées, et la correction se désactive d'elle-même
+	 * dès que la pipeline sera corrigée en amont. À RETIRER une fois la source réparée.
+	 */
+	private float correctSurfaceTempBias(String variableName, float value) {
+		if (VAR_MTSF.equals(variableName) && !Float.isNaN(value) && value > MTSF_MAX_PLAUSIBLE_K) {
+			if (!mtsfBiasWarned) {
+				mtsfBiasWarned = true;
+				log.warn("Biais MTSF détecté ({} K, impossible sur Mars) : correction temporaire -273,15 K appliquée. "
+						+ "Corriger la pipeline en amont (convert_dm_pm_to_nc.py).", value);
+			}
+			return value - 273.15f;
+		}
+		return value;
+	}
 	private static final int WIND_SUBSAMPLE_STEP = 3;
 
 	private final DataPathConfig pathConfig;
@@ -177,8 +207,8 @@ public class NetCDFReaderService {
 			ucar.ma2.Index index = data.getIndex();
 			for (int lat = 0; lat < nLat; lat++) {
 				for (int lon = 0; lon < nLon; lon++) {
-					slice[lat][lon] = data.getFloat(
-						isSurface ? index.set(0, lat, lon) : index.set(0, 0, lat, lon));
+					slice[lat][lon] = correctSurfaceTempBias(variableName, data.getFloat(
+						isSurface ? index.set(0, lat, lon) : index.set(0, 0, lat, lon)));
 				}
 			}
 
@@ -216,7 +246,7 @@ public class NetCDFReaderService {
 			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
 			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
 			int      latIdx     = findNearestIndex(latitudes,  latitude);
-			int      lonIdx     = findNearestIndex(longitudes, longitude);
+			int      lonIdx     = findNearestLonIndex(longitudes, longitude);
 
 			log.debug("Indices les plus proches : latIdx={}, lonIdx={}", latIdx, lonIdx);
 
@@ -231,7 +261,7 @@ public class NetCDFReaderService {
 			ucar.ma2.Index index  = data.getIndex();
 			List<Float>    series = new ArrayList<>(nTime);
 			for (int t = 0; t < nTime; t++) {
-				series.add(data.getFloat(isSurface ? index.set(t, 0, 0) : index.set(t, 0, 0, 0)));
+				series.add(correctSurfaceTempBias(variableName, data.getFloat(isSurface ? index.set(t, 0, 0) : index.set(t, 0, 0, 0))));
 			}
 
 			log.debug("Série temporelle extraite : {} valeurs (surface={})", series.size(), isSurface);
@@ -273,8 +303,8 @@ public class NetCDFReaderService {
 				float[][] frame = new float[nLat][nLon];
 				for (int lat = 0; lat < nLat; lat++) {
 					for (int lon = 0; lon < nLon; lon++) {
-						frame[lat][lon] = data.getFloat(
-							isSurface ? index.set(t, lat, lon) : index.set(t, 0, lat, lon));
+						frame[lat][lon] = correctSurfaceTempBias(variableName, data.getFloat(
+							isSurface ? index.set(t, lat, lon) : index.set(t, 0, lat, lon)));
 					}
 				}
 				frames.add(frame);
@@ -317,7 +347,7 @@ public class NetCDFReaderService {
 			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
 			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
 			int      latIdx     = findNearestIndex(latitudes,  latitude);
-			int      lonIdx     = findNearestIndex(longitudes, longitude);
+			int      lonIdx     = findNearestLonIndex(longitudes, longitude);
 
 			String   altDimName = variable.getDimension(1).getShortName();
 			double[] altCoords  = extractCoordinates(ncfile, altDimName);
@@ -367,7 +397,7 @@ public class NetCDFReaderService {
 			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
 			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
 			int      latIdx     = findNearestIndex(latitudes,  latitude);
-			int      lonIdx     = findNearestIndex(longitudes, longitude);
+			int      lonIdx     = findNearestLonIndex(longitudes, longitude);
 
 			String   altDimName = variable.getDimension(1).getShortName();
 			double[] altCoords  = extractCoordinates(ncfile, altDimName);
@@ -427,7 +457,7 @@ public class NetCDFReaderService {
 			double    actualFixed;
 
 			if (MarsConstants.CROSS_SECTION_MERIDIONAL.equals(type)) {
-				int lonIdx = findNearestIndex(longitudes, fixedCoordinate);
+				int lonIdx = findNearestLonIndex(longitudes, fixedCoordinate);
 				actualFixed = longitudes[lonIdx];
 
 				ucar.ma2.Array data  = readSection(variable,
@@ -557,7 +587,7 @@ public class NetCDFReaderService {
 			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
 			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
 			int      latIdx     = findNearestIndex(latitudes,  latitude);
-			int      lonIdx     = findNearestIndex(longitudes, longitude);
+			int      lonIdx     = findNearestLonIndex(longitudes, longitude);
 
 			int nTime = uuVar.getShape()[0];
 
@@ -624,19 +654,21 @@ public class NetCDFReaderService {
 
 			for (int t = 0; t < nTime; t++) {
 				for (int s = 0; s < nSpatial; s++) {
-					double sum = 0;
-					int count = 0;
+					double sum = 0, wsum = 0;
 					for (int a = 0; a < nAvg; a++) {
 						int latIdx = isLatitude ? s : a;
 						int lonIdx = isLatitude ? a : s;
-						float val = data.getFloat(
-							isSurface ? index.set(t, latIdx, lonIdx) : index.set(t, 0, latIdx, lonIdx));
+						float val = correctSurfaceTempBias(variableName, data.getFloat(
+							isSurface ? index.set(t, latIdx, lonIdx) : index.set(t, 0, latIdx, lonIdx)));
 						if (!Float.isNaN(val)) {
-							sum += val;
-							count++;
+							// Moyenne MÉRIDIENNE (sur la latitude) pondérée par cos(lat) ;
+							// moyenne ZONALE (sur la longitude) = poids uniformes (iso-aire).
+							double w = isLatitude ? 1.0 : Math.max(0.0, Math.cos(Math.toRadians(latitudes[latIdx])));
+							sum  += w * val;
+							wsum += w;
 						}
 					}
-					hovmoller[t][s] = count > 0 ? (float) (sum / count) : Float.NaN;
+					hovmoller[t][s] = wsum > 0 ? (float) (sum / wsum) : Float.NaN;
 				}
 			}
 
@@ -710,6 +742,92 @@ public class NetCDFReaderService {
 		} catch (IOException e) {
 			throw new NetCDFException(e, "error.netcdf.read.zonalmean", filename);
 		}
+	}
+
+	/**
+	 * Extrait un transect grand-cercle : coupe verticale le long de la
+	 * géodésique reliant (lat1, lon1) à (lat2, lon2).
+	 * Lecture partielle : {@code 1×nAlt×nLat×nLon} (même coût qu'une moyenne
+	 * zonale), puis échantillonnage au plus proche voisin sur la grille native.
+	 * Réservé aux variables 4D.
+	 *
+	 * @return TransectData record typé, {@code data[nAlt][nPoints]}
+	 */
+	public TransectData extractTransect(String filename, String variableName, int timeIndex,
+			double lat1, double lon1, double lat2, double lon2, int nPoints) {
+
+		log.info("Extraction transect : fichier={}, variable={}, time={}, A=({}, {}), B=({}, {}), n={}",
+				filename, variableName, timeIndex, lat1, lon1, lat2, lon2, nPoints);
+
+		try (NetcdfFile ncfile = openMeanFile(filename)) {
+			ucar.nc2.Variable variable = requireVariable(ncfile, variableName);
+
+			int[] varShape = variable.getShape();
+			if (varShape.length == 3) {
+				throw new ValidationException("error.netcdf.surface.no.transect", variableName);
+			}
+
+			int nAlt = varShape[1];
+			int nLat = varShape[2];
+			int nLon = varShape[3];
+
+			double[] latitudes  = extractCoordinates(ncfile, COORD_LAT);
+			double[] longitudes = extractCoordinates(ncfile, COORD_LON);
+			String   altDimName = variable.getDimension(1).getShortName();
+			double[] altCoords  = extractCoordinates(ncfile, altDimName);
+
+			ucar.ma2.Array data = readSection(variable,
+				new int[]{timeIndex, 0, 0, 0}, new int[]{1, nAlt, nLat, nLon});
+			ucar.ma2.Index index = data.getIndex();
+
+			GreatCircle.Point[] path = GreatCircle.sample(lat1, lon1, lat2, lon2, nPoints);
+
+			float[][] section   = new float[nAlt][nPoints];
+			double[]  distances = new double[nPoints];
+			double[]  lats      = new double[nPoints];
+			double[]  lons      = new double[nPoints];
+
+			for (int p = 0; p < nPoints; p++) {
+				GreatCircle.Point pt = path[p];
+				int latIdx = findNearestIndex(latitudes, pt.lat());
+				int lonIdx = findNearestLonIndex(longitudes, pt.lon());
+				for (int a = 0; a < nAlt; a++) {
+					section[a][p] = data.getFloat(index.set(0, a, latIdx, lonIdx));
+				}
+				distances[p] = pt.distanceKm();
+				lats[p]      = pt.lat();
+				lons[p]      = pt.lon();
+			}
+
+			log.info("Transect extrait : {}x{} ({} km)", nAlt, nPoints,
+					Math.round(distances[nPoints - 1]));
+			return new TransectData(section, altCoords, distances, lats, lons);
+
+		} catch (IOException e) {
+			throw new NetCDFException(e, "error.netcdf.read.transect", filename);
+		}
+	}
+
+	/**
+	 * Index de longitude le plus proche en distance CIRCULAIRE (360° = 0°).
+	 * Gère les deux conventions de fichiers ([-180, 180] et [0, 360]) et la
+	 * couture : 179° et -180° sont à 1° l'un de l'autre, pas à 359°.
+	 */
+	int findNearestLonIndex(double[] lons, double target) {
+		if (lons == null || lons.length == 0) {
+			throw new NetCDFException("error.netcdf.coordinates.not.found");
+		}
+		int    bestIdx  = 0;
+		double bestDist = Double.MAX_VALUE;
+		for (int i = 0; i < lons.length; i++) {
+			double d = Math.abs(lons[i] - target) % 360.0;
+			if (d > 180.0) d = 360.0 - d;
+			if (d < bestDist) {
+				bestDist = d;
+				bestIdx  = i;
+			}
+		}
+		return bestIdx;
 	}
 
 	/**

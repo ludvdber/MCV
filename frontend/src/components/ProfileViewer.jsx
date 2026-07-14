@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import Plotly from 'plotly.js-dist-min';
+import Plotly, { renderPlot } from '../plotlyBundle';
 import { Paper, Typography, Box } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { VARIABLES_MAP } from './VariableSelector';
@@ -16,11 +16,18 @@ const COLORS = ['#38bdf8', '#e05a2b', '#a855f7', '#4ade80'];
  * @param {string|null} variableCode  - variable code for X axis title
  * @param {string} datasetLabel       - dataset display label
  */
-function ProfileViewer({ profiles, variableCode, datasetLabel, onExportCSV = null, noExportMenu = false, externalPlotRef = null }) {
+function ProfileViewer({ profiles, variableCode, datasetLabel, onExportCSV = null, noExportMenu = false, compact = false, externalPlotRef = null }) {
   const { t, i18n } = useTranslation();
   const { fontColor, gridColor, paperBg, plotBg, titleSize, margin: responsiveMargin } = usePlotlyTheme();
   const internalPlotRef = useRef(null);
   const plotRef = externalPlotRef ?? internalPlotRef;
+
+  // Purge Plotly uniquement au demontage : les mises a jour passent par
+  // Plotly.react (pas de destruction/recreation du graphe a chaque prop).
+  useEffect(() => {
+    const el = plotRef.current;
+    return () => { if (el) Plotly.purge(el); };
+  }, [plotRef]);
 
   useEffect(() => {
     const el = plotRef.current;
@@ -47,36 +54,34 @@ function ProfileViewer({ profiles, variableCode, datasetLabel, onExportCSV = nul
       ? `${datasetLabel || ''} — ${variableLabel} — Lat ${profiles[0].latitude}°, Lon ${profiles[0].longitude}°`
       : `${datasetLabel || ''} — ${variableLabel} — ${t('page.profile.title')}`;
 
-    Plotly.newPlot(el, traces, {
-      title: { text: titleText, font: { size: titleSize, color: fontColor } },
+    renderPlot(el, traces, {
+      title: compact ? undefined : { text: titleText, font: { size: titleSize, color: fontColor } },
       font: { color: fontColor },
       xaxis: {
-        title: { text: `${variableLabel} (${unit})` },
+        title: compact ? undefined : { text: `${variableLabel} (${unit})` },
         color: fontColor,
         gridcolor: gridColor,
         zeroline: false,
       },
       yaxis: {
-        title: { text: t('viz.altitude') },
+        title: compact ? undefined : { text: t('viz.altitude') },
         color: fontColor,
         gridcolor: gridColor,
         zeroline: false,
         autorange: true,
       },
-      legend: single ? undefined : {
+      legend: (single || compact) ? undefined : {
         font: { color: fontColor, size: 12 },
         bgcolor: paperBg,
       },
-      margin: responsiveMargin,
+      margin: compact ? { l: 42, r: 8, t: 8, b: 26 } : responsiveMargin,
       paper_bgcolor: paperBg,
       plot_bgcolor: plotBg,
     }, {
       responsive: true,
       displaylogo: false,
     });
-
-    return () => Plotly.purge(el);
-  }, [profiles, variableCode, datasetLabel, i18n.language, fontColor, gridColor, paperBg, plotBg, titleSize, responsiveMargin]);
+  }, [profiles, variableCode, datasetLabel, compact, i18n.language, fontColor, gridColor, paperBg, plotBg, titleSize, responsiveMargin]);
 
   if (!profiles || profiles.length === 0) {
     return (
@@ -98,10 +103,10 @@ function ProfileViewer({ profiles, variableCode, datasetLabel, onExportCSV = nul
           <ExportMenu plotRef={plotRef} filename={exportFilename} onCSV={onExportCSV} />
         </Box>
       )}
-      <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        <div ref={plotRef} role="img" aria-label={t('viz.aria.profile')} style={{ width: '100%' }} />
+      <Paper elevation={compact ? 0 : 2} sx={{ borderRadius: 2, overflow: 'hidden', ...(compact ? { bgcolor: 'transparent', backgroundImage: 'none' } : {}) }}>
+        <div ref={plotRef} role="img" aria-label={t('viz.aria.profile')} style={{ width: '100%', height: compact ? 300 : 450 }} />
       </Paper>
-      {stats && <StatsBar stats={stats} />}
+      {!compact && stats && <StatsBar stats={stats} />}
     </Box>
   );
 }

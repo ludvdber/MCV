@@ -3,6 +3,7 @@ package com.mars.visualizer.service;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -99,6 +100,15 @@ public class CatalogService {
         } catch (IOException e) {
             log.error("Erreur lors du scan du répertoire MEAN : {}", e.getMessage(), e);
         }
+
+        // Ordre stable multi-années : trié par (MY, Ls) PARSÉS depuis les
+        // métadonnées, pas l'ordre alphabétique du nom de fichier. Les noms
+        // sortent de la pipeline sans zéro-padding (Ls0_30, Ls120_150…) et se
+        // trieraient donc dans le désordre lexical (Ls0, Ls120, Ls30…). Les
+        // valeurs non parsables (null) sont reléguées en fin de liste.
+        built.sort(Comparator
+                .comparing(DatasetMetadata::marsYear, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(DatasetMetadata::lsStart, Comparator.nullsLast(Comparator.naturalOrder())));
 
         this.catalog = Collections.unmodifiableList(built);
         log.info("Catalogue initialisé : {} datasets trouvés", catalog.size());

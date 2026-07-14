@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import Plotly from 'plotly.js-dist-min';
+import Plotly from '../plotlyBundle';
 import { IconButton, Tooltip, Box } from '@mui/material';
 import { Fullscreen as FullscreenIcon, FullscreenExit as ExitIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';

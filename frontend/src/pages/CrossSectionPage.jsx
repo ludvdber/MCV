@@ -4,7 +4,7 @@ import {
   Alert, Box, FormControl, InputLabel, Select, MenuItem, TextField, Chip, LinearProgress,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
-import { Functions as LogIcon } from '@mui/icons-material';
+import { Functions as LogIcon, BlurOn as SmoothIcon } from '@mui/icons-material';
 import { getCrossSection, exportCrossSectionCSV } from '../services/api';
 import DatasetSelector from '../components/DatasetSelector';
 import VariableSelector from '../components/VariableSelector';
@@ -48,6 +48,7 @@ function CrossSectionPage() {
   const [csType, setCsType] = useState('meridional');
   const [colorscale, setColorscale] = useState('auto');
   const [logScale, setLogScale] = useState(false);
+  const [smooth, setSmooth] = useState(true);
 
   const isSurfaceVariable = checkIsSurface(selectedVariable);
   const fixedCoordinate = csType === 'meridional' ? selectedLongitude : selectedLatitude;
@@ -172,7 +173,10 @@ function CrossSectionPage() {
             {loading ? <CircularProgress size={20} color="inherit" /> : t('page.crosssection.button')}
           </Button>
           {csData && (
-            <VisuToggle value={logScale} onChange={setLogScale} icon={<LogIcon />} title={t('common.toggleLog')}>{'Log\u2081\u2080'}</VisuToggle>
+            <>
+              <VisuToggle value={logScale} onChange={setLogScale} icon={<LogIcon />} title={t('common.toggleLog')}>{'Log\u2081\u2080'}</VisuToggle>
+              <VisuToggle value={smooth} onChange={setSmooth} icon={<SmoothIcon />} title={t('common.toggleSmooth')}>{t('common.toggleSmooth')}</VisuToggle>
+            </>
           )}
           {isDirty && (
             <Chip label={t('page.crosssection.dirty')} color="warning" size="small" />
@@ -210,6 +214,7 @@ function CrossSectionPage() {
                   colorscaleName={resolvedColorscale.name}
                   reverseColorscale={resolvedColorscale.reverse}
                   logScale={logScale}
+                  smooth={smooth}
                   noExportMenu
                 />
               </Box>

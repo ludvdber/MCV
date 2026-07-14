@@ -23,7 +23,9 @@ import { useTranslation } from 'react-i18next';
  * @param {React.RefObject} plotRef - ref to the Plotly div
  * @param {Function} onDrillDown - callback({ type, lat, lon }) when user picks an action
  */
-export default function DrillDownMenu({ plotRef, onDrillDown }) {
+/** @param {string[]} hiddenTypes — vues a ne pas proposer (ex. vues temporelles
+ *  sur un dataset INDIVIDUAL, qui n'a pas de dimension temps) */
+export default function DrillDownMenu({ plotRef, onDrillDown, hiddenTypes = [] }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [clickData, setClickData] = useState(null);
@@ -35,7 +37,9 @@ export default function DrillDownMenu({ plotRef, onDrillDown }) {
     placement: 'bottom-start',
     middleware: [offset(8), flip(), shift({ padding: 8 })],
     whileElementsMounted: autoUpdate,
-    elements: { reference: virtualRef.current },
+    // Pas de `elements: { reference: virtualRef.current }` : lire une ref au
+    // rendu viole react-hooks/refs, et refs.setReference() est de toute facon
+    // appele au clic AVANT chaque ouverture du menu.
   });
 
   const dismiss = useDismiss(context);
@@ -94,6 +98,10 @@ export default function DrillDownMenu({ plotRef, onDrillDown }) {
     setIsOpen(false);
   }, [clickData, onDrillDown]);
 
+  // Callback ref : refs.setFloating (floating-ui) n'est lu qu'a l'attachement
+  // du noeud, pas au rendu (react-hooks/refs traite `refs` comme une ref).
+  const setFloating = useCallback((node) => { refs.setFloating(node); }, [refs]);
+
   if (!isOpen || !clickData) return null;
 
   const actions = [
@@ -101,12 +109,14 @@ export default function DrillDownMenu({ plotRef, onDrillDown }) {
     { type: 'profile', icon: ProfileIcon, label: t('drilldown.profile') },
     { type: 'crosssection', icon: CrossSectionIcon, label: t('drilldown.crosssection') },
     { type: 'temporalprofile', icon: TemporalProfileIcon, label: t('drilldown.temporalprofile') },
-  ];
+  ].filter(a => !hiddenTypes.includes(a.type));
+
+  if (actions.length === 0) return null;
 
   return (
     <FloatingPortal>
       <Paper
-        ref={refs.setFloating}
+        ref={setFloating}
         style={floatingStyles}
         {...getFloatingProps()}
         elevation={8}

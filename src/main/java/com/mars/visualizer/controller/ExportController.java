@@ -190,6 +190,7 @@ public class ExportController extends AbstractDataController {
 			@RequestParam(defaultValue = "0") int time,
 			@RequestParam(defaultValue = "0") int altitude) {
 
+		requireDistinctDatasets(datasetA, datasetB);
 		var resolvedA = resolveDataset(datasetA, time);
 		var resolvedB = resolveDataset(datasetB, time);
 		validationService.validateTimestep(resolvedA.time());

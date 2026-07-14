@@ -52,7 +52,7 @@ public class SliceController extends AbstractDataController {
         SliceData sliceData = netcdfService.extractSlice2DWithCoords(
                 resolved.filename(), variable, time, altitude);
 
-        StatsResult stats    = StatsCalculator.calculateStats(sliceData.data());
+        StatsResult stats    = StatsCalculator.calculateStatsWeighted(sliceData.data(), sliceData.latitudes());
         Double altitudeValue = netcdfService.extractAltitudeValue(resolved.filename(), variable, altitude);
 
         var response = new SliceResponse(

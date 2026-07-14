@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import Plotly from 'plotly.js-dist-min';
+import Plotly, { renderPlot } from '../plotlyBundle';
 import { Paper, Typography, Box } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { VARIABLES_MAP } from './VariableSelector';
@@ -17,11 +17,18 @@ import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
  * @param {string|null} variableCode - code variable pour la colorbar
  * @param {boolean}     logScale     - afficher l'echelle en log10 (pour variables a faibles valeurs)
  */
-function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colorscaleName, reverseColorscale, customZMin, customZMax, onExportCSV = null, noExportMenu = false, externalPlotRef = null, logScale = false }) {
+function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colorscaleName, reverseColorscale, customZMin, customZMax, onExportCSV = null, noExportMenu = false, compact = false, externalPlotRef = null, logScale = false, smooth = true }) {
   const { t, i18n } = useTranslation();
   const { fontColor, paperBg, plotBg, titleSize, margin: responsiveMargin } = usePlotlyTheme();
   const internalPlotRef = useRef(null);
   const plotRef = externalPlotRef ?? internalPlotRef;
+
+  // Purge Plotly uniquement au demontage : les mises a jour passent par
+  // Plotly.react (pas de destruction/recreation du graphe a chaque prop).
+  useEffect(() => {
+    const el = plotRef.current;
+    return () => { if (el) Plotly.purge(el); };
+  }, [plotRef]);
 
   useEffect(() => {
     const el = plotRef.current;
@@ -34,7 +41,7 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
 
     const useRdBu = RDBU_VARIABLES.includes(variableCode);
     const finalColorscale = colorscaleName || (useRdBu ? 'RdBu' : 'Viridis');
-    const finalReverse = reverseColorscale != null ? reverseColorscale : useRdBu;
+    const finalReverse = reverseColorscale ?? false; // RdBu Plotly est deja bleu(bas)->rouge(haut)
 
     const isMeridional = type === 'meridional';
     const xLabel = isMeridional ? t('viz.latitude') : t('viz.longitude');
@@ -63,7 +70,7 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
       hoverTemplate = `${isMeridional ? t('viz.hover_lat') : t('viz.hover_lon')}: %{x}°<br>${t('viz.hover_alt')}: %{y:.1f} km<br>log\u2081\u2080: %{z:.3f}<br>${t('viz.hover_value')}: %{customdata:.6g} ${unit}<extra></extra>`;
     }
 
-    Plotly.newPlot(el, [{
+    renderPlot(el, [{
       type: 'heatmap',
       x: horizontalCoords,
       y: altitudes,
@@ -74,8 +81,9 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
         ? (logZMin != null ? { zmin: logZMin, zmax: logZMax } : {})
         : { ...(customZMin != null ? { zmin: customZMin } : {}), ...(customZMax != null ? { zmax: customZMax } : {}) }),
       ...(logScale ? { customdata: data } : {}),
-      zsmooth: 'best',
+      zsmooth: smooth ? 'best' : false,
       connectgaps: true,
+      showscale: !compact,
       colorbar: {
         title: {
           text: logScale ? `log\u2081\u2080(${variableLabel})` : `${variableLabel} (${unit})`,
@@ -90,25 +98,25 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
       },
       hovertemplate: hoverTemplate,
     }], {
-      title: {
+      title: compact ? undefined : {
         text: `${datasetLabel || ''} — ${variableLabel} — ${fixedLabel}`,
         font: { size: titleSize, color: fontColor }
       },
       font: { color: fontColor },
       xaxis: {
-        title: { text: xLabel },
+        title: compact ? undefined : { text: xLabel },
         color: fontColor,
         showgrid: false,
         zeroline: false
       },
       yaxis: {
-        title: { text: t('viz.altitude') },
+        title: compact ? undefined : { text: t('viz.altitude') },
         color: fontColor,
         showgrid: false,
         zeroline: false,
         autorange: true
       },
-      margin: { ...responsiveMargin, r: 120 },
+      margin: compact ? { l: 42, r: 8, t: 8, b: 26 } : { ...responsiveMargin, r: 120 },
       paper_bgcolor: paperBg,
       plot_bgcolor: plotBg
     }, {
@@ -116,9 +124,7 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
       displaylogo: false,
       modeBarButtonsToRemove: ['lasso2d', 'select2d']
     });
-
-    return () => Plotly.purge(el);
-  }, [crossSectionData, variableCode, datasetLabel, colorscaleName, reverseColorscale, customZMin, customZMax, logScale, i18n.language, fontColor, paperBg, plotBg, titleSize, responsiveMargin]);
+  }, [crossSectionData, variableCode, datasetLabel, colorscaleName, reverseColorscale, customZMin, customZMax, logScale, smooth, compact, i18n.language, fontColor, paperBg, plotBg, titleSize, responsiveMargin]);
 
   if (!crossSectionData) {
     return (
@@ -140,10 +146,10 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
           <ExportMenu plotRef={plotRef} filename={exportFilename} onCSV={onExportCSV} />
         </Box>
       )}
-      <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        <div ref={plotRef} role="img" aria-label={t('viz.aria.crosssection')} style={{ width: '100%' }} />
+      <Paper elevation={compact ? 0 : 2} sx={{ borderRadius: 2, overflow: 'hidden', ...(compact ? { bgcolor: 'transparent', backgroundImage: 'none' } : {}) }}>
+        <div ref={plotRef} role="img" aria-label={t('viz.aria.crosssection')} style={{ width: '100%', height: compact ? 300 : 450 }} />
       </Paper>
-      <StatsBar stats={stats} />
+      {!compact && <StatsBar stats={stats} />}
     </Box>
   );
 }

@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import Plotly from 'plotly.js-dist-min';
+import Plotly, { renderPlot } from '../plotlyBundle';
 import { Paper, Typography, Box } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { VARIABLES_MAP } from './VariableSelector';
@@ -7,6 +7,7 @@ import ExportMenu from './ExportMenu';
 import StatsBar from './StatsBar';
 import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
 import { buildLocationTrace } from '../data/marsLocations';
+import { upsampleLatLonGrid, nativeStep } from '../utils/gridInterpolation';
 
 /**
  * Heatmap de difference entre deux datasets (A - B).
@@ -15,17 +16,31 @@ import { buildLocationTrace } from '../data/marsLocations';
  * @param {Object|null} differenceData - { data[][], latitudes[], longitudes[],
  *   datasetA, datasetB, variable, stats }
  */
-function DifferenceViewer({ differenceData, variableCode, datasetLabelA, datasetLabelB, noExportMenu = false, externalPlotRef = null, onCSV = null, colorscaleName = 'RdBu', reverseColorscale = true, customZMin = null, customZMax = null, logScale = false, showLocations = false, showSurface = false }) {
+function DifferenceViewer({ differenceData, variableCode, datasetLabelA, datasetLabelB, noExportMenu = false, compact = false, externalPlotRef = null, onCSV = null, colorscaleName = 'RdBu', reverseColorscale = false, customZMin = null, customZMax = null, logScale = false, showLocations = false, showSurface = false, smooth = true, interpStep = 0 }) {
   const { t, i18n } = useTranslation();
   const { fontColor, gridColor, paperBg, plotBg, titleSize, margin: responsiveMargin } = usePlotlyTheme();
   const internalPlotRef = useRef(null);
   const plotRef = externalPlotRef ?? internalPlotRef;
 
+  // Purge Plotly uniquement au demontage : les mises a jour passent par
+  // Plotly.react (pas de destruction/recreation du graphe a chaque prop).
+  useEffect(() => {
+    const el = plotRef.current;
+    return () => { if (el) Plotly.purge(el); };
+  }, [plotRef]);
+
   useEffect(() => {
     const el = plotRef.current;
     if (!el || !differenceData) return;
 
-    const { data, latitudes, longitudes, datasetA, datasetB, stats } = differenceData;
+    const { datasetA, datasetB, stats } = differenceData;
+    // Sur-echantillonnage optionnel (les points crees sont marques via `text`).
+    const grid = upsampleLatLonGrid(
+      differenceData.data, differenceData.latitudes, differenceData.longitudes,
+      interpStep, t('viz.interpolated'),
+    );
+    const { data, latitudes, longitudes } = grid;
+    const interpSuffix = grid.text ? ' %{text}' : '';
     const varInfo = VARIABLES_MAP.get(variableCode);
     const variableLabel = varInfo ? t(`variable.${variableCode}`) : variableCode;
     const unit = varInfo?.unit || '';
@@ -77,38 +92,40 @@ function DifferenceViewer({ differenceData, variableCode, datasetLabelA, dataset
       z: displayData,
       x: longitudes,
       y: latitudes,
-      zsmooth: 'best',
+      zsmooth: smooth ? 'best' : false,
       colorscale: colorscaleName,
       reversescale: reverseColorscale,
       zmin: zMin,
       zmax: zMax,
       opacity: showSurface ? 0.55 : 1,
+      ...(grid.text ? { text: grid.text } : {}),
+      showscale: !compact,
       colorbar: {
         title: { text: `${logScale ? 'log₁₀ ' : ''}Δ ${variableLabel} (${unit})`, font: { color: fontColor } },
         tickfont: { color: fontColor },
       },
-      hovertemplate: `${t('viz.hover_lat')}: %{y:.1f}°<br>${t('viz.hover_lon')}: %{x:.1f}°<br>Δ: %{z:.4g} ${unit}<extra></extra>`,
+      hovertemplate: `${t('viz.hover_lat')}: %{y:.1f}°<br>${t('viz.hover_lon')}: %{x:.1f}°<br>Δ: %{z:.4g} ${unit}${interpSuffix}<extra></extra>`,
     }];
 
     if (showLocations) traces.push(buildLocationTrace(longitudes));
 
     const layout = {
-      title: {
+      title: compact ? undefined : {
         text: `Δ ${variableLabel} — ${labelA} − ${labelB}`,
         font: { size: titleSize, color: fontColor },
       },
       font: { color: fontColor },
       xaxis: {
-        title: { text: t('viz.longitude') },
+        title: compact ? undefined : { text: t('viz.longitude') },
         color: fontColor,
         gridcolor: gridColor,
       },
       yaxis: {
-        title: { text: t('viz.latitude') },
+        title: compact ? undefined : { text: t('viz.latitude') },
         color: fontColor,
         gridcolor: gridColor,
       },
-      margin: responsiveMargin,
+      margin: compact ? { l: 42, r: 8, t: 8, b: 26 } : responsiveMargin,
       paper_bgcolor: paperBg,
       plot_bgcolor: plotBg,
     };
@@ -124,13 +141,11 @@ function DifferenceViewer({ differenceData, variableCode, datasetLabelA, dataset
       }];
     }
 
-    Plotly.newPlot(el, traces, layout, {
+    renderPlot(el, traces, layout, {
       responsive: true,
       displaylogo: false,
     });
-
-    return () => Plotly.purge(el);
-  }, [differenceData, variableCode, i18n.language, fontColor, gridColor, paperBg, plotBg, titleSize, responsiveMargin, colorscaleName, reverseColorscale, customZMin, customZMax, logScale, showLocations, showSurface]);
+  }, [differenceData, variableCode, compact, i18n.language, fontColor, gridColor, paperBg, plotBg, titleSize, responsiveMargin, colorscaleName, reverseColorscale, customZMin, customZMax, logScale, showLocations, showSurface, smooth, interpStep]);
 
   if (!differenceData) {
     return (
@@ -149,9 +164,25 @@ function DifferenceViewer({ differenceData, variableCode, datasetLabelA, dataset
           <ExportMenu plotRef={plotRef} filename={`mars_diff_${variableCode || 'plot'}`} onCSV={onCSV} />
         </Box>
       )}
-      <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        <div ref={plotRef} role="img" aria-label={t('viz.aria.difference')} style={{ width: '100%' }} />
+      <Paper elevation={compact ? 0 : 2} sx={{ borderRadius: 2, overflow: 'hidden', ...(compact ? { bgcolor: 'transparent', backgroundImage: 'none' } : {}) }}>
+        <div ref={plotRef} role="img" aria-label={t('viz.aria.difference')} style={{ width: '100%', height: compact ? 300 : 450 }} />
       </Paper>
+      {(() => {
+        const stepNative = nativeStep(differenceData.latitudes);
+        const interpApplied = !!(interpStep && stepNative && Math.round(stepNative / interpStep) > 1);
+        return interpApplied && (
+          <Box sx={{ mt: 0.5, px: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              {t('viz.gridCaption', {
+                step: Number(stepNative.toFixed(1)),
+                nlat: differenceData.latitudes.length,
+                nlon: differenceData.longitudes.length,
+                target: interpStep,
+              })}
+            </Typography>
+          </Box>
+        );
+      })()}
       <StatsBar stats={differenceData.stats} />
     </Box>
   );

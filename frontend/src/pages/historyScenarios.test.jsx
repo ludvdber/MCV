@@ -13,7 +13,8 @@ import { MemoryRouter, Routes, Route, useNavigate } from 'react-router-dom';
  */
 
 /* ── Neutralisation des dépendances lourdes (canvas / Plotly / tableaux) ──── */
-vi.mock('plotly.js-dist-min', () => ({
+vi.mock('../plotlyBundle', () => ({
+  renderPlot: vi.fn(() => Promise.resolve()),
   default: {
     newPlot: vi.fn(() => Promise.resolve()),
     react: vi.fn(() => Promise.resolve()),

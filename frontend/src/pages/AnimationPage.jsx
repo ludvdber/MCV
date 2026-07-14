@@ -4,7 +4,7 @@ import {
   Alert, Box, Chip, LinearProgress,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
-import { Place as PlaceIcon, Map as MapIcon, Functions as LogIcon } from '@mui/icons-material';
+import { Place as PlaceIcon, Map as MapIcon, Functions as LogIcon, BlurOn as SmoothIcon } from '@mui/icons-material';
 import { getAnimation } from '../services/api';
 import DatasetSelector from '../components/DatasetSelector';
 import VariableSelector from '../components/VariableSelector';
@@ -14,6 +14,7 @@ import ExportMenu from '../components/ExportMenu';
 import VisuToggle from '../components/VisuToggle';
 import PermalienButton from '../components/PermalienButton';
 import ColorscaleSelector from '../components/ColorscaleSelector';
+import InterpolationToggle from '../components/InterpolationToggle';
 import LocationsLegend from '../components/LocationsLegend';
 import ChartSkeleton from '../components/ChartSkeleton';
 import FullscreenButton from '../components/FullscreenButton';
@@ -48,6 +49,9 @@ function AnimationPage() {
   const [showSurface, setShowSurface] = useState(false);
   const [logScale, setLogScale] = useState(false);
   const [colorscale, setColorscale] = useState('auto');
+  // Defauts : lissage actif sur la grille native (interpolation en option).
+  const [smooth, setSmooth] = useState(true);
+  const [interpStep, setInterpStep] = useState(0);
 
   const {
     data: animationData, loading, error, isDirty, markDirty,
@@ -139,6 +143,8 @@ function AnimationPage() {
               <VisuToggle value={showLocations} onChange={setShowLocations} icon={<PlaceIcon />}>{t('common.toggleLocations')}</VisuToggle>
               <VisuToggle value={showSurface} onChange={setShowSurface} icon={<MapIcon />}>{t('common.toggleSurface')}</VisuToggle>
               <VisuToggle value={logScale} onChange={setLogScale} icon={<LogIcon />} title={t('common.toggleLog')}>{'Log\u2081\u2080'}</VisuToggle>
+              <VisuToggle value={smooth} onChange={setSmooth} icon={<SmoothIcon />} title={t('common.toggleSmooth')}>{t('common.toggleSmooth')}</VisuToggle>
+              <InterpolationToggle value={interpStep} onChange={setInterpStep} />
             </>
           )}
           {isDirty && (
@@ -185,6 +191,8 @@ function AnimationPage() {
                   colorscaleName={resolvedColorscale.name}
                   reverseColorscale={resolvedColorscale.reverse}
                   logScale={logScale}
+                  smooth={smooth}
+                  interpStep={interpStep}
                   noExportMenu
                 />
               </Box>

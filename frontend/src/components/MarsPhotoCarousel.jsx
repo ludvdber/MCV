@@ -85,10 +85,10 @@ function dedupe(all) {
 }
 
 /* ─── Image avec fallback progressif (large → medium → thumb) ─── */
+/* Monte avec key={photo.nasaId} : changer de photo remonte le composant et
+   reinitialise src sans effet de synchronisation (react-hooks v7). */
 function SmartImage({ photo, onLoad }) {
   const [src, setSrc] = useState(photo.url);
-
-  useEffect(() => { setSrc(photo.url); }, [photo.url]);
 
   const handleError = () => {
     if (src === photo.url)       { setSrc(photo.fallback1); return; }
@@ -116,17 +116,17 @@ function SmartImage({ photo, onLoad }) {
 ═══════════════════════════════════════════════════════════════ */
 export default function MarsPhotoCarousel() {
   const { t } = useTranslation();
-  const [photos,   setPhotos]   = useState([]);
+  /* Cache 6h lu a l'initialisation (pas de setState synchrone dans l'effet) */
+  const [photos,   setPhotos]   = useState(() => readCache() ?? []);
   const [current,  setCurrent]  = useState(0);
-  const [loaded,   setLoaded]   = useState(false);
+  const [loaded,   setLoaded]   = useState(photos.length > 0);
   const [paused,   setPaused]   = useState(false);
   const [imgReady, setImgReady] = useState(false);
   const timerRef = useRef(null);
 
-  /* ── Fetch avec cache 6h + AbortController pour cleanup ── */
+  /* ── Fetch (si le cache etait vide) + AbortController pour cleanup ── */
   useEffect(() => {
-    const cached = readCache();
-    if (cached?.length) { setPhotos(cached); setLoaded(true); return; }
+    if (photos.length) return undefined;
 
     const controller = new AbortController();
 
@@ -165,7 +165,7 @@ export default function MarsPhotoCarousel() {
     })();
 
     return () => controller.abort();
-  }, []);
+  }, [photos.length]);
 
   /* ── Auto-slide ── */
   const next = useCallback(() => {
@@ -214,7 +214,7 @@ export default function MarsPhotoCarousel() {
           opacity: imgReady ? 1 : 0,
           transition: 'opacity 0.6s ease',
         }}>
-          <SmartImage photo={photo} onLoad={() => setImgReady(true)} />
+          <SmartImage key={photo.nasaId} photo={photo} onLoad={() => setImgReady(true)} />
         </Box>
       )}
 

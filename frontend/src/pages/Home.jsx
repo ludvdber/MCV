@@ -2,7 +2,7 @@
  * Page d'accueil — Mars Climate Viewer.
  *
  * Sections :
- * 1. Hero       — titre gradient, DatasetSelector, Mars 3D, 2 CTA
+ * 1. Hero       — titre, sous-titre, description, 2 CTA, globe 3D saisissable
  * 2. Pourquoi ? — pull-quote + 3 raisons scientifiques
  * 3. Systeme solaire — R3F interactif (SolarSystem.jsx)
  * 4. Feature Showcase — 5 cartes d'acces direct aux vues
@@ -38,7 +38,6 @@ import { homeContent as homeContentDe } from '../content/home.de';
 const HOME_CONTENT = { fr: homeContentFr, en: homeContentEn, nl: homeContentNl, es: homeContentEs, de: homeContentDe };
 import { useMars } from '../context/MarsContext';
 import { useReveal } from '../hooks/useReveal';
-import DatasetSelector from '../components/DatasetSelector';
 import SolarSystem from '../components/SolarSystem';
 import MarsPhotoCarousel from '../components/MarsPhotoCarousel';
 import SectionHeader from '../components/home/SectionHeader';
@@ -54,8 +53,13 @@ const WHY_ICONS  = { water: WaterIcon, explore: ExploreIcon, science: ScienceIco
 /* FEAT_ICONS moved into FeatureCard component */
 
 /* ═══ Mars 3D — Hero ═══ */
-function RotatingMars() {
+/** Globe du hero : rotation lente continue + saisie a la souris avec inertie.
+ *  La saisie tourne le globe lui-meme (camera fixe) : la composition en
+ *  horizon bas reste intacte quoi que fasse l'utilisateur. */
+function HeroMars({ finePointer, reducedMotion }) {
   const groupRef = useRef();
+  const dragXRef = useRef(null);
+  const velRef = useRef(0);
   const { scene } = useGLTF('/mars.glb', false, true);
   useMemo(() => {
     scene.traverse(child => {
@@ -72,8 +76,47 @@ function RotatingMars() {
     const newBox = new THREE.Box3().setFromObject(scene);
     scene.position.sub(newBox.getCenter(new THREE.Vector3()));
   }, [scene]);
-  useFrame(({ clock }) => { if (groupRef.current) groupRef.current.rotation.y = clock.getElapsedTime() * 0.15; });
-  return <group ref={groupRef}><primitive object={scene} /></group>;
+  useFrame((_, delta) => {
+    const g = groupRef.current;
+    if (!g || dragXRef.current !== null) return;
+    g.rotation.y += (reducedMotion ? 0 : 0.11 * delta) + velRef.current;
+    velRef.current *= Math.exp(-3.2 * delta);
+  });
+  const onDown = (e) => {
+    if (!finePointer) return;
+    e.stopPropagation();
+    e.target.setPointerCapture?.(e.pointerId);
+    dragXRef.current = e.clientX;
+    velRef.current = 0;
+    document.body.style.cursor = 'grabbing';
+  };
+  const onMove = (e) => {
+    if (dragXRef.current === null || !groupRef.current) return;
+    const dx = e.clientX - dragXRef.current;
+    groupRef.current.rotation.y += dx * 0.005;
+    velRef.current = dx * 0.0012;
+    dragXRef.current = e.clientX;
+  };
+  const endDrag = () => {
+    dragXRef.current = null;
+    document.body.style.cursor = '';
+  };
+  return (
+    <group ref={groupRef}>
+      <primitive object={scene} />
+      {/* Zone de saisie invisible, legerement plus large que le globe */}
+      <mesh
+        onPointerDown={onDown}
+        onPointerMove={onMove}
+        onPointerUp={endDrag}
+        onPointerOver={() => { if (finePointer && dragXRef.current === null) document.body.style.cursor = 'grab'; }}
+        onPointerOut={() => { if (dragXRef.current === null) document.body.style.cursor = ''; }}
+      >
+        <sphereGeometry args={[1.05, 16, 16]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+    </group>
+  );
 }
 function MarsFallback() {
   const ref = useRef();
@@ -100,24 +143,35 @@ function ReasonCard({ reason, delay }) {
 
 /* ═══ Composant principal ═══ */
 function Home() {
-  const { datasets, catalogLoading, catalogError, selectedDataset, setSelectedDataset } = useMars();
+  const { catalogError } = useMars();
   const { t, i18n } = useTranslation();
   const lang = i18n.language.split('-')[0];
   const { hero, why, solarSystem, features, stats, timeline, belgium } = HOME_CONTENT[lang] || HOME_CONTENT.en;
   const sectionsRef = useRef(null);
   const scrollToSections = () => sectionsRef.current?.scrollIntoView({ behavior: 'smooth' });
 
+  /* Le globe n'est saisissable qu'a la souris : au doigt, la rotation
+     confisquerait le defilement de la page. */
+  const finePointer = useMemo(
+    () => window.matchMedia('(pointer: fine)').matches,
+    [],
+  );
+  const reducedMotion = useMemo(
+    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    [],
+  );
+
   return (
     <Box>
 
       {/* ══════════════════════════════════════════════════════════
-          1. HERO
+          1. HERO — titre, sous-titre, description, deux boutons, globe entier
       ══════════════════════════════════════════════════════════ */}
-      <Container maxWidth="lg" sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', py: 8 }}>
+      <Container maxWidth="lg" className="mcv-hero" component="section" sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', py: 8 }}>
         <Grid container spacing={4} alignItems="center">
           <Grid size={{ xs: 12, md: 7 }}>
             <Box {...useReveal(0)}>
-              <Typography variant="h3" sx={{
+              <Typography variant="h3" component="h1" sx={{
                 fontFamily: 'var(--font-display)', fontWeight: 700,
                 fontSize: { xs: '2rem', md: '3.5rem' },
                 background: 'linear-gradient(135deg, #e05a2b, #ff7043, #38bdf8)',
@@ -136,11 +190,7 @@ function Home() {
                 {hero.description}
               </Typography>
             </Box>
-            <Box {...useReveal(0.5)} sx={{ mt: 4, maxWidth: 500 }}>
-              <DatasetSelector datasets={datasets} value={selectedDataset} onChange={setSelectedDataset} disabled={catalogLoading} />
-              {catalogError && <Typography color="error" variant="caption" sx={{ mt: 1 }}>{t('home.backendError')} {catalogError}</Typography>}
-            </Box>
-            <Box {...useReveal(0.6)} sx={{ mt: 4, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <Box {...useReveal(0.5)} sx={{ mt: 4, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <Button variant="contained" size="large" component={Link} to="/explore" startIcon={<RocketIcon />} sx={{ px: 4, py: 1.2 }}>
                 {hero.cta}
               </Button>
@@ -148,15 +198,23 @@ function Home() {
                 {t('home.learnMore')}
               </Button>
             </Box>
+            {catalogError && (
+              <Typography color="error" variant="caption" sx={{ mt: 2, display: 'block' }}>
+                {t('home.backendError')} {catalogError}
+              </Typography>
+            )}
           </Grid>
           <Grid size={{ xs: 12, md: 5 }}>
-            <Box {...useReveal(0.3)} sx={{ height: { xs: 300, md: 450 } }} role="img" aria-label="3D rotating Mars globe">
-              <Canvas camera={{ position: [0, 0, 3], fov: 45 }}>
+            {/* Globe entier, saisissable a la souris (rotation avec inertie) */}
+            <Box aria-hidden sx={{ height: { xs: 300, md: 450 } }}>
+              <Canvas camera={{ position: [0, 0, 3], fov: 45 }} dpr={[1, 1.75]}>
                 <ambientLight intensity={0.8} />
                 <hemisphereLight args={['#ffd4a0', '#1a1a4a', 0.6]} />
                 <directionalLight position={[5, 2, 5]} intensity={2.5} color="#ffd4a0" />
                 <pointLight position={[-4, -2, -3]} intensity={0.5} color="#4488ff" />
-                <Suspense fallback={<MarsFallback />}><RotatingMars /></Suspense>
+                <Suspense fallback={<MarsFallback />}>
+                  <HeroMars finePointer={finePointer} reducedMotion={reducedMotion} />
+                </Suspense>
               </Canvas>
             </Box>
           </Grid>
@@ -227,11 +285,6 @@ function Home() {
             }>
               <SolarSystem />
             </Suspense>
-          </Box>
-          <Box {...useReveal(0.2)} sx={{ mt: 2, textAlign: 'center' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-              {t('home.solarCaption')}
-            </Typography>
           </Box>
         </Container>
       </Box>

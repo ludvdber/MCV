@@ -13,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.mars.visualizer.exception.ResourceNotFoundException;
 import com.mars.visualizer.exception.ValidationException;
 import com.mars.visualizer.service.CatalogService;
 import com.mars.visualizer.service.IndividualCatalogService;
@@ -86,13 +87,13 @@ class DatasetResolverTest {
         }
 
         @Test
-        @DisplayName("Dataset MEAN inexistant lève ValidationException")
+        @DisplayName("Dataset MEAN inexistant lève ResourceNotFoundException (404)")
         void datasetMeanInexistantLeveException() {
             when(catalogService.getFilenameById("nonexistent"))
                     .thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> resolver.resolveFilename("nonexistent"))
-                    .isInstanceOf(ValidationException.class);
+                    .isInstanceOf(ResourceNotFoundException.class);
         }
 
         @Test

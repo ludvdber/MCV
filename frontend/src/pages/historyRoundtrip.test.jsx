@@ -12,7 +12,8 @@ import { MemoryRouter, Routes, Route, useNavigate } from 'react-router-dom';
  */
 
 // Plotly et les viewers touchent au DOM/canvas : neutralisés pour jsdom.
-vi.mock('plotly.js-dist-min', () => ({
+vi.mock('../plotlyBundle', () => ({
+  renderPlot: vi.fn(() => Promise.resolve()),
   default: {
     newPlot: vi.fn(() => Promise.resolve()),
     react: vi.fn(() => Promise.resolve()),

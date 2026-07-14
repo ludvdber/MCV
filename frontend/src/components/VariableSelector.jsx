@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- composant + constantes colocalises (meme pattern qu'ExploreContext) */
 import { Autocomplete, TextField, Box, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 
@@ -14,16 +15,20 @@ import { useTranslation } from 'react-i18next';
  *
  * Exporte en constante nommee car reutilisee par AltitudeSelector et les pages.
  */
+// Unites alignees sur les metadonnees CF-1.10 des fichiers GEM-Mars
+// (attributs `units` / `standard_name`) : les traceurs sont des rapports de
+// melange EN MASSE (mass_fraction_of_..._in_air => kg/kg, sans dimension),
+// GZ est une altitude geopotentielle en m, MLOC un temps local en heures, etc.
 export const VARIABLES = [
   // Thermodynamiques (altitudeT, 103 niveaux)
   { code: 'TT',   unit: 'K',      category: 'Thermodynamiques', altitudeType: 'altitudeT' },
   { code: 'PX',   unit: 'Pa',     category: 'Thermodynamiques', altitudeType: 'altitudeT' },
-  { code: 'GZ',   unit: 'm2/s2',  category: 'Thermodynamiques', altitudeType: 'altitudeT' },
-  { code: 'H2O',  unit: 'ppmv',   category: 'Thermodynamiques', altitudeType: 'altitudeT' },
-  { code: 'CO2',  unit: 'ppmv',   category: 'Thermodynamiques', altitudeType: 'altitudeT' },
-  { code: 'O3',   unit: 'ppmv',   category: 'Thermodynamiques', altitudeType: 'altitudeT' },
-  { code: 'CO',   unit: 'ppmv',   category: 'Thermodynamiques', altitudeType: 'altitudeT' },
-  { code: 'T9',   unit: 'K',      category: 'Thermodynamiques', altitudeType: 'altitudeT' },
+  { code: 'GZ',   unit: 'm',      category: 'Thermodynamiques', altitudeType: 'altitudeT' },
+  { code: 'H2O',  unit: 'kg/kg',  category: 'Thermodynamiques', altitudeType: 'altitudeT' },
+  { code: 'CO2',  unit: 'kg/kg',  category: 'Thermodynamiques', altitudeType: 'altitudeT' },
+  { code: 'O3',   unit: 'kg/kg',  category: 'Thermodynamiques', altitudeType: 'altitudeT' },
+  { code: 'CO',   unit: 'kg/kg',  category: 'Thermodynamiques', altitudeType: 'altitudeT' },
+  { code: 'T9',   unit: 'kg/kg',  category: 'Thermodynamiques', altitudeType: 'altitudeT' },
   { code: 'DVM1', unit: 'kg/kg',  category: 'Thermodynamiques', altitudeType: 'altitudeT' },
   { code: 'DVM2', unit: 'kg/kg',  category: 'Thermodynamiques', altitudeType: 'altitudeT' },
   { code: 'DVM3', unit: 'kg/kg',  category: 'Thermodynamiques', altitudeType: 'altitudeT' },
@@ -34,17 +39,22 @@ export const VARIABLES = [
   { code: 'VV',   unit: 'm/s',    category: 'Dynamiques',       altitudeType: 'altitudeM' },
   // Surface (pas d'altitude)
   { code: 'P0',   unit: 'Pa',     category: 'Surface',          altitudeType: null },
-  { code: 'MLOC', unit: 'kg/m2',  category: 'Surface',          altitudeType: null },
+  { code: 'MLOC', unit: 'h',      category: 'Surface',          altitudeType: null },
   { code: 'MALO', unit: '-',      category: 'Surface',          altitudeType: null },
-  { code: 'MCZ',  unit: 'kg/m2',  category: 'Surface',          altitudeType: null },
-  { code: 'MH',   unit: 'pr-um',  category: 'Surface',          altitudeType: null },
+  { code: 'MCZ',  unit: '-',      category: 'Surface',          altitudeType: null },
+  { code: 'MH',   unit: 'm',      category: 'Surface',          altitudeType: null },
   { code: 'MTSF', unit: 'K',      category: 'Surface',          altitudeType: null },
   { code: 'MCO2', unit: 'kg/m2',  category: 'Surface',          altitudeType: null },
-  { code: 'MSN',  unit: 'kg/m2',  category: 'Surface',          altitudeType: null },
+  { code: 'MSN',  unit: 'um',     category: 'Surface',          altitudeType: null },
 ];
 
 /** Map code → variable pour lookup O(1) au lieu de Array.find() O(n) */
 export const VARIABLES_MAP = new Map(VARIABLES.map(v => [v.code, v]));
+
+// Pseudo-variable derivee cote client : vitesse du vent |V| = sqrt(UU² + VV²).
+// Presente dans la MAP (labels, unites) mais PAS dans le tableau VARIABLES :
+// elle n'existe pas dans les fichiers NetCDF et ne doit pas etre selectionnable.
+VARIABLES_MAP.set('WSP', { code: 'WSP', unit: 'm/s', category: 'Dynamiques', altitudeType: 'altitudeM', derivedOnly: true });
 
 /**
  * Selecteur de variable atmospherique avec groupement par categorie.

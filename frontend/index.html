@@ -8,16 +8,18 @@
     <title>Mars Climate Viewer — Interactive Mars Atmospheric Data Visualization</title>
     <meta name="description" content="Open-source interactive visualization platform for Mars atmospheric data from the GEM-Mars climate model. Explore temperature, winds, pressure, and dust across 103 altitude levels." />
     <meta name="keywords" content="Mars, atmosphere, climate, GEM-Mars, visualization, NetCDF, IASB-BIRA, planetary science, open source, atmospheric data, heatmap, wind rose, cross-section" />
-    <meta name="author" content="Ludovic" />
+    <meta name="author" content="Ludovic Vanden Berghe" />
     <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://mars.ludovdb.be/" />
 
     <!-- Open Graph (Facebook, LinkedIn, Discord, WhatsApp) -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Mars Climate Viewer" />
     <meta property="og:description" content="Open-source platform to explore Mars atmospheric data — temperature, winds, pressure, dust. 10+ interactive visualization types from the GEM-Mars climate model." />
-    <meta property="og:image" content="/logo.webp" />
+    <meta property="og:image" content="https://mars.ludovdb.be/logo.webp" />
     <meta property="og:image:width" content="512" />
     <meta property="og:image:height" content="512" />
+    <meta property="og:url" content="https://mars.ludovdb.be/" />
     <meta property="og:site_name" content="Mars Climate Viewer" />
     <meta property="og:locale" content="fr_FR" />
     <meta property="og:locale:alternate" content="en_US" />
@@ -29,7 +31,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Mars Climate Viewer" />
     <meta name="twitter:description" content="Interactive visualization of Mars atmospheric data — GEM-Mars climate model. Open source." />
-    <meta name="twitter:image" content="/logo.webp" />
+    <meta name="twitter:image" content="https://mars.ludovdb.be/logo.webp" />
 
     <!-- Structured Data (JSON-LD) -->
     <script type="application/ld+json">
@@ -38,13 +40,15 @@
       "@type": "WebApplication",
       "name": "Mars Climate Viewer",
       "alternateName": "MCV",
+      "url": "https://mars.ludovdb.be/",
+      "inLanguage": ["fr", "en", "nl", "de", "es"],
       "description": "Open-source interactive visualization platform for Mars atmospheric data from the GEM-Mars climate model.",
       "applicationCategory": "ScienceApplication",
       "operatingSystem": "Web",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
       "author": {
         "@type": "Person",
-        "name": "Ludovic",
+        "name": "Ludovic Vanden Berghe",
         "url": "https://github.com/ludvdber"
 
       },
@@ -71,6 +75,10 @@
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <h1>Mars Climate Viewer</h1>
+      <p>Interactive visualization of Mars atmospheric data from the GEM-Mars climate model (BIRA-IASB): temperature, winds, dust and water vapour as maps, cross-sections and animations. This application requires JavaScript.</p>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

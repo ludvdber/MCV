@@ -35,4 +35,13 @@ export default defineConfig([
       }],
     },
   },
+  {
+    // Les contextes co-localisent volontairement Provider + hook (useMars,
+    // useThemeMode, useToast) : c'est le pattern React standard, importe
+    // partout dans l'app. La regle ne concerne que le confort du Fast
+    // Refresh (rechargement complet du module au lieu de HMR fin), pas un
+    // bug potentiel — on la coupe uniquement pour ce dossier.
+    files: ['src/context/*.jsx'],
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
 ])

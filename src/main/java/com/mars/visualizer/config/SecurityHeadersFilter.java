@@ -30,6 +30,10 @@ public class SecurityHeadersFilter implements Filter {
             httpResponse.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
             httpResponse.setHeader("Content-Security-Policy",
                     "default-src 'self'; "
+                    // NB : pas de worker-src blob: — troika-three-text (etiquettes du
+                    // systeme solaire) est configure SANS worker (configureTextBuilder,
+                    // SolarSystem.jsx) car son worker importe un second blob soumis a
+                    // script-src ; la politique reste donc strictement inchangee.
                     + "script-src 'self' 'wasm-unsafe-eval'; "
                     + "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
                     + "font-src 'self' https://fonts.gstatic.com; "

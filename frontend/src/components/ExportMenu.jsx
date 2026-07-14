@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import Plotly from 'plotly.js-dist-min';
 import { useTranslation } from 'react-i18next';
 import {
   Button, Menu, MenuItem, ListItemIcon, ListItemText, Divider,
@@ -13,18 +12,28 @@ import {
   KeyboardArrowDown as ArrowIcon,
   FileDownload as DownloadIcon,
   Storage as NetCDFIcon,
+  Article as PublicationIcon,
+  GridOn as GridIcon,
+  Movie as VideoIcon,
 } from '@mui/icons-material';
+import { exportPlotImage } from '../utils/plotExport';
 
 /**
  * Menu dropdown d'export pour les graphiques Plotly.
- * Propose PNG haute resolution, SVG vectoriel, et optionnellement CSV.
+ * Propose PNG haute resolution, SVG vectoriel, et optionnellement CSV,
+ * NetCDF, mode publication (figure blanche avec titres complets, colorbar
+ * et mention du dataset) et video WebM (animations).
  *
- * @param {React.RefObject} plotRef   - ref sur le div Plotly
- * @param {string}          filename  - nom de fichier sans extension
- * @param {function|null}   onCSV     - callback pour export CSV (null = option masquee)
- * @param {boolean}         disabled  - desactive le bouton
+ * @param {React.RefObject} plotRef     - ref sur le div Plotly
+ * @param {string}          filename    - nom de fichier sans extension
+ * @param {function|null}   onCSV       - callback pour export CSV (null = option masquee)
+ * @param {Object|null}     publication - contexte { title, subtitle, credit, xTitle, yTitle }
+ *                                        (null = mode publication masque)
+ * @param {function|null}   onPubGrid   - export publication de la grille entiere
+ * @param {function|null}   onWebM      - export video WebM (animation diurne)
+ * @param {boolean}         disabled    - desactive le bouton
  */
-function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, onNetCDF = null, disabled = false }) {
+function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, onNetCDF = null, publication = null, onPubGrid = null, onWebM = null, disabled = false }) {
   const { t } = useTranslation();
   const showToast = useToast();
   const [anchorEl, setAnchorEl] = useState(null);
@@ -41,84 +50,14 @@ function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, onNetCDF 
     a.click();
   };
 
-  /**
-   * Rend une copie hors-écran du graphique avec thème clair, exporte depuis là.
-   * - Aucun flash sur le graphique visible (on ne touche jamais au gd d'origine).
-   * - Corrige TOUTES les couleurs : layout global, titre principal, axes (color +
-   *   tickfont + title quelle que soit la forme string|objet), colorbar des traces.
-   */
-  const exportAsImage = async (gd, format, opts = {}) => {
-    const el = document.createElement('div');
-    el.style.cssText = 'position:fixed;left:-9999px;top:0;width:1200px;height:700px;visibility:hidden;';
-    document.body.appendChild(el);
-    try {
-      const L = gd.layout ?? {};
-
-      // ── Layout clair ────────────────────────────────────────────────────
-      const lightLayout = { ...L,
-        paper_bgcolor: 'white',
-        plot_bgcolor:  '#eeeeee',
-        font:   { ...(L.font   ?? {}), color: '#222222' },
-        legend: { ...(L.legend ?? {}), font: { ...(L.legend?.font ?? {}), color: '#222222' } },
-      };
-
-      // Titre principal (string ou { text, font })
-      if (L.title != null) {
-        lightLayout.title = typeof L.title === 'string'
-          ? { text: L.title, font: { color: '#222222' } }
-          : { ...L.title, font: { ...(L.title.font ?? {}), color: '#222222' } };
-      }
-
-      // Axes : `color` couvre ticks + labels + titre-chaîne ; `tickfont` et
-      // `title.font` couvrent les formes objet explicitement colorées (fontColor blanc).
-      for (const k of Object.keys(L).filter(k => /^[xy]axis\d*$/.test(k))) {
-        const ax = L[k];
-        lightLayout[k] = { ...ax,
-          color:    '#222222',
-          tickfont: { ...(ax.tickfont ?? {}), color: '#222222' },
-          // titre d'axe : string → conservé tel quel (coloré via axis.color)
-          //               objet  → font.color overridé
-          title: ax.title == null || typeof ax.title === 'string'
-            ? ax.title
-            : { ...ax.title, font: { ...(ax.title.font ?? {}), color: '#222222' } },
-        };
-      }
-
-      // Annotations
-      if (Array.isArray(L.annotations)) {
-        lightLayout.annotations = L.annotations.map(a => ({
-          ...a, font: { ...(a.font ?? {}), color: '#222222' },
-        }));
-      }
-
-      // ── Traces : colorbar fonts ──────────────────────────────────────────
-      const lightData = (gd.data ?? []).map(t => {
-        if (!t.colorbar) return t;
-        const cb = t.colorbar;
-        return { ...t,
-          colorbar: { ...cb,
-            tickfont: { ...(cb.tickfont ?? {}), color: '#222222' },
-            title: cb.title == null ? cb.title
-              : typeof cb.title === 'string'
-                ? { text: cb.title, font: { color: '#222222' } }
-                : { ...cb.title, font: { ...(cb.title.font ?? {}), color: '#222222' } },
-          },
-        };
-      });
-
-      await Plotly.newPlot(el, lightData, lightLayout, { staticPlot: true, responsive: false });
-      return await Plotly.toImage(el, { format, ...opts });
-    } finally {
-      Plotly.purge(el);
-      document.body.removeChild(el);
-    }
-  };
+  /* Le rendu hors ecran en theme clair vit dans utils/plotExport.js :
+   * partage avec le montage de grille et l'export video WebM. */
 
   const handlePNG = async () => {
     handleClose();
     if (!plotRef?.current) return;
     try {
-      const url = await exportAsImage(plotRef.current, 'png', { width: 1920, height: 1080, scale: 2 });
+      const url = await exportPlotImage(plotRef.current, 'png', { width: 1920, height: 1080, scale: 2 });
       triggerDownload(url, `${filename}.png`);
       showToast(t('toast.pngExported'));
     } catch {
@@ -130,11 +69,26 @@ function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, onNetCDF 
     handleClose();
     if (!plotRef?.current) return;
     try {
-      const url = await exportAsImage(plotRef.current, 'svg', { width: 1920, height: 1080 });
+      const url = await exportPlotImage(plotRef.current, 'svg', { width: 1920, height: 1080 });
       triggerDownload(url, `${filename}.svg`);
       showToast(t('toast.svgExported'));
     } catch {
       setExportError(t('export.svgError'));
+    }
+  };
+
+  const handlePublication = async (format) => {
+    handleClose();
+    if (!plotRef?.current || !publication) return;
+    try {
+      const url = await exportPlotImage(plotRef.current, format, {
+        width: 1600, height: 1000, ...(format === 'png' ? { scale: 3 } : {}),
+        publication,
+      });
+      triggerDownload(url, `${filename}_pub.${format}`);
+      showToast(format === 'png' ? t('toast.pngExported') : t('toast.svgExported'));
+    } catch {
+      setExportError(format === 'png' ? t('export.pngError') : t('export.svgError'));
     }
   };
 
@@ -212,6 +166,46 @@ function ExportMenu({ plotRef, filename = 'mars_export', onCSV = null, onNetCDF 
             <ListItemText
               primary="NetCDF (.nc)"
               secondary={t('export.netcdfDesc') || 'Scientific format for Python/Matlab'}
+              slotProps={{ secondary: { sx: { fontSize: '0.7rem' } } }}
+            />
+          </MenuItem>,
+        ]}
+        {publication && [
+          <Divider key="pubdiv" />,
+          <MenuItem key="pubpng" onClick={() => handlePublication('png')}>
+            <ListItemIcon><PublicationIcon fontSize="small" /></ListItemIcon>
+            <ListItemText
+              primary={t('export.pubPngTitle')}
+              secondary={t('export.pubDesc')}
+              slotProps={{ secondary: { sx: { fontSize: '0.7rem' } } }}
+            />
+          </MenuItem>,
+          <MenuItem key="pubsvg" onClick={() => handlePublication('svg')}>
+            <ListItemIcon><PublicationIcon fontSize="small" /></ListItemIcon>
+            <ListItemText
+              primary={t('export.pubSvgTitle')}
+              secondary={t('export.pubDesc')}
+              slotProps={{ secondary: { sx: { fontSize: '0.7rem' } } }}
+            />
+          </MenuItem>,
+        ]}
+        {onPubGrid && (
+          <MenuItem onClick={() => { handleClose(); onPubGrid(); }}>
+            <ListItemIcon><GridIcon fontSize="small" /></ListItemIcon>
+            <ListItemText
+              primary={t('export.pubGridTitle')}
+              secondary={t('export.pubGridDesc')}
+              slotProps={{ secondary: { sx: { fontSize: '0.7rem' } } }}
+            />
+          </MenuItem>
+        )}
+        {onWebM && [
+          <Divider key="webmdiv" />,
+          <MenuItem key="webm" onClick={() => { handleClose(); onWebM(); }}>
+            <ListItemIcon><VideoIcon fontSize="small" /></ListItemIcon>
+            <ListItemText
+              primary={t('export.webmTitle')}
+              secondary={t('export.webmDesc')}
               slotProps={{ secondary: { sx: { fontSize: '0.7rem' } } }}
             />
           </MenuItem>,

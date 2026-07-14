@@ -4,7 +4,7 @@
  * kleuren, numerieke constanten) staat in home.structure.js.
  */
 import {
-  HERO_TITLE, WHY_REASON_ICONS, FEATURES_STRUCTURE,
+  WHY_REASON_ICONS, FEATURES_STRUCTURE,
   STATS_STRUCTURE, TIMELINE_STRUCTURE, BELGIUM_ITEMS_STRUCTURE,
 } from './home.structure';
 
@@ -60,7 +60,7 @@ const BELGIUM_TEXT = [
 
 export const homeContent = {
   hero: {
-    title: HERO_TITLE,
+    title: "Mars Climate Viewer",
     subtitle: "Verkenning van atmosferische gegevens van Mars",
     description: "Een interactief visualisatieplatform gebaseerd op het klimaatmodel GEM-Mars. Verken temperatuur, wind, stof en nog veel meer.",
     cta: "Start de verkenning",

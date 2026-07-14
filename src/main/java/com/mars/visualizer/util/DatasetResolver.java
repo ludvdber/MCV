@@ -6,6 +6,7 @@ import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Component;
 
+import com.mars.visualizer.exception.ResourceNotFoundException;
 import com.mars.visualizer.exception.ValidationException;
 import com.mars.visualizer.service.CatalogService;
 import com.mars.visualizer.service.IndividualCatalogService;
@@ -50,8 +51,10 @@ public class DatasetResolver {
 		if (isIndividualDataset(dataset)) {
 			return resolveIndividualFile(dataset);
 		}
+		// Dataset absent du catalogue = ressource introuvable (HTTP 404), pas une
+		// requête malformée : cohérent avec le fichier manquant côté NetCDFReaderService.
 		return catalogService.getFilenameById(dataset)
-				.orElseThrow(() -> new ValidationException("error.dataset.not.found", dataset));
+				.orElseThrow(() -> new ResourceNotFoundException("error.dataset.not.found", dataset));
 	}
 
 	/**

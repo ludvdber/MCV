@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import Plotly from 'plotly.js-dist-min';
+import Plotly, { renderPlot } from '../plotlyBundle';
 import { Paper, Typography, Box } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { VARIABLES_MAP } from './VariableSelector';
@@ -17,11 +17,18 @@ import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
  * @param {string}      datasetLabel - label du dataset pour le titre
  * @param {boolean}     logScale     - afficher l'échelle en log10
  */
-function HovmollerViewer({ hovmollerData, variableCode, datasetLabel, colorscaleName, reverseColorscale, customZMin, customZMax, onExportCSV = null, noExportMenu = false, externalPlotRef = null, logScale = false }) {
+function HovmollerViewer({ hovmollerData, variableCode, datasetLabel, colorscaleName, reverseColorscale, customZMin, customZMax, onExportCSV = null, noExportMenu = false, compact = false, externalPlotRef = null, logScale = false, smooth = true }) {
   const { t, i18n } = useTranslation();
   const { fontColor, paperBg, plotBg, titleSize, margin: responsiveMargin } = usePlotlyTheme();
   const internalPlotRef = useRef(null);
   const plotRef = externalPlotRef ?? internalPlotRef;
+
+  // Purge Plotly uniquement au demontage : les mises a jour passent par
+  // Plotly.react (pas de destruction/recreation du graphe a chaque prop).
+  useEffect(() => {
+    const el = plotRef.current;
+    return () => { if (el) Plotly.purge(el); };
+  }, [plotRef]);
 
   useEffect(() => {
     const el = plotRef.current;
@@ -34,7 +41,7 @@ function HovmollerViewer({ hovmollerData, variableCode, datasetLabel, colorscale
 
     const useRdBu = RDBU_VARIABLES.includes(variableCode);
     const finalColorscale = colorscaleName || (useRdBu ? 'RdBu' : 'Viridis');
-    const finalReverse = reverseColorscale != null ? reverseColorscale : useRdBu;
+    const finalReverse = reverseColorscale ?? false; // RdBu Plotly est deja bleu(bas)->rouge(haut)
 
     const isLatitude = type === 'latitude';
     const xLabel = isLatitude ? t('viz.latitude') : t('viz.longitude');
@@ -60,7 +67,7 @@ function HovmollerViewer({ hovmollerData, variableCode, datasetLabel, colorscale
       hoverTemplate = `${isLatitude ? t('viz.hover_lat') : t('viz.hover_lon')}: %{x}°<br>${t('viz.hover_time')}: %{y:.1f} h<br>log\u2081\u2080: %{z:.3f}<br>${t('viz.hover_value')}: %{customdata:.6g} ${unit}<extra></extra>`;
     }
 
-    Plotly.newPlot(el, [{
+    renderPlot(el, [{
       type: 'heatmap',
       x: spatialCoords,
       y: times,
@@ -71,8 +78,9 @@ function HovmollerViewer({ hovmollerData, variableCode, datasetLabel, colorscale
         ? (logZMin != null ? { zmin: logZMin, zmax: logZMax } : {})
         : { ...(customZMin != null ? { zmin: customZMin } : {}), ...(customZMax != null ? { zmax: customZMax } : {}) }),
       ...(logScale ? { customdata: data } : {}),
-      zsmooth: 'best',
+      zsmooth: smooth ? 'best' : false,
       connectgaps: true,
+      showscale: !compact,
       colorbar: {
         title: {
           text: logScale ? `log\u2081\u2080(${variableLabel})` : `${variableLabel} (${unit})`,
@@ -87,25 +95,25 @@ function HovmollerViewer({ hovmollerData, variableCode, datasetLabel, colorscale
       },
       hovertemplate: hoverTemplate,
     }], {
-      title: {
+      title: compact ? undefined : {
         text: `${t('viz.hovmoller.title')} — ${datasetLabel || ''} — ${variableLabel}`,
         font: { size: titleSize, color: fontColor }
       },
       font: { color: fontColor },
       xaxis: {
-        title: { text: xLabel },
+        title: compact ? undefined : { text: xLabel },
         color: fontColor,
         showgrid: false,
         zeroline: false
       },
       yaxis: {
-        title: { text: t('viz.localTime') },
+        title: compact ? undefined : { text: t('viz.localTime') },
         color: fontColor,
         showgrid: false,
         zeroline: false,
         autorange: true
       },
-      margin: { ...responsiveMargin, r: 120 },
+      margin: compact ? { l: 42, r: 8, t: 8, b: 26 } : { ...responsiveMargin, r: 120 },
       paper_bgcolor: paperBg,
       plot_bgcolor: plotBg
     }, {
@@ -113,9 +121,7 @@ function HovmollerViewer({ hovmollerData, variableCode, datasetLabel, colorscale
       displaylogo: false,
       modeBarButtonsToRemove: ['lasso2d', 'select2d']
     });
-
-    return () => Plotly.purge(el);
-  }, [hovmollerData, variableCode, datasetLabel, colorscaleName, reverseColorscale, customZMin, customZMax, logScale, i18n.language, fontColor, paperBg, plotBg, titleSize, responsiveMargin]);
+  }, [hovmollerData, variableCode, datasetLabel, colorscaleName, reverseColorscale, customZMin, customZMax, logScale, smooth, compact, i18n.language, fontColor, paperBg, plotBg, titleSize, responsiveMargin]);
 
   if (!hovmollerData) {
     return (
@@ -137,10 +143,10 @@ function HovmollerViewer({ hovmollerData, variableCode, datasetLabel, colorscale
           <ExportMenu plotRef={plotRef} filename={exportFilename} onCSV={onExportCSV} />
         </Box>
       )}
-      <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        <div ref={plotRef} role="img" aria-label={t('viz.aria.hovmoller')} style={{ width: '100%' }} />
+      <Paper elevation={compact ? 0 : 2} sx={{ borderRadius: 2, overflow: 'hidden', ...(compact ? { bgcolor: 'transparent', backgroundImage: 'none' } : {}) }}>
+        <div ref={plotRef} role="img" aria-label={t('viz.aria.hovmoller')} style={{ width: '100%', height: compact ? 300 : 450 }} />
       </Paper>
-      <StatsBar stats={stats} />
+      {!compact && <StatsBar stats={stats} />}
     </Box>
   );
 }

@@ -29,6 +29,9 @@ public final class MarsConstants {
     /** Type de Hovmoller par longitude. */
     public static final String HOVMOLLER_LONGITUDE = "longitude";
 
+    /** Rayon moyen volumetrique de Mars en km (IAU 2015). */
+    public static final double MARS_RADIUS_KM = 3389.5;
+
     /**
      * Genere un tableau de temps en heures martiennes (0h..~24h)
      * pour un nombre de pas de temps donne (typiquement 48).

@@ -49,7 +49,7 @@ public class AnimationController extends AbstractDataController {
 
         AnimationData animData = netcdfService.extractAnimationFrames(filename, variable, altitude);
 
-        StatsResult stats     = animData.frames().isEmpty() ? null : StatsCalculator.calculateStats(animData.frames().getFirst());
+        StatsResult stats     = animData.frames().isEmpty() ? null : StatsCalculator.calculateStatsWeighted(animData.frames().getFirst(), animData.latitudes());
         Double altitudeValue  = netcdfService.extractAltitudeValue(filename, variable, altitude);
 
         var response = new AnimationResponse(

@@ -83,6 +83,82 @@ public class StatsCalculator {
     }
 
     /**
+     * Statistiques d'un champ lat/lon PONDÉRÉES PAR LA SURFACE (cos φ).
+     *
+     * Sur une grille lat/lon régulière, une maille près d'un pôle couvre bien
+     * moins de surface qu'à l'équateur. Une moyenne arithmétique brute des
+     * mailles surpondère donc les pôles et biaise la moyenne spatiale (p. ex.
+     * vers le froid pour une carte de température). La moyenne, l'écart-type et
+     * la médiane sont ici pondérés par cos(latitude) de chaque rangée ; min/max
+     * ne dépendent pas de la pondération.
+     *
+     * @param data       champ 2D {@code [nLat][nLon]} (rangée = latitude)
+     * @param latitudes  latitudes des rangées, en degrés (même longueur que data)
+     * @return StatsResult pondéré ; repli non pondéré si latitudes incohérent
+     */
+    public static StatsResult calculateStatsWeighted(float[][] data, double[] latitudes) {
+        if (data == null || data.length == 0) {
+            throw new IllegalArgumentException("Le tableau de données ne peut pas être null ou vide.");
+        }
+        if (latitudes == null || latitudes.length != data.length) {
+            // Sans latitudes cohérentes, on ne peut pas pondérer : repli honnête.
+            return calculateStats(data);
+        }
+
+        double min = Double.MAX_VALUE, max = -Double.MAX_VALUE;
+        double weightedSum = 0.0, weightTotal = 0.0;
+        long count = 0;
+        for (int i = 0; i < data.length; i++) {
+            double w = Math.max(0.0, Math.cos(Math.toRadians(latitudes[i])));
+            for (float value : data[i]) {
+                if (!Float.isNaN(value)) {
+                    if (value < min) min = value;
+                    if (value > max) max = value;
+                    weightedSum += w * value;
+                    weightTotal += w;
+                    count++;
+                }
+            }
+        }
+        if (count == 0 || weightTotal <= 0.0) {
+            return new StatsResult(Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN);
+        }
+
+        double mean = weightedSum / weightTotal;
+
+        // Écart-type pondéré + collecte (valeur, poids) pour la médiane pondérée.
+        double[] values  = new double[(int) count];
+        double[] weights = new double[(int) count];
+        int idx = 0;
+        double weightedVar = 0.0;
+        for (int i = 0; i < data.length; i++) {
+            double w = Math.max(0.0, Math.cos(Math.toRadians(latitudes[i])));
+            for (float value : data[i]) {
+                if (!Float.isNaN(value)) {
+                    double diff = value - mean;
+                    weightedVar += w * diff * diff;
+                    values[idx]  = value;
+                    weights[idx] = w;
+                    idx++;
+                }
+            }
+        }
+        double stddev = Math.sqrt(weightedVar / weightTotal);
+
+        // Médiane pondérée : valeur où le poids cumulé franchit 50 %.
+        Integer[] order = new Integer[(int) count];
+        for (int k = 0; k < count; k++) order[k] = k;
+        Arrays.sort(order, (a, b) -> Double.compare(values[a], values[b]));
+        double half = weightTotal / 2.0, running = 0.0, median = values[order[0]];
+        for (int k = 0; k < count; k++) {
+            running += weights[order[k]];
+            if (running >= half) { median = values[order[k]]; break; }
+        }
+
+        return new StatsResult(min, max, mean, stddev, median);
+    }
+
+    /**
      * Surcharge pour une liste de valeurs (série temporelle, profil vertical).
      * Convertit en matrice 1×N puis délègue à {@link #calculateStats(float[][])}.
      *

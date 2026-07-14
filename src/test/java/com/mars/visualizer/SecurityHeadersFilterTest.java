@@ -91,6 +91,15 @@ class SecurityHeadersFilterTest {
     }
 
     @Test
+    @DisplayName("CSP sans blob: dans les sources de script (troika tourne sans worker)")
+    void cspSansBlobDansScriptSrc() throws Exception {
+        MockHttpServletResponse response = doFilter();
+        String csp = response.getHeader("Content-Security-Policy");
+        assertThat(csp).contains("script-src 'self' 'wasm-unsafe-eval'");
+        assertThat(csp).doesNotContain("worker-src");
+    }
+
+    @Test
     @DisplayName("Filter appelle chain.doFilter (requête transmise)")
     void filterAppelleChainDoFilter() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();

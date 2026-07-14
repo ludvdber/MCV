@@ -4,7 +4,7 @@ import {
   Alert, Box, FormControl, InputLabel, Select, MenuItem, Chip, LinearProgress,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
-import { Functions as LogIcon } from '@mui/icons-material';
+import { Functions as LogIcon, BlurOn as SmoothIcon } from '@mui/icons-material';
 import { getHovmoller, exportHovmollerCSV } from '../services/api';
 import DatasetSelector from '../components/DatasetSelector';
 import VariableSelector from '../components/VariableSelector';
@@ -40,6 +40,7 @@ function HovmollerPage() {
   const [hovType, setHovType] = useState('latitude');
   const [colorscale, setColorscale] = useState('auto');
   const [logScale, setLogScale] = useState(false);
+  const [smooth, setSmooth] = useState(true);
 
   const {
     data: hovData, loading, error, isDirty, markDirty,
@@ -134,7 +135,10 @@ function HovmollerPage() {
             {loading ? <CircularProgress size={20} color="inherit" /> : t('page.hovmoller.button')}
           </Button>
           {hovData && (
-            <VisuToggle value={logScale} onChange={setLogScale} icon={<LogIcon />} title={t('common.toggleLog')}>{'Log\u2081\u2080'}</VisuToggle>
+            <>
+              <VisuToggle value={logScale} onChange={setLogScale} icon={<LogIcon />} title={t('common.toggleLog')}>{'Log\u2081\u2080'}</VisuToggle>
+              <VisuToggle value={smooth} onChange={setSmooth} icon={<SmoothIcon />} title={t('common.toggleSmooth')}>{t('common.toggleSmooth')}</VisuToggle>
+            </>
           )}
           {isDirty && (
             <Chip label={t('page.hovmoller.dirty')} color="warning" size="small" />
@@ -172,6 +176,7 @@ function HovmollerPage() {
                   colorscaleName={resolvedColorscale.name}
                   reverseColorscale={resolvedColorscale.reverse}
                   logScale={logScale}
+                  smooth={smooth}
                   noExportMenu
                 />
               </Box>

@@ -32,7 +32,8 @@ import {
   Timeline as ProfilesIcon,
   BarChart as DiagnosticsIcon,
 } from '@mui/icons-material';
-import { DarkMode as DarkModeIcon, LightMode as LightModeIcon, Contrast as ContrastIcon, InfoOutlined as AboutIcon } from '@mui/icons-material';
+import { DarkMode as DarkModeIcon, LightMode as LightModeIcon, Contrast as ContrastIcon, InfoOutlined as AboutIcon, Science as ScienceIcon } from '@mui/icons-material';
+import MethodologyDialog from './MethodologyDialog';
 import LanguageSwitcher from './LanguageSwitcher';
 import AboutDialog from './AboutDialog';
 import HistoryDialog from './HistoryDialog';
@@ -145,7 +146,7 @@ function NavItem({ labelKey, to, icon: Icon, collapsed, onClose, nested = false 
         borderRadius: '8px',
         mb: 0.3,
         px: collapsed ? 0 : (nested ? 1.5 : 2),
-        pl: collapsed ? 0 : (nested ? 4.5 : 2),
+        pl: collapsed ? 0 : (nested ? 3 : 2),
         py: nested ? 0.8 : 1.2,
         justifyContent: collapsed ? 'center' : 'flex-start',
         color: 'var(--text-secondary)',
@@ -178,60 +179,112 @@ function NavItem({ labelKey, to, icon: Icon, collapsed, onClose, nested = false 
   ) : button;
 }
 
-/* ---------- Nav group (collapsible category) ---------- */
+/* ---------- Nav section (intertitre cliquable + liens repliables) ----------
+   Chaque groupe se replie : indispensable sur petits écrans, où dix liens
+   dépliés noient la navigation. État persisté dans localStorage ; ouverts
+   par défaut sur desktop, repliés par défaut sous le breakpoint md. */
 
-function NavGroup({ group, collapsed, onClose, openGroups, toggleGroup, activeGroupId }) {
+const NAV_GROUPS_KEY = 'mcv-nav-groups-v1';
+
+/** État initial des groupes : localStorage, sinon selon la largeur d'écran. */
+function defaultOpenGroups() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(NAV_GROUPS_KEY) ?? 'null');
+    if (saved && typeof saved === 'object') {
+      return Object.fromEntries(NAV_GROUPS.map(g => [g.id, saved[g.id] !== false]));
+    }
+  } catch { /* stockage indisponible : on retombe sur la largeur d'écran */ }
+  const wide = window.matchMedia('(min-width: 900px)').matches;
+  return Object.fromEntries(NAV_GROUPS.map(g => [g.id, wide]));
+}
+
+function NavSection({ group, collapsed, onClose, open, onToggle }) {
   const { t } = useTranslation();
-  // Ouvert si l'utilisateur l'a explicitement (dé)plié, sinon ouvert par défaut
-  // pour le groupe contenant la page courante.
-  const isOpen = openGroups[group.id] !== undefined ? openGroups[group.id] : (group.id === activeGroupId);
-  const GroupIcon = group.icon;
-
-  // In collapsed mode, show only the child items as flat icons
+  // Replié : uniquement les icônes des liens, à plat.
   if (collapsed) {
     return group.items.map(item => (
       <NavItem key={item.to} {...item} collapsed onClose={onClose} />
     ));
   }
-
   return (
     <>
       <ListItemButton
-        onClick={() => toggleGroup(group.id)}
+        onClick={onToggle}
+        aria-expanded={open}
         sx={{
-          borderRadius: '8px',
-          mb: 0.3,
-          px: 2,
-          py: 0.6,
-          color: 'var(--text-secondary)',
+          borderRadius: '8px', mt: 0.5, py: 0.35, px: 2,
           '&:hover': { background: 'var(--bg-surface-hover)' },
         }}
       >
-        <ListItemIcon sx={{ minWidth: 32, color: 'inherit' }}>
-          <GroupIcon sx={{ fontSize: 18 }} />
-        </ListItemIcon>
         <ListItemText
           primary={t(group.labelKey)}
           primaryTypographyProps={{
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
+            fontSize: '0.66rem', fontWeight: 700, letterSpacing: '0.1em',
+            textTransform: 'uppercase', color: 'var(--text-secondary)', sx: { opacity: 0.72 },
           }}
         />
-        {isOpen
-          ? <ExpandLess sx={{ fontSize: 16, color: 'var(--text-secondary)' }} />
-          : <ExpandMore sx={{ fontSize: 16, color: 'var(--text-secondary)' }} />}
+        {open
+          ? <ExpandLess sx={{ fontSize: 16, color: 'var(--text-secondary)', opacity: 0.72 }} />
+          : <ExpandMore sx={{ fontSize: 16, color: 'var(--text-secondary)', opacity: 0.72 }} />}
       </ListItemButton>
-      <Collapse in={isOpen} timeout="auto" unmountOnExit>
-        <List disablePadding>
-          {group.items.map(item => (
-            <NavItem key={item.to} {...item} collapsed={false} onClose={onClose} nested />
-          ))}
-        </List>
+      <Collapse in={open} timeout="auto">
+        {group.items.map(item => (
+          <NavItem key={item.to} {...item} collapsed={false} onClose={onClose} nested />
+        ))}
       </Collapse>
     </>
   );
+}
+
+/* ---------- Explorer : la console, accès principal du site ---------- */
+
+function ExplorerNavItem({ collapsed, onClose }) {
+  const { t } = useTranslation();
+  const button = (
+    <ListItemButton
+      component={NavLink}
+      to="/explore"
+      onClick={onClose}
+      sx={{
+        borderRadius: '10px',
+        mt: 0.5, mb: 0.5,
+        px: collapsed ? 0 : 2,
+        py: 1.05,
+        justifyContent: collapsed ? 'center' : 'flex-start',
+        color: 'var(--mars-orange)',
+        background: 'rgba(224, 90, 43, 0.08)',
+        border: '1px solid rgba(224, 90, 43, 0.3)',
+        transition: 'all 0.2s ease',
+        '&:hover': { background: 'rgba(224, 90, 43, 0.16)' },
+        '&.active': {
+          background: 'rgba(224, 90, 43, 0.18)',
+          borderColor: 'rgba(224, 90, 43, 0.55)',
+        },
+      }}
+    >
+      <ListItemIcon sx={{ minWidth: collapsed ? 0 : 32, color: 'inherit', justifyContent: 'center' }}>
+        <ExploreIcon sx={{ fontSize: 20 }} />
+      </ListItemIcon>
+      {!collapsed && (
+        <ListItemText
+          primary={t('nav.explore')}
+          primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: 700 }}
+        />
+      )}
+      {!collapsed && (
+        <Typography component="span" sx={{
+          fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.09em',
+          border: '1px solid rgba(224, 90, 43, 0.45)', borderRadius: '5px',
+          px: 0.6, py: 0.1, opacity: 0.9, flexShrink: 0,
+        }}>
+          {t('nav.consoleBadge')}
+        </Typography>
+      )}
+    </ListItemButton>
+  );
+  return collapsed
+    ? <Tooltip title={t('nav.explore')} placement="right" arrow>{button}</Tooltip>
+    : button;
 }
 
 /* ---------- Sidebar content ---------- */
@@ -245,18 +298,15 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
   const { history, clearHistory } = useRecentHistory();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
-  const [openGroups, setOpenGroups] = useState({});
   const [confirmClear, setConfirmClear] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
-
-  // Groupe de navigation contenant la page courante (déplié par défaut).
-  const activeGroupId = NAV_GROUPS.find(g => g.items.some(i => i.to === location.pathname))?.id;
+  const [methodsOpen, setMethodsOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState(defaultOpenGroups);
 
   const toggleGroup = (id) => {
-    setOpenGroups(prev => {
-      const currentlyOpen = prev[id] !== undefined ? prev[id] : (id === activeGroupId);
-      return { ...prev, [id]: !currentlyOpen };
-    });
+    const next = { ...openGroups, [id]: !openGroups[id] };
+    setOpenGroups(next);
+    try { localStorage.setItem(NAV_GROUPS_KEY, JSON.stringify(next)); } catch { /* stockage indisponible */ }
   };
 
   // Effacement de l'historique en deux temps (1er clic arme, 2e confirme).
@@ -339,26 +389,21 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
       {/* --- Navigation --- */}
       <Box sx={{ flex: 1, overflow: 'auto', px: collapsed ? 0.5 : 1, pt: 0.5 }}>
         <List disablePadding>
-          {/* Home (always visible, not in a group) */}
+          {/* Accueil, puis la console Explorer : l'outil phare, mis en avant */}
           <NavItem labelKey="nav.home" to="/" icon={HomeIcon} collapsed={collapsed} onClose={onClose} />
+          <ExplorerNavItem collapsed={collapsed} onClose={onClose} />
 
-          {/* Grouped nav items */}
+          {/* Vues simples : groupes repliables, état persisté */}
           {NAV_GROUPS.map(group => (
-            <NavGroup
+            <NavSection
               key={group.id}
               group={group}
               collapsed={collapsed}
               onClose={onClose}
-              openGroups={openGroups}
-              toggleGroup={toggleGroup}
-              activeGroupId={activeGroupId}
+              open={!!openGroups[group.id]}
+              onToggle={() => toggleGroup(group.id)}
             />
           ))}
-
-          {/* Explore (always visible, not in a group) */}
-          <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid var(--glass-border)' }}>
-            <NavItem labelKey="nav.explore" to="/explore" icon={ExploreIcon} collapsed={collapsed} onClose={onClose} />
-          </Box>
         </List>
       </Box>
 
@@ -480,71 +525,65 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
             </IconButton>
           </Tooltip>
         )}
-        {/* Theme toggle */}
+        {/* Reglages en une rangee d'icones (theme, contraste, a propos) +
+            langue : cinq lignes compressees en une, la place revient au contenu */}
         {collapsed ? (
-          <Tooltip title={mode === 'dark' ? t('theme.light') : t('theme.dark')} placement="right" arrow>
-            <IconButton onClick={toggleTheme} sx={{ color: 'var(--text-secondary)', p: 1 }}>
-              {mode === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
-            </IconButton>
-          </Tooltip>
+          <>
+            <Tooltip title={mode === 'dark' ? t('theme.light') : t('theme.dark')} placement="right" arrow>
+              <IconButton onClick={toggleTheme} sx={{ color: 'var(--text-secondary)', p: 1 }}>
+                {mode === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={t('about.title')} placement="right" arrow>
+              <IconButton
+                onClick={() => setAboutOpen(true)}
+                aria-label={t('about.title')}
+                sx={{ color: 'var(--text-secondary)', p: 1, '&:hover': { color: 'var(--text-primary)' } }}
+              >
+                <AboutIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            {/* Langue accessible même rail replié (sinon /explore, qui replie la
+                nav automatiquement, prive l'utilisateur du choix de langue). */}
+            <LanguageSwitcher iconOnly />
+          </>
         ) : (
-          <Box
-            onClick={toggleTheme}
-            sx={{
-              display: 'flex', alignItems: 'center', gap: 0.8, cursor: 'pointer',
-              color: 'text.secondary', fontSize: '0.75rem',
-              '&:hover': { color: 'text.primary' },
-            }}
-          >
-            {mode === 'dark' ? <LightModeIcon sx={{ fontSize: 16 }} /> : <DarkModeIcon sx={{ fontSize: 16 }} />}
-            <Typography variant="caption" color="inherit">
-              {mode === 'dark' ? t('theme.light') : t('theme.dark')}
+          <>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+              <Tooltip title={mode === 'dark' ? t('theme.light') : t('theme.dark')} arrow>
+                <IconButton size="small" onClick={toggleTheme} aria-label={mode === 'dark' ? t('theme.light') : t('theme.dark')} sx={{ color: 'var(--text-secondary)', '&:hover': { color: 'var(--text-primary)' } }}>
+                  {mode === 'dark' ? <LightModeIcon sx={{ fontSize: 17 }} /> : <DarkModeIcon sx={{ fontSize: 17 }} />}
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={t('theme.contrast')} arrow>
+                <IconButton size="small" onClick={toggleContrast} aria-label={t('theme.contrast')} sx={{ color: highContrast ? 'var(--mars-orange)' : 'var(--text-secondary)', '&:hover': { color: 'var(--text-primary)' } }}>
+                  <ContrastIcon sx={{ fontSize: 17 }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={t('about.title')} arrow>
+                <IconButton size="small" onClick={() => setAboutOpen(true)} aria-label={t('about.title')} sx={{ color: 'var(--text-secondary)', '&:hover': { color: 'var(--text-primary)' } }}>
+                  <AboutIcon sx={{ fontSize: 17 }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={t('method.title')} arrow>
+                <IconButton size="small" onClick={() => setMethodsOpen(true)} aria-label={t('method.title')} sx={{ color: 'var(--text-secondary)', '&:hover': { color: 'var(--mars-orange)' } }}>
+                  <ScienceIcon sx={{ fontSize: 17 }} />
+                </IconButton>
+              </Tooltip>
+              <Box sx={{ ml: 'auto' }}>
+                <LanguageSwitcher />
+              </Box>
+            </Box>
+            {/* Provenance des donnees, visible sur toutes les pages */}
+            <Typography variant="caption" sx={{ color: 'var(--text-secondary)', opacity: 0.65, fontSize: '0.66rem', letterSpacing: '0.02em' }}>
+              {t('nav.dataCredit')} : GEM-Mars · BIRA-IASB
             </Typography>
-          </Box>
-        )}
-        {!collapsed && (
-          <Box
-            onClick={toggleContrast}
-            sx={{
-              display: 'flex', alignItems: 'center', gap: 0.8, cursor: 'pointer',
-              color: highContrast ? 'var(--mars-orange)' : 'text.secondary', fontSize: '0.75rem',
-              '&:hover': { color: 'text.primary' },
-            }}
-          >
-            <ContrastIcon sx={{ fontSize: 16 }} />
-            <Typography variant="caption" color="inherit">
-              {t('theme.contrast')}
-            </Typography>
-          </Box>
-        )}
-        {!collapsed && <LanguageSwitcher />}
-        {/* À propos : projet, source des données et liens utiles */}
-        {collapsed ? (
-          <Tooltip title={t('about.title')} placement="right" arrow>
-            <IconButton
-              onClick={() => setAboutOpen(true)}
-              aria-label={t('about.title')}
-              sx={{ color: 'var(--text-secondary)', p: 1, '&:hover': { color: 'var(--text-primary)' } }}
-            >
-              <AboutIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        ) : (
-          <Box
-            onClick={() => setAboutOpen(true)}
-            sx={{
-              display: 'flex', alignItems: 'center', gap: 0.8, cursor: 'pointer',
-              color: 'var(--text-secondary)', fontSize: '0.75rem',
-              '&:hover': { color: 'var(--text-primary)' },
-            }}
-          >
-            <AboutIcon sx={{ fontSize: 16 }} />
-            <Typography variant="caption" color="inherit">{t('about.title')}</Typography>
-          </Box>
+          </>
         )}
       </Box>
 
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
+      <MethodologyDialog open={methodsOpen} onClose={() => setMethodsOpen(false)} />
     </Box>
   );
 }

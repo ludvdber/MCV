@@ -4,7 +4,7 @@
  * colors, numeric constants) is in home.structure.js.
  */
 import {
-  HERO_TITLE, WHY_REASON_ICONS, FEATURES_STRUCTURE,
+  WHY_REASON_ICONS, FEATURES_STRUCTURE,
   STATS_STRUCTURE, TIMELINE_STRUCTURE, BELGIUM_ITEMS_STRUCTURE,
 } from './home.structure';
 
@@ -60,7 +60,7 @@ const BELGIUM_TEXT = [
 
 export const homeContent = {
   hero: {
-    title: HERO_TITLE,
+    title: "Mars Climate Viewer",
     subtitle: "Exploring Martian atmospheric data",
     description: "An interactive visualization platform based on the GEM-Mars climate model. Explore temperature, winds, dust and much more.",
     cta: "Start exploring",

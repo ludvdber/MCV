@@ -4,11 +4,13 @@ import {
   Alert, Box, Chip, LinearProgress,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
+import { BlurOn as SmoothIcon } from '@mui/icons-material';
 import { getTemporalProfile, exportTemporalProfileCSV } from '../services/api';
 import DatasetSelector from '../components/DatasetSelector';
 import VariableSelector from '../components/VariableSelector';
 import LatLonSelector from '../components/LatLonSelector';
 import ColorscaleSelector from '../components/ColorscaleSelector';
+import VisuToggle from '../components/VisuToggle';
 import TemporalProfileViewer from '../components/TemporalProfileViewer';
 import ExportMenu from '../components/ExportMenu';
 import PermalienButton from '../components/PermalienButton';
@@ -37,6 +39,7 @@ function TemporalProfilePage() {
   const { t } = useTranslation();
 
   const [colorscale, setColorscale] = useState('auto');
+  const [smooth, setSmooth] = useState(true);
 
   const {
     data: profileData, loading, error, isDirty, markDirty,
@@ -133,6 +136,9 @@ function TemporalProfilePage() {
             disabled={!selectedDataset || !selectedVariable || loading}>
             {loading ? <CircularProgress size={20} color="inherit" /> : t('page.temporalprofile.button')}
           </Button>
+          {profileData && (
+            <VisuToggle value={smooth} onChange={setSmooth} icon={<SmoothIcon />} title={t('common.toggleSmooth')}>{t('common.toggleSmooth')}</VisuToggle>
+          )}
           {isDirty && (
             <Chip label={t('page.temporalprofile.dirty')} color="warning" size="small" />
           )}
@@ -165,6 +171,7 @@ function TemporalProfilePage() {
                   datasetLabel={datasetLabel}
                   colorscaleName={resolvedColorscale.name}
                   reverseColorscale={resolvedColorscale.reverse}
+                  smooth={smooth}
                   noExportMenu
                 />
               </Box>

@@ -5,6 +5,7 @@ import java.util.concurrent.TimeUnit;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 
+import com.mars.visualizer.exception.ValidationException;
 import com.mars.visualizer.service.ValidationService;
 import com.mars.visualizer.util.DatasetResolver;
 
@@ -55,6 +56,19 @@ public abstract class AbstractDataController {
         String filename = datasetResolver.resolveFilename(dataset);
         int adjustedTime = datasetResolver.isIndividualDataset(dataset) ? 0 : time;
         return new ResolvedDataset(filename, adjustedTime);
+    }
+
+    /**
+     * Refuse une comparaison d'un dataset avec lui-même : la différence serait
+     * identiquement nulle. Les deux identifiants doivent être distincts.
+     * Partagé par la différence (données) et son export CSV.
+     *
+     * @throws ValidationException (HTTP 400) si les deux identifiants sont égaux
+     */
+    protected void requireDistinctDatasets(String datasetA, String datasetB) {
+        if (datasetA != null && datasetA.equals(datasetB)) {
+            throw new ValidationException("error.difference.same.dataset");
+        }
     }
 
     /**

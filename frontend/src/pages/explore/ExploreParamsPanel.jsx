@@ -10,7 +10,8 @@ import {
   IconButton, Tooltip,
 } from '@mui/material';
 import {
-  RocketLaunch as LaunchIcon,
+  Add as AddIcon,
+  Autorenew as UpdateIcon,
   Link as LinkIcon,
   ExpandMore as ExpandIcon,
   Tune as TuneIcon,
@@ -25,13 +26,14 @@ import {
   VIZ_TYPES, COLORSCALE_TYPES, ALTITUDE_REQUIRED_TYPES, MEAN_ONLY_TYPES,
 } from './exploreConstants.jsx';
 import DatasetSelector from '../../components/DatasetSelector';
+import { ColorscaleOptionRow } from '../../components/ColorscaleSelector';
 import VariableSelector from '../../components/VariableSelector';
 import { VARIABLES_MAP } from '../../components/VariableSelector';
 import TimeSelector from '../../components/TimeSelector';
 import AltitudeSelector from '../../components/AltitudeSelector';
 import LatLonSelector from '../../components/LatLonSelector';
 
-export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
+export default function ExploreParamsPanel({ onLancer, onUpdateActive, onCopyLink }) {
   const { t } = useTranslation();
   const {
     datasets,
@@ -61,7 +63,6 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
   const needsTime      = ['slice', 'profile', 'crosssection', 'zonalmean', 'difference'].includes(vizType);
   const needsLatLon    = ['timeseries', 'profile', 'windrose', 'temporalprofile'].includes(vizType);
   const needsAltitude  = ['slice', 'timeseries', 'animation', 'hovmoller', 'windrose', 'difference'].includes(vizType);
-  const showColorscale = COLORSCALE_TYPES.includes(vizType);
 
   const isSurfaceVariable = (() => {
     const v = VARIABLES_MAP.get(selectedVariable);
@@ -70,6 +71,21 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
 
   const activeResultObj = resultsById[activeResult] ?? null;
   const dataStats = activeResultObj?.data?.stats;
+
+  /* Palette + plage de légende : elles s'appliquent à la VUE ACTIVE (override par
+   * résultat). Tant qu'aucune vue n'existe, on édite le gabarit global qui
+   * ensemencera la première vue lancée. La section suit le type de la vue active
+   * (sinon celui du sélecteur, pour la configuration avant lancement). */
+  const showColorscale = activeResultObj
+    ? COLORSCALE_TYPES.includes(activeResultObj.type)
+    : COLORSCALE_TYPES.includes(vizType);
+  const dispColorscale = activeResultObj ? (activeResultObj.colorscale ?? 'auto') : colorscale;
+  const dispZMin       = activeResultObj ? (activeResultObj.zMin ?? '') : zMinInput;
+  const dispZMax       = activeResultObj ? (activeResultObj.zMax ?? '') : zMaxInput;
+  const setDisplay = (key, globalAction, value) => {
+    if (activeResultObj) dispatch({ type: A.SET_RESULT_DISPLAY, id: activeResult, key, value });
+    else dispatch({ type: globalAction, value });
+  };
 
   const [showDisplay, setShowDisplay] = useState(false);
 
@@ -92,7 +108,7 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
       </Typography>
 
       {/* ═══ Viz type dropdown ═══ */}
-      <FormControl fullWidth size="small">
+      <FormControl fullWidth size="small" data-tour="viz-type">
         <InputLabel>{t('page.explore.vizType')}</InputLabel>
         <Select
           value={vizType}
@@ -247,6 +263,7 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
           value={selectedAltitude}
           onChange={setSelectedAltitude}
           variableCode={selectedVariable}
+          dense
         />
       )}
 
@@ -269,15 +286,26 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
           </Box>
           <Collapse in={showDisplay}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 1 }}>
+              {activeResultObj && (
+                <Typography variant="caption" sx={{ color: 'var(--mars-orange)', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  {t('page.explore.displayPerView')}
+                </Typography>
+              )}
               <FormControl fullWidth size="small">
                 <InputLabel>{t('selector.colorscale.label')}</InputLabel>
                 <Select
-                  value={colorscale}
+                  value={dispColorscale}
                   label={t('selector.colorscale.label')}
-                  onChange={e => dispatch({ type: A.SET_COLORSCALE, value: e.target.value })}
+                  onChange={e => setDisplay('colorscale', A.SET_COLORSCALE, e.target.value)}
+                  renderValue={v => {
+                    const opt = COLORSCALE_OPTIONS.find(o => o.value === v);
+                    return opt ? <ColorscaleOptionRow opt={opt} /> : v;
+                  }}
                 >
                   {COLORSCALE_OPTIONS.map(opt => (
-                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                    <MenuItem key={opt.value} value={opt.value}>
+                      <ColorscaleOptionRow opt={opt} />
+                    </MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -286,16 +314,16 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
                   size="small"
                   label={t('page.explore.zMin')}
                   type="number"
-                  value={zMinInput}
-                  onChange={e => dispatch({ type: A.SET_Z_MIN, value: e.target.value })}
+                  value={dispZMin}
+                  onChange={e => setDisplay('zMin', A.SET_Z_MIN, e.target.value)}
                   fullWidth
                 />
                 <TextField
                   size="small"
                   label={t('page.explore.zMax')}
                   type="number"
-                  value={zMaxInput}
-                  onChange={e => dispatch({ type: A.SET_Z_MAX, value: e.target.value })}
+                  value={dispZMax}
+                  onChange={e => setDisplay('zMax', A.SET_Z_MAX, e.target.value)}
                   fullWidth
                 />
               </Box>
@@ -310,7 +338,7 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
       )}
 
       {/* ═══ Sticky actions at bottom ═══ */}
-      <Box sx={{
+      <Box data-tour="launch" sx={{
         position: 'sticky',
         bottom: 0,
         pt: 1.5,
@@ -322,15 +350,33 @@ export default function ExploreParamsPanel({ onLancer, onCopyLink }) {
         gap: 1,
         borderTop: '1px solid var(--glass-border)',
       }}>
+        {/* Deux actions EXPLICITES : « Nouvelle vue » empile une vue (jusqu'a 4),
+            « Mettre a jour la vue active » remplace le contenu de l'onglet courant
+            sans en creer un nouveau. Leve la confusion « changer un parametre cree
+            une vue » : le bouton dit desormais ce qui se passe. */}
         <Button
           variant="contained"
           fullWidth
           onClick={onLancer}
           disabled={!selectedDataset || !selectedVariable || loading}
-          startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <LaunchIcon />}
+          startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <AddIcon />}
         >
-          {loading ? t('page.explore.loading') : t('page.explore.launch')}
+          {loading ? t('page.explore.loading') : t('page.explore.newView')}
         </Button>
+
+        {activeResultObj && (
+          <Button
+            variant="outlined"
+            color="secondary"
+            fullWidth
+            size="small"
+            onClick={onUpdateActive}
+            disabled={!selectedDataset || !selectedVariable || loading}
+            startIcon={<UpdateIcon />}
+          >
+            {t('page.explore.updateView')}
+          </Button>
+        )}
 
         <Button
           variant="outlined"

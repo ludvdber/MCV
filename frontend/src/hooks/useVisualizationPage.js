@@ -20,7 +20,6 @@ import { useRecentHistory } from './useRecentHistory';
  * - Refs pour export Plotly + fullscreen
  *
  * @param {Object} config
- * @param {string} config.route - Route de la page (ex: '/slice')
  * @param {function} config.restoreUrl - (searchParams, setters) => boolean — restaure les params depuis l'URL
  * @param {function} config.fetchData - () => Promise<data> — appelle l'API, retourne les données
  * @param {function} config.buildPermalink - () => string — construit l'URL du permalien
@@ -28,7 +27,6 @@ import { useRecentHistory } from './useRecentHistory';
  * @param {function} [config.canLaunch] - () => boolean — condition pour activer le bouton
  */
 export function useVisualizationPage({
-  route,
   restoreUrl,
   fetchData,
   buildPermalink,
@@ -51,15 +49,17 @@ export function useVisualizationPage({
   const pendingAutoLaunch = useRef(false);
   // Keep a live ref to restoreUrl (recreated each render by the page) so the
   // restoration effect can depend only on searchParams, not on the function.
+  // Assignation dans un effet (pas au rendu — react-hooks/refs) : cet effet
+  // sans deps est déclaré AVANT l'effet de restauration, il tourne donc en
+  // premier après chaque commit.
   const restoreUrlRef = useRef(restoreUrl);
-  restoreUrlRef.current = restoreUrl;
+  useEffect(() => { restoreUrlRef.current = restoreUrl; });
   const lastSearchRef = useRef(undefined);
-  // Incrémenté après une restauration pour FORCER un rendu, même si tous les
-  // setters de restoreUrl sont des no-op (params identiques à la sélection
-  // courante du contexte). Sans ça, l'auto-launch en bas — évalué au rendu —
-  // n'aurait jamais l'occasion de tourner quand on clique une entrée
-  // d'historique correspondant exactement à la vue déjà affichée.
-  const [, forceRestoreRender] = useState(0);
+  // Incrémenté après une restauration pour déclencher l'effet d'auto-launch,
+  // même si tous les setters de restoreUrl sont des no-op (params identiques
+  // à la sélection courante du contexte, ex. clic sur l'entrée d'historique
+  // de la vue déjà affichée).
+  const [restoreTick, setRestoreTick] = useState(0);
 
   // --- URL restoration ---
   // Runs on mount AND whenever the query string changes — including when the
@@ -72,7 +72,10 @@ export function useVisualizationPage({
     lastSearchRef.current = search;
     if (restoreUrlRef.current(searchParams)) {
       pendingAutoLaunch.current = true;
-      forceRestoreRender(n => n + 1);
+      // Tick volontaire : reveille l'effet d'auto-launch meme quand les setters
+      // de restauration sont des no-op (params identiques au contexte courant).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRestoreTick(n => n + 1);
     }
   }, [catalogLoading, searchParams]);
 
@@ -100,27 +103,29 @@ export function useVisualizationPage({
       })
       .catch(err => setError(err.response?.data?.message || err.message))
       .finally(() => setLoading(false));
-  }, [fetchData, buildHistoryEntry, canLaunch, addEntry]);
+  }, [fetchData, buildHistoryEntry, buildPermalink, canLaunch, addEntry]);
 
   // --- Auto-launch after URL restoration ---
-  // Évalué pendant le rendu (et NON dans un effet) à dessein : il faut le rendu
-  // où les valeurs de l'URL sont déjà appliquées au contexte. Un useEffect se
-  // déclencherait dès le commit du montage, avant que setState n'ait propagé le
-  // dataset/point restaurés, et lancerait avec les valeurs de la page précédente
-  // (bug observé en revenant sur une vue depuis l'historique).
-  const shouldAutoLaunch = pendingAutoLaunch.current && !loading && !catalogLoading;
-  if (shouldAutoLaunch && (dataset || selectedDataset)) {
+  // Effet dépendant de dataset/selectedDataset : il ne lance qu'au rendu où
+  // les valeurs restaurées sont réellement propagées au contexte (le garde
+  // pendingAutoLaunch reste vrai tant que le dataset n'est pas résolu, et
+  // l'effet se redéclenche à chaque propagation). handleLaunch est recréé à
+  // chaque rendu par la page : la version exécutée lit donc les sélections
+  // du rendu courant, comme l'ancien setTimeout évalué au rendu.
+  useEffect(() => {
+    if (!pendingAutoLaunch.current || loading || catalogLoading) return;
+    if (!dataset && !selectedDataset) return;
     pendingAutoLaunch.current = false;
     if (dataset) setTimeout(handleLaunch, 0);
     else setTimeout(() => setError(t('error.datasetNotFound', { id: selectedDataset })), 0);
-  }
+  }, [restoreTick, loading, catalogLoading, dataset, selectedDataset, handleLaunch, t]);
 
   // --- Permalink copy ---
   const handleCopyLink = useCallback(() => {
     const url = buildPermalink();
     copyToClipboard(url);
     showToast(t('toast.linkCopied'));
-  }, [buildPermalink, copyToClipboard, showToast]);
+  }, [buildPermalink, copyToClipboard, showToast, t]);
 
   // --- Keyboard shortcuts ---
   const shortcuts = useMemo(() => ({

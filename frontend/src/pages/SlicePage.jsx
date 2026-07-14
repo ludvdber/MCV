@@ -4,7 +4,7 @@ import {
   Alert, Box, Chip, LinearProgress,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
-import { Place as PlaceIcon, Map as MapIcon, Functions as LogIcon, Air as WindIcon } from '@mui/icons-material';
+import { Place as PlaceIcon, Map as MapIcon, Functions as LogIcon, Air as WindIcon, BlurOn as SmoothIcon } from '@mui/icons-material';
 import { getSlice, getWind, exportSliceCSV, exportSliceNetCDF } from '../services/api';
 import DatasetSelector from '../components/DatasetSelector';
 import VariableSelector from '../components/VariableSelector';
@@ -15,6 +15,7 @@ import ExportMenu from '../components/ExportMenu';
 import VisuToggle from '../components/VisuToggle';
 import PermalienButton from '../components/PermalienButton';
 import ColorscaleSelector from '../components/ColorscaleSelector';
+import InterpolationToggle from '../components/InterpolationToggle';
 import LocationsLegend from '../components/LocationsLegend';
 import ChartOrTable from '../components/ChartOrTable';
 import ViewExplainer from '../components/ViewExplainer';
@@ -45,6 +46,10 @@ function SlicePage() {
   const [windData, setWindData] = useState(null);
   const [logScale, setLogScale] = useState(false);
   const [colorscale, setColorscale] = useState('auto');
+  // Defauts : lissage actif sur la grille native ; l'interpolation 2 deg/1 deg
+  // et la vue cellules brutes restent accessibles via les toggles.
+  const [smooth, setSmooth] = useState(true);
+  const [interpStep, setInterpStep] = useState(0);
 
   const {
     data: sliceData, loading, error, isDirty, markDirty,
@@ -84,16 +89,21 @@ function SlicePage() {
 
   const resolvedColorscale = useResolvedColorscale(colorscale, sliceData?.variable, selectedVariable);
 
-  // Fetch wind data when toggle is ON and slice is loaded
+  // Fetch wind data when toggle is ON and slice is loaded.
+  // Le champ est stocke AVEC sa cle de parametres : l'affichage le derive en
+  // comparant la cle courante, donc pas de reset synchrone dans l'effet et
+  // jamais de vecteurs perimes sur une slice qui a change entre-temps.
   const isWindVariable = ['UU', 'VV'].includes(selectedVariable);
+  const windKey = `${selectedDataset}|${selectedTime}|${selectedAltitude}`;
   useEffect(() => {
-    if (!showWind || !sliceData || isWindVariable) { setWindData(null); return; }
+    if (!showWind || !sliceData || isWindVariable) return undefined;
     const controller = new AbortController();
     getWind({ dataset: selectedDataset, time: selectedTime, altitudeIndex: selectedAltitude }, controller.signal)
-      .then(res => setWindData(res.data))
-      .catch(() => { if (!controller.signal.aborted) setWindData(null); });
+      .then(res => setWindData({ key: windKey, field: res.data }))
+      .catch(() => { /* champ precedent conserve : l'affichage est gate par la cle */ });
     return () => controller.abort();
-  }, [showWind, sliceData, selectedDataset, selectedTime, selectedAltitude, isWindVariable]);
+  }, [showWind, sliceData, selectedDataset, selectedTime, selectedAltitude, isWindVariable, windKey]);
+  const activeWindField = showWind && !isWindVariable && windData?.key === windKey ? windData.field : null;
 
   const handleExportCSV = () => {
     triggerApiDownload(
@@ -157,6 +167,8 @@ function SlicePage() {
                 <VisuToggle value={showWind} onChange={setShowWind} icon={<WindIcon />}>{t('explore.toggle.wind')}</VisuToggle>
               )}
               <VisuToggle value={logScale} onChange={setLogScale} icon={<LogIcon />} title={t('common.toggleLog')}>{'Log\u2081\u2080'}</VisuToggle>
+              <VisuToggle value={smooth} onChange={setSmooth} icon={<SmoothIcon />} title={t('common.toggleSmooth')}>{t('common.toggleSmooth')}</VisuToggle>
+              <InterpolationToggle value={interpStep} onChange={setInterpStep} />
             </>
           )}
           {isDirty && <Chip label={t('page.slice.dirty')} color="warning" size="small" />}
@@ -186,9 +198,9 @@ function SlicePage() {
                 <SliceViewer
                   sliceData={sliceData} variableCode={selectedVariable} datasetLabel={datasetLabel}
                   showLocations={showLocations} showSurface={showSurface}
-                  windData={showWind ? windData : null}
+                  windData={activeWindField}
                   colorscaleName={resolvedColorscale.name} reverseColorscale={resolvedColorscale.reverse}
-                  logScale={logScale} noExportMenu
+                  logScale={logScale} smooth={smooth} interpStep={interpStep} noExportMenu
                 />
               </Box>
             )}

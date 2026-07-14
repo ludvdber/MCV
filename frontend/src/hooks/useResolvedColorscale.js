@@ -18,7 +18,9 @@ export function useResolvedColorscale(colorscale, displayedVar, selectedVar) {
   return useMemo(() => {
     if (colorscale === 'auto') {
       const isTemp = RDBU_VARIABLES.includes(displayedVar ?? selectedVar);
-      return { name: isTemp ? 'RdBu' : 'Viridis', reverse: isTemp };
+      // RdBu de Plotly va nativement du bleu (bas) au rouge (haut) : pas d'inversion,
+      // sinon on affiche froid=rouge / chaud=bleu.
+      return { name: isTemp ? 'RdBu' : 'Viridis', reverse: false };
     }
     const opt = COLORSCALE_OPTIONS.find(o => o.value === colorscale);
     return { name: opt?.scale || colorscale, reverse: opt?.reverse || false };

@@ -1,21 +1,20 @@
 import { Slider, Box, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useTranslation } from 'react-i18next';
+// formatTime vit dans utils/formatTime.js : ce fichier ne doit exporter
+// qu'un composant (react-refresh/only-export-components).
+import { formatTime } from '../utils/formatTime';
 
-/**
- * Convertit un index de timestep (0-47) en heure locale martienne.
- * Un fichier MEAN contient 48 pas de temps couvrant un cycle diurne :
- * timestep 0 = 0.5h, timestep 23 = 12h (midi), timestep 47 = 24h.
- * Formule : heure = (timestep + 1) * 0.5
- */
-export const formatTime = (timestep) => `${(timestep + 1) * 0.5}h`;
-
-/** Reperes affiches sur le slider — version complete et compacte */
-const marks = [7, 15, 23, 31, 39, 47].map(t => ({ value: t, label: formatTime(t) }));
-const marksCompact = [7, 23, 39].map(t => ({ value: t, label: formatTime(t) }));
+/** Reperes affiches sur le slider : ancres AUX BORNES reelles (0 et 47) plus
+ *  quelques jalons intermediaires reguliers. Aux bornes on ne montre PAS toute
+ *  la valeur au centre du repere (elle deborderait de la piste et percuterait le
+ *  slider voisin en disposition 2 colonnes) : elles sont realignees dans la piste. */
+const marks = [0, 12, 24, 36, 47].map(t => ({ value: t, label: formatTime(t) }));
+const marksCompact = [0, 24, 47].map(t => ({ value: t, label: formatTime(t) }));
 
 /**
  * Slider de selection du pas de temps (0-47).
- * Le tooltip affiche l'heure martienne correspondante.
+ * La valeur exacte est affichee en continu a cote du titre (lecture directe) :
+ * les reperes ne servent que de jalons, le curseur porte la valeur precise.
  *
  * @param {number} value - index du timestep (0-47)
  * @param {function} onChange - callback appelee avec le nouvel index
@@ -25,10 +24,16 @@ function TimeSelector({ value, onChange, disabled = false }) {
   const { t } = useTranslation();
   const theme = useTheme();
   const isNarrow = useMediaQuery(theme.breakpoints.down('sm'));
+  const shownMarks = isNarrow ? marksCompact : marks;
 
   return (
     <Box>
-      <Typography gutterBottom>{t('selector.time.label')}</Typography>
+      <Typography gutterBottom>
+        {t('selector.time.label')}
+        <Box component="span" sx={{ color: 'var(--mars-orange)', fontWeight: 700, ml: 0.75 }}>
+          {formatTime(value)}
+        </Box>
+      </Typography>
       <Slider
         min={0}
         max={47}
@@ -38,7 +43,14 @@ function TimeSelector({ value, onChange, disabled = false }) {
         disabled={disabled}
         valueLabelDisplay="auto"
         valueLabelFormat={formatTime}
-        marks={isNarrow ? marksCompact : marks}
+        marks={shownMarks}
+        sx={{
+          // Reperes de bord realignes DANS la piste : le premier a gauche, le
+          // dernier a droite. Sans ca, "23.5h" (borne haute) deborde et percute
+          // le slider d'altitude voisin (retour utilisateur).
+          '& .MuiSlider-markLabel[data-index="0"]': { transform: 'translateX(0%)' },
+          [`& .MuiSlider-markLabel[data-index="${shownMarks.length - 1}"]`]: { transform: 'translateX(-100%)' },
+        }}
       />
     </Box>
   );

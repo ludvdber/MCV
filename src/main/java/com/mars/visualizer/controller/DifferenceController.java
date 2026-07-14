@@ -41,6 +41,7 @@ public class DifferenceController extends AbstractDataController {
             @RequestParam(defaultValue = "0") int time,
             @RequestParam(defaultValue = "0") int altitude) {
 
+        requireDistinctDatasets(datasetA, datasetB);
         var resolvedA = resolveDataset(datasetA, time);
         var resolvedB = resolveDataset(datasetB, time);
         int timeA = resolvedA.time();
@@ -53,7 +54,7 @@ public class DifferenceController extends AbstractDataController {
         SliceData sliceB = netcdfService.extractSlice2DWithCoords(resolvedB.filename(), variable, timeB, altitude);
 
         float[][] diff = StatsCalculator.computeGridDifference(sliceA.data(), sliceB.data());
-        StatsResult stats = StatsCalculator.calculateStats(diff);
+        StatsResult stats = StatsCalculator.calculateStatsWeighted(diff, sliceA.latitudes());
         Double altitudeValue = netcdfService.extractAltitudeValue(resolvedA.filename(), variable, altitude);
 
         var response = new DifferenceResponse(
