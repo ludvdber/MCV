@@ -12,9 +12,6 @@
  * Les exports CSV/NetCDF ne passent jamais par ici : ils restent natifs.
  */
 
-/** Pas d'affichage proposés (0 = natif, sinon pas cible en degrés). */
-export const INTERP_STEPS = [0, 2, 1];
-
 /** Pas natif d'un axe (en degrés), supposé régulier. */
 export function nativeStep(axis) {
   if (!axis || axis.length < 2) return null;

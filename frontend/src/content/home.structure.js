@@ -4,8 +4,6 @@
  * Les fichiers home.XX.js importent ces constantes et n'ajoutent que les textes.
  */
 
-export const HERO_TITLE = 'MARS CLIMATE VIEWER';
-
 export const WHY_REASON_ICONS = ['water', 'explore', 'science'];
 
 export const FEATURES_STRUCTURE = [

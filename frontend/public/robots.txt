@@ -1,9 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://mars.ludovdb.be/sitemap.xml
-
-# API endpoints should not be indexed
-Disallow: /api/
-Disallow: /swagger-ui
-Disallow: /api-docs

@@ -50,7 +50,9 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
    description, balises Open Graph / Twitter et lien canonique a chaque
    changement de route ET de langue (Google rend le JavaScript). */
 
-const SITE_URL = 'https://mars.ludovdb.be';
+// Injecte par Vite (define) depuis SITE_URL de vite.config.js — l'IASB ne change
+// l'URL qu'a un seul endroit (voir le bloc SITE_URL de vite.config.js).
+const SITE_URL = __SITE_URL__;
 const BRAND = 'Mars Climate Viewer';
 
 /** route → [cle i18n du nom de page, cle i18n de la description].
