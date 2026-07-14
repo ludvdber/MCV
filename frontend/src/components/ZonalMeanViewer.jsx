@@ -35,6 +35,9 @@ function ZonalMeanViewer({ zonalMeanData, variableCode, datasetLabel, colorscale
     if (!el || !zonalMeanData) return;
 
     const { latitudes, altitudes, data } = zonalMeanData;
+    // Garde defensive : si la reponse arrive partielle (course montage/donnees),
+    // on n'entre pas dans le rendu Plotly (data.map / z:data planteraient -> ErrorBoundary).
+    if (!Array.isArray(data) || !Array.isArray(latitudes) || !Array.isArray(altitudes)) return;
     const varInfo = VARIABLES_MAP.get(variableCode);
     const variableLabel = varInfo ? t(`variable.${variableCode}`) : variableCode;
     const unit = varInfo?.unit || '';

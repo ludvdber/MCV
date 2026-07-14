@@ -466,7 +466,7 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
                 >
                   <ListItemText
                     primary={t('history.seeAll', { count: history.length })}
-                    slotProps={{ primary: { fontSize: '0.72rem', color: 'secondary.main', textAlign: 'center' } }}
+                    slotProps={{ primary: { fontSize: '0.72rem', color: 'secondary.main', sx: { textAlign: 'center' } } }}
                   />
                 </ListItemButton>
                 <Tooltip title={confirmClear ? t('history.clearConfirm') : t('history.clear')} placement="top" arrow>

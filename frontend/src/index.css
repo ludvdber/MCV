@@ -167,7 +167,26 @@
   border-color: var(--glass-border) !important;
 }
 
-/* Anneau de focus renforcé */
+/* Anneau de focus clavier (mode normal). MUI ButtonBase pose `outline: 0` a
+   specificite egale (0,1,0) a la regle `*:focus-visible` du theme et gagne dans
+   la cascade -> plus aucun anneau visible au clavier. On retablit un focus
+   visible en rehaussant la specificite (element + pseudo = 0,1,1), sans
+   !important : ca bat le outline:0 de MUI tout en laissant primer les regles
+   dediees .mcv-*:focus-visible (specificite classe, superieure). */
+a:focus-visible,
+button:focus-visible,
+[role='button']:focus-visible,
+[role='tab']:focus-visible,
+[role='option']:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--cyan-accent, #38bdf8);
+  outline-offset: 2px;
+}
+
+/* Anneau de focus renforcé (mode contraste élevé) */
 [data-contrast='high'] *:focus-visible {
   outline: 3px solid var(--mars-orange) !important;
   outline-offset: 2px !important;
