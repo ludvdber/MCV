@@ -35,10 +35,12 @@ public class SecurityHeadersFilter implements Filter {
                     // SolarSystem.jsx) car son worker importe un second blob soumis a
                     // script-src ; la politique reste donc strictement inchangee.
                     + "script-src 'self' 'wasm-unsafe-eval'; "
-                    + "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-                    + "font-src 'self' https://fonts.gstatic.com; "
+                    // Polices auto-hebergees (public/fonts) : aucune reference a
+                    // Google Fonts, donc pas d'allowance fonts.googleapis/gstatic.
+                    + "style-src 'self' 'unsafe-inline'; "
+                    + "font-src 'self'; "
                     + "img-src 'self' data: blob: https://images-assets.nasa.gov; "
-                    + "connect-src 'self' blob: https://images-api.nasa.gov https://fonts.googleapis.com https://fonts.gstatic.com; "
+                    + "connect-src 'self' blob: https://images-api.nasa.gov; "
                     + "object-src 'none'");
         }
 

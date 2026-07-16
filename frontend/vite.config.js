@@ -179,11 +179,6 @@ export default defineConfig(() => ({
             || nid.includes('node_modules/scheduler/')
             || nid.includes('node_modules/use-sync-external-store/')
             || nid.includes('node_modules/@babel/runtime/')) return 'react';
-          // Runtime React universel : chunk dedie pour eviter que rolldown ne le
-          // loge dans 'three' (ce qui forcait toutes les pages a precharger 1,1 Mo)
-          if (nid.includes('node_modules/react/')
-            || nid.includes('node_modules/react-dom/')
-            || nid.includes('node_modules/scheduler/')) return 'react';
         },
       },
     },
