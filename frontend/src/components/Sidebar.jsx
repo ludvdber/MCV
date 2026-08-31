@@ -330,7 +330,9 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
         background: 'var(--bg-surface)',
         backdropFilter: 'blur(var(--glass-blur))',
         WebkitBackdropFilter: 'blur(var(--glass-blur))',
-        borderRight: '1px solid var(--glass-border)',
+        // Liseré orangé historique de la barre latérale (le --glass-border cyan
+        // la fondait dans le décor — retour utilisateur).
+        borderRight: '1px solid rgba(224, 90, 43, 0.2)',
         overflow: 'hidden',
         transition: 'width 0.2s ease',
       }}

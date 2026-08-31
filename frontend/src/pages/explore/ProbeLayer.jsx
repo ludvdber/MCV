@@ -1,12 +1,15 @@
 /**
  * Sonde liee : reticule synchronise entre les vues de la console.
  *
- * Survoler une carte lat/lon publie la position sur le probeBus ; chaque
- * ProbeLayer des AUTRES vues dessine un reticule au meme (lat, lon) avec la
- * valeur locale de SA variable. Un seul geste interroge toutes les vues.
+ * Survoler une vue publie un point DIMENSIONNEL (lat/lon/heure/altitude, voir
+ * probeSamplers.js) sur le probeBus ; chaque ProbeLayer des AUTRES vues dessine
+ * le reticule sur les dimensions qu'il partage avec le point : croix + valeur
+ * locale quand ses deux axes sont resolus, ligne simple quand un seul l'est
+ * (ex : un survol de hovmoller ne donne qu'une latitude a une slice). Un seul
+ * geste interroge ainsi cartes, coupes, moyennes zonales et profils temporels.
  *
  * Implementation : un canvas en position absolue au-dessus du div Plotly de
- * la cellule (pointer-events: none). La conversion (lon, lat) → pixel relit
+ * la cellule (pointer-events: none). La conversion dimension → pixel relit
  * el._fullLayout (taille + ranges), donc zoom et pan sont suivis.
  *
  * @param {string} resultId       — id du resultat de la cellule
@@ -16,7 +19,7 @@
 import { useEffect, useRef } from 'react';
 import { VARIABLES_MAP } from '../../components/VariableSelector';
 import { subscribeProbe, publishProbe, currentProbe } from './probeBus.js';
-import { nearestValue } from './exploreUtils.js';
+import { probeAxes, fixedProbeDims, sampleProbe } from './probeSamplers.js';
 
 export default function ProbeLayer({ resultId, result, hostRef }) {
   const canvasRef = useRef(null);
@@ -24,7 +27,8 @@ export default function ProbeLayer({ resultId, result, hostRef }) {
   useEffect(() => {
     const host = hostRef?.current;
     const canvas = canvasRef.current;
-    if (!host || !canvas) return undefined;
+    const axes = probeAxes(result);
+    if (!host || !canvas || !axes) return undefined;
 
     const ctx = canvas.getContext('2d');
     let plotEl = null;
@@ -33,9 +37,6 @@ export default function ProbeLayer({ resultId, result, hostRef }) {
 
     const unit = VARIABLES_MAP.get(result?.params?.variable)?.unit || '';
     const varCode = result?.params?.variable || '';
-    // Pour une slice/difference la grille est dans result.data ;
-    // pour une animation (frames en dehors du state) on n'affiche que le reticule.
-    const gridData = result?.type === 'animation' ? null : result?.data;
 
     function syncCanvasSize() {
       if (!plotEl) return;
@@ -57,6 +58,21 @@ export default function ProbeLayer({ resultId, result, hostRef }) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
+    /** Valeur du point sur la dimension d'un axe, repliee dans la plage de CET
+     *  axe pour les longitudes (conventions 0-360 vs -180/180), ou null si la
+     *  dimension manque ou tombe hors du champ. */
+    function axisValue(probe, dim, range) {
+      let v = probe[dim];
+      if (v == null) return null;
+      const min = Math.min(range[0], range[1]);
+      const max = Math.max(range[0], range[1]);
+      if (dim === 'lon') {
+        if (v < min && v + 360 >= min && v + 360 <= max) v += 360;
+        else if (v > max && v - 360 <= max && v - 360 >= min) v -= 360;
+      }
+      return (v < min || v > max) ? null : v;
+    }
+
     function draw(probe) {
       if (!plotEl) return;
       clear();
@@ -65,12 +81,13 @@ export default function ProbeLayer({ resultId, result, hostRef }) {
       if (!fl || !fl._size || !fl.xaxis || !fl.yaxis) return;
       const { _size: size, xaxis, yaxis } = fl;
       const [x0, x1] = xaxis.range, [y0, y1] = yaxis.range;
-      // Hors du champ de cette carte (conventions 0-360 vs -180/180) : rien
-      if (probe.lon < Math.min(x0, x1) || probe.lon > Math.max(x0, x1)) return;
-      if (probe.lat < Math.min(y0, y1) || probe.lat > Math.max(y0, y1)) return;
 
-      const px = size.l + ((probe.lon - x0) / ((x1 - x0) || 1)) * size.w;
-      const py = size.t + ((y1 - probe.lat) / ((y1 - y0) || 1)) * size.h;
+      const xv = axisValue(probe, axes.x, xaxis.range);
+      const yv = axisValue(probe, axes.y, yaxis.range);
+      if (xv == null && yv == null) return;
+
+      const px = xv != null ? size.l + ((xv - x0) / ((x1 - x0) || 1)) * size.w : null;
+      const py = yv != null ? size.t + ((y1 - yv) / ((y1 - y0) || 1)) * size.h : null;
 
       syncCanvasSize();
       ctx.save();
@@ -82,18 +99,20 @@ export default function ProbeLayer({ resultId, result, hostRef }) {
       ctx.lineWidth = 1;
       ctx.setLineDash([4, 3]);
       ctx.beginPath();
-      ctx.moveTo(px, size.t); ctx.lineTo(px, size.t + size.h);
-      ctx.moveTo(size.l, py); ctx.lineTo(size.l + size.w, py);
+      if (px != null) { ctx.moveTo(px, size.t); ctx.lineTo(px, size.t + size.h); }
+      if (py != null) { ctx.moveTo(size.l, py); ctx.lineTo(size.l + size.w, py); }
       ctx.stroke();
       ctx.setLineDash([]);
+
+      // Croix complete : cercle + valeur locale de cette vue au point sonde.
+      if (px == null || py == null) { ctx.restore(); return; }
       ctx.beginPath();
       ctx.arc(px, py, 4.5, 0, Math.PI * 2);
       ctx.strokeStyle = '#38bdf8';
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // Valeur locale de cette vue au point sonde
-      const v = gridData ? nearestValue(gridData, probe.lat, probe.lon) : null;
+      const v = sampleProbe(result, probe);
       if (v != null) {
         const label = `${varCode} ${Math.abs(v) >= 100 ? v.toFixed(1) : v.toPrecision(4)} ${unit}`;
         ctx.font = '600 12px Rajdhani, sans-serif';
@@ -114,7 +133,14 @@ export default function ProbeLayer({ resultId, result, hostRef }) {
     const onHover = (ev) => {
       const pt = ev?.points?.[0];
       if (pt == null || typeof pt.x !== 'number' || typeof pt.y !== 'number') return;
-      publishProbe({ lat: pt.y, lon: pt.x, sourceId: resultId });
+      // Coordonnees fixes calculees AU survol : la frame courante d'une
+      // animation change pendant la lecture.
+      publishProbe({
+        ...fixedProbeDims(result),
+        [axes.x]: pt.x,
+        [axes.y]: pt.y,
+        sourceId: resultId,
+      });
     };
     const onUnhover = () => publishProbe(null);
 

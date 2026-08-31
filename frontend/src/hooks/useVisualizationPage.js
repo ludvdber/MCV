@@ -7,6 +7,7 @@ import { usePlotRef } from './usePlotRef';
 import { useCopyToClipboard } from './useCopyToClipboard';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 import { useRecentHistory } from './useRecentHistory';
+import { scrollViewerIntoView } from '../utils/scrollToViewer';
 
 /**
  * Hook partagé pour toutes les pages de visualisation.
@@ -117,16 +118,27 @@ export function useVisualizationPage({
   // Annule la requête encore en vol lorsque la page est démontée.
   useEffect(() => () => launchAbortRef.current?.abort(), []);
 
-  // --- Auto-launch after URL restoration ---
-  // Effet dépendant de dataset/selectedDataset : il ne lance qu'au rendu où
-  // les valeurs restaurées sont réellement propagées au contexte (le garde
-  // pendingAutoLaunch reste vrai tant que le dataset n'est pas résolu, et
-  // l'effet se redéclenche à chaque propagation). handleLaunch est recréé à
-  // chaque rendu par la page : la version exécutée lit donc les sélections
-  // du rendu courant, comme l'ancien setTimeout évalué au rendu.
+  // Mobile : amène le viewer à l'écran quand un résultat arrive (sinon le
+  // graphique se rend sous la ligne de flottaison et rien ne semble se passer).
   useEffect(() => {
+    if (data) scrollViewerIntoView(viewerContainerRef.current);
+  }, [data, viewerContainerRef]);
+
+  // --- Auto-launch after URL restoration ---
+  // Ne lance qu'au rendu où restoreTick est PROPAGÉ (handledTickRef) : le tick
+  // et les valeurs restaurées sont commités dans le même lot React, donc à ce
+  // rendu-là les sélections lues par handleLaunch sont bien celles du permalien.
+  // Sans ce verrou, l'effet pouvait se déclencher dans la MÊME phase d'effets
+  // que la restauration (ses deps dataset/selectedDataset venant de changer,
+  // ex. dataset par défaut posé au chargement du catalogue) et lancer avec les
+  // valeurs d'AVANT restauration. handleLaunch est recréé à chaque rendu par la
+  // page : la version exécutée lit les sélections du rendu courant.
+  const handledTickRef = useRef(0);
+  useEffect(() => {
+    if (restoreTick === handledTickRef.current) return;
     if (!pendingAutoLaunch.current || loading || catalogLoading) return;
     if (!dataset && !selectedDataset) return;
+    handledTickRef.current = restoreTick;
     pendingAutoLaunch.current = false;
     if (dataset) setTimeout(handleLaunch, 0);
     else setTimeout(() => setError(t('error.datasetNotFound', { id: selectedDataset })), 0);

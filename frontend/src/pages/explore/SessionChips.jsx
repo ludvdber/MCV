@@ -55,7 +55,7 @@ export default function SessionChips() {
   }, [editingId, draft, dispatch]);
 
   return (
-    <Box className="mcv-sessions" role="group" aria-label={t('explore.session.bar')}>
+    <Box className="mcv-sessions" role="group" aria-label={t('explore.session.bar')} data-tour="sessions">
       {sessions.map(s => {
         const active = s.id === activeSession;
         if (editingId === s.id) {

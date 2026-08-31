@@ -23,6 +23,7 @@ import { useMars } from '../context/MarsContext';
 import { useToast } from '../context/ToastContext';
 import { triggerApiDownload } from '../utils/exportUtils';
 import { usePlotRef } from '../hooks/usePlotRef';
+import { scrollViewerIntoView } from '../utils/scrollToViewer';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useRecentHistory } from '../hooks/useRecentHistory';
@@ -61,6 +62,12 @@ function ProfilePage() {
 
   const [viewerContainerRef, exportPlotRef] = usePlotRef();
   const [linkCopied, copyToClipboard] = useCopyToClipboard();
+
+  // Mobile : amène le viewer à l'écran quand les profils arrivent (même
+  // comportement que useVisualizationPage sur les pages du hook partagé).
+  useEffect(() => {
+    if (profiles) scrollViewerIntoView(viewerContainerRef.current);
+  }, [profiles, viewerContainerRef]);
   const [searchParams] = useSearchParams();
   const lastSearchRef = useRef(undefined);
   const pendingAutoLaunch = useRef(false);

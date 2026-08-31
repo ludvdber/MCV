@@ -58,6 +58,15 @@ export default function GuidedTour({ open, steps, onClose, onStepChange }) {
     return () => { cancelAnimationFrame(rafRef.current); clearTimeout(toRef.current); };
   }, [open, idx, steps, measure, reduce]);
 
+  /* Cible asynchrone (ex : les outils contextuels n'apparaissent qu'une fois
+     la vue de demonstration chargee) : tant que le selecteur ne matche rien,
+     on re-mesure periodiquement au lieu de rester sur la carte centree. */
+  useEffect(() => {
+    if (!open || !steps[idx] || rect) return undefined;
+    const id = setInterval(measure, 300);
+    return () => clearInterval(id);
+  }, [open, idx, steps, rect, measure]);
+
   /* Recalcul sur redimensionnement / defilement. */
   useEffect(() => {
     if (!open) return undefined;

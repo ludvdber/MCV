@@ -48,7 +48,14 @@ function MarsProvider({ children }) {
   // --- Chargement unique des catalogues ---
   useEffect(() => {
     getCatalog()
-      .then(res => setDatasets(res.data))
+      .then(res => {
+        setDatasets(res.data);
+        // Defaut : premier dataset du catalogue (trie par MY puis Ls), pour que
+        // chaque page soit lancable sans clic prealable. Mise a jour
+        // fonctionnelle : ne remplace JAMAIS une selection deja faite (permalien
+        // ou restauration d'historique arrivee avant la reponse du catalogue).
+        setSelectedDataset(prev => prev ?? res.data[0]?.id ?? null);
+      })
       .catch(err => setCatalogError(err.message))
       .finally(() => setCatalogLoading(false));
   }, []);

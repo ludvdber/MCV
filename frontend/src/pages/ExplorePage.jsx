@@ -40,15 +40,20 @@ import { genLabel, weightedStats } from './explore/exploreUtils.js';
 import { formatTime } from '../utils/formatTime';
 
 /* Etapes de la visite guidee de la console. Les cibles portent un attribut
-   data-tour="..." pose sur les composants ; l'etape « examples » n'est ajoutee
-   que si au moins un exemple resout contre le catalogue charge. */
-const TOUR_STEPS_BASE = [
-  { selector: '[data-tour="params-rail"]', titleKey: 'explore.tour.params.title', bodyKey: 'explore.tour.params.body', panel: true },
-  { selector: '[data-tour="viz-type"]',    titleKey: 'explore.tour.viz.title',    bodyKey: 'explore.tour.viz.body',    panel: true },
-  { selector: '[data-tour="launch"]',      titleKey: 'explore.tour.launch.title', bodyKey: 'explore.tour.launch.body', panel: true },
-  { selector: '[data-tour="layout"]',      titleKey: 'explore.tour.layout.title', bodyKey: 'explore.tour.layout.body' },
-  { selector: '[data-tour="side-panel"]',  titleKey: 'explore.tour.panel.title',  bodyKey: 'explore.tour.panel.body' },
-];
+   data-tour="..." pose sur les composants. La visite est SCENARISEE : sur une
+   console vide, l'etape « demo » charge une vraie vue (scenario slice du
+   catalogue) pour que les etapes suivantes — outils contextuels, sessions —
+   aient quelque chose a montrer (les outils n'existent au DOM qu'avec une vue
+   active). Les etapes sont FIGEES a l'ouverture (buildTourSteps) : la liste ne
+   doit pas bouger pendant la visite quand la vue demo arrive. */
+const TOUR_STEP_PARAMS   = { selector: '[data-tour="params-rail"]', titleKey: 'explore.tour.params.title', bodyKey: 'explore.tour.params.body', panel: true };
+const TOUR_STEP_VIZ      = { selector: '[data-tour="viz-type"]',    titleKey: 'explore.tour.viz.title',    bodyKey: 'explore.tour.viz.body',    panel: true };
+const TOUR_STEP_LAUNCH   = { selector: '[data-tour="launch"]',      titleKey: 'explore.tour.launch.title', bodyKey: 'explore.tour.launch.body', panel: true };
+const TOUR_STEP_DEMO     = { selector: '[data-tour="stage"]',       titleKey: 'explore.tour.demo.title',   bodyKey: 'explore.tour.demo.body',   demo: true };
+const TOUR_STEP_LAYOUT   = { selector: '[data-tour="layout"]',      titleKey: 'explore.tour.layout.title', bodyKey: 'explore.tour.layout.body' };
+const TOUR_STEP_TOOLS    = { selector: '[data-tour="tools"]',       titleKey: 'explore.tour.tools.title',  bodyKey: 'explore.tour.tools.body' };
+const TOUR_STEP_SESSIONS = { selector: '[data-tour="sessions"]',    titleKey: 'explore.tour.sessions.title', bodyKey: 'explore.tour.sessions.body' };
+const TOUR_STEP_PANEL    = { selector: '[data-tour="side-panel"]',  titleKey: 'explore.tour.panel.title',  bodyKey: 'explore.tour.panel.body' };
 const TOUR_STEP_EXAMPLES = { selector: '[data-tour="examples"]', titleKey: 'explore.tour.examples.title', bodyKey: 'explore.tour.examples.body' };
 const TOUR_DONE_KEY = 'mcv-explore-tour-done';
 const GRID_REVEALED_KEY = 'mcv-grid-revealed';
@@ -784,24 +789,62 @@ function ExplorePageContent() {
   const [tourOpen, setTourOpen] = useState(false);
   const [tourRunId, setTourRunId] = useState(0);   // change de `key` -> etape remise a 0 par remontage
   const [tourForcePanel, setTourForcePanel] = useState(false);
+  const [tourSteps, setTourSteps] = useState([]);
+  const demoRanRef = useRef(false);
   const resolvedScenarios = useResolvedScenarios();
-  const tourSteps = useMemo(
-    () => (resolvedScenarios.length > 0 ? [...TOUR_STEPS_BASE, TOUR_STEP_EXAMPLES] : TOUR_STEPS_BASE),
-    [resolvedScenarios.length],
+
+  /* Scenario de demonstration : une slice de preference (chargement rapide,
+     palette d'outils complete pour l'etape « tools »). Sans slice jouable, la
+     visite reste en lecture seule comme avant. */
+  const demoScenario = useMemo(
+    () => resolvedScenarios.find(s => s.plan.viz === 'slice') ?? null,
+    [resolvedScenarios],
   );
+
+  /** Etapes de CE parcours, figees a l'ouverture. Demo seulement si la console
+   *  est vide ; outils seulement si une vue existera (demo ou vues ouvertes). */
+  const buildTourSteps = useCallback(() => {
+    const withDemo = resultOrder.length === 0 && !!demoScenario;
+    const withTools = withDemo || resultOrder.length > 0;
+    return [
+      TOUR_STEP_PARAMS, TOUR_STEP_VIZ, TOUR_STEP_LAUNCH,
+      ...(withDemo ? [TOUR_STEP_DEMO] : []),
+      TOUR_STEP_LAYOUT,
+      ...(withTools ? [TOUR_STEP_TOOLS] : []),
+      TOUR_STEP_SESSIONS,
+      TOUR_STEP_PANEL,
+      ...(resolvedScenarios.length > 0 ? [TOUR_STEP_EXAMPLES] : []),
+    ];
+  }, [resultOrder.length, demoScenario, resolvedScenarios.length]);
+
+  const startTour = useCallback(() => {
+    demoRanRef.current = false;
+    setTourSteps(buildTourSteps());
+    setTourRunId(n => n + 1);
+    setTourOpen(true);
+  }, [buildTourSteps]);
+
   const closeTour = useCallback(() => {
     setTourOpen(false);
     setTourForcePanel(false);
     try { localStorage.setItem(TOUR_DONE_KEY, '1'); } catch { /* quota/prive */ }
   }, []);
-  const replayTour = useCallback(() => { setTourRunId(n => n + 1); setTourOpen(true); }, []);
-  const handleTourStep = useCallback((_, step) => setTourForcePanel(!!step?.panel), []);
+  const replayTour = startTour;
+  const handleTourStep = useCallback((_, step) => {
+    setTourForcePanel(!!step?.panel);
+    // Etape scenarisee : charge la vue de demonstration (une seule fois par
+    // parcours — revenir en arriere puis avancer ne relance pas le fetch).
+    if (step?.demo && !demoRanRef.current && demoScenario) {
+      demoRanRef.current = true;
+      runScenario(demoScenario.plan);
+    }
+  }, [demoScenario, runScenario]);
   useEffect(() => {
-    if (catalogLoading || !isDesktop) return undefined;   // la visite cible la disposition desktop
+    if (catalogLoading || !isDesktop || tourOpen) return undefined;   // la visite cible la disposition desktop
     try { if (localStorage.getItem(TOUR_DONE_KEY) === '1') return undefined; } catch { return undefined; }
-    const id = setTimeout(() => { setTourRunId(n => n + 1); setTourOpen(true); }, 650);  // laisse la page se poser
+    const id = setTimeout(startTour, 650);  // laisse la page se poser
     return () => clearTimeout(id);
-  }, [catalogLoading, isDesktop]);
+  }, [catalogLoading, isDesktop, tourOpen, startTour]);
 
   /* Tant qu'aucune vue n'est ouverte, le tiroir reste déplié (et le survol ne
      peut pas le refermer) : sinon l'utilisateur arrive sur une grille vide dont
@@ -809,6 +852,17 @@ function ExplorePageContent() {
      Dès la première vue, il se replie et repasse en overlay au survol/épingle. */
   const noResults = resultOrder.length === 0;
   const paramsExpanded = paramsOpen || paramsPinned || noResults || tourForcePanel;
+
+  /* Épinglé (ou console vide) : le panneau est DOCKÉ dans le flux flex — la
+     grille se rétrécit au lieu d'être recouverte (l'overlay masquait le titre
+     de la vue et les axes des mini-graphes à 1440). L'overlay ne sert plus
+     qu'à l'aperçu au survol et aux étapes « panel » de la visite. Plotly ne se
+     recale que sur l'événement resize : on le déclenche après chaque bascule. */
+  const paramsDocked = isDesktop && (paramsPinned || noResults);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    return () => cancelAnimationFrame(raf);
+  }, [paramsDocked]);
 
   /* ── Rendu ─────────────────────────────────────────────────────────────── */
 
@@ -873,12 +927,19 @@ function ExplorePageContent() {
               </Typography>
             </Box>
 
-            {/* Tiroir overlay : glisse au-dessus de la grille, ne la rétrécit pas.
-                Fond opaque (la Paper interne est en verre) + fermeture au survol sortant. */}
+            {/* Tiroir de paramètres : DOCKÉ dans le flux quand il est épinglé
+                (ou console vide) — la grille se rétrécit, rien n'est recouvert.
+                Sinon, overlay d'aperçu au survol : glisse au-dessus de la
+                grille et se referme au survol sortant. */}
             <Box
-              onMouseEnter={openParams}
-              onMouseLeave={scheduleCloseParams}
-              sx={{
+              onMouseEnter={paramsDocked ? undefined : openParams}
+              onMouseLeave={paramsDocked ? undefined : scheduleCloseParams}
+              sx={paramsDocked ? {
+                position: 'relative', width: 300, flexShrink: 0,
+                borderRadius: 2, overflow: 'hidden',
+                background: 'rgba(9, 14, 26, 0.94)',
+                border: '1px solid var(--glass-border)',
+              } : {
                 position: 'absolute', left: 52, top: 0, bottom: 0, width: 300, zIndex: 30,
                 borderRadius: 2, overflow: 'hidden',
                 background: 'rgba(9, 14, 26, 0.94)',
@@ -904,7 +965,7 @@ function ExplorePageContent() {
           </Box>
         )}
 
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <Box data-tour="stage" sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <ExploreResultsPanel
             onRemoveResult={handleRemoveResult}
             onExportCSV={handleExportCSV}

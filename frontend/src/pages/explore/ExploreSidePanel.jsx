@@ -11,7 +11,7 @@
  *   SCENARIOS — presets scientifiques ancres sur le catalogue, executes par
  *     le meme runner deterministe que la barre ⌘K.
  */
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Box, Typography, Tooltip, IconButton } from '@mui/material';
 import { HelpOutlined as HelpIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
@@ -19,15 +19,15 @@ import MethodologyDialog from '../../components/MethodologyDialog';
 import { VARIABLES_MAP } from '../../components/VariableSelector';
 import { MARS_LOCATIONS } from '../../data/marsLocations';
 import { subscribeProbe, currentProbe } from './probeBus.js';
-import { nearestValue } from './exploreUtils.js';
+import { sampleProbe, effectiveProbePoint } from './probeSamplers.js';
+import { datasetContext } from './exploreUtils.js';
 import { useExploreState } from './ExploreContext.jsx';
-import { LATLON_HEATMAP_TYPES } from './exploreConstants.jsx';
+import { PROBE_TYPES } from './exploreConstants.jsx';
 import { useResolvedScenarios, useScenarioRunner } from './scenarios.jsx';
 import CommandBar from './CommandBar.jsx';
 import RegionHistogram from './RegionHistogram.jsx';
 import ExploreTools from './ExploreTools.jsx';
-
-const PROBE_TYPES = [...LATLON_HEATMAP_TYPES, 'difference'];
+import { formatTime } from '../../utils/formatTime';
 
 const fmtVal = (v) => (Math.abs(v) >= 100 ? v.toFixed(1) : v.toPrecision(4));
 const fmtDeg = (v) => (Math.round(v * 10) / 10).toFixed(1);
@@ -65,25 +65,50 @@ export default function ExploreSidePanel({ onDeriveAmplitude, onDeriveWindSpeed 
     return () => { cancelAnimationFrame(raf); unsubscribe(); };
   }, []);
 
-  /** Vues lisibles par la sonde parmi celles affichees. */
+  /** Coordonnees d'un point 4D en texte compact — seules les dimensions
+   *  presentes s'affichent. */
+  const fmtPoint = useCallback((pt) => {
+    if (!pt) return '';
+    const parts = [];
+    if (pt.time != null) parts.push(formatTime(Math.round(pt.time * 2)));
+    // Pas de « ~ » devant l'altitude : la tilde de Rajdhani se lit comme un moins.
+    if (pt.alt != null) parts.push(`${Number(pt.alt).toFixed(0)} km`);
+    const latTxt = pt.lat != null ? `${fmtDeg(Math.abs(pt.lat))}°${t(pt.lat >= 0 ? 'viz.compass.n' : 'viz.compass.s')}` : null;
+    const lonTxt = pt.lon != null ? `${fmtDeg(Math.abs(pt.lon))}°${t(pt.lon >= 0 ? 'viz.compass.e' : 'viz.compass.w')}` : null;
+    if (latTxt || lonTxt) parts.push([latTxt, lonTxt].filter(Boolean).join(' '));
+    return parts.join(' · ');
+  }, [t]);
+
+  /** Vues lisibles par la sonde parmi celles affichees. L'echantillonnage est
+   *  dimensionnel (probeSamplers) : chaque vue repond sur les dimensions
+   *  qu'elle partage avec le point survole, animation comprise (frame visible).
+   *  `meta` = le point 4D REELLEMENT echantillonne par CETTE vue (son heure,
+   *  son altitude, sa position) + son contexte MY/Ls : quatre vues a des
+   *  heures differentes affichent chacune la sienne. */
   const probeRows = useMemo(() => {
     const ids = layout === 1 ? (activeResult ? [activeResult] : []) : gridIds;
     return ids
       .map(id => resultsById[id])
-      .filter(r => r && PROBE_TYPES.includes(r.type) && r.type !== 'animation' && r.data)
+      .filter(r => r && PROBE_TYPES.includes(r.type))
       .map(r => {
         const varCode = r.params?.variable ?? '';
-        const altKm = r.data?.altitudeValue;
+        const point = effectiveProbePoint(r, probe);
+        const metaParts = [fmtPoint(point), datasetContext(r)].filter(Boolean);
         return {
           id: r.id,
-          label: `${r.type === 'difference' ? 'Δ ' : ''}${varCode}${altKm != null ? ` · ${Number(altKm).toFixed(0)} km` : ''}`,
+          label: `${r.type === 'difference' ? 'Δ ' : ''}${varCode}`,
+          meta: metaParts.join(' · '),
           unit: VARIABLES_MAP.get(varCode)?.unit || '',
-          value: probe ? nearestValue(r.data, probe.lat, probe.lon) : null,
+          value: probe ? sampleProbe(r, probe) : null,
         };
       });
-  }, [layout, activeResult, gridIds, resultsById, probe]);
+  }, [layout, activeResult, gridIds, resultsById, probe, fmtPoint]);
 
-  const poi = probe ? nearestLocation(probe.lat, probe.lon) : null;
+  /* Position sondee (en-tete) : seules les dimensions presentes s'affichent
+     (un survol de moyenne zonale n'a pas de longitude, etc.). */
+  const probeHeader = probe ? fmtPoint(probe) : '';
+
+  const poi = probe?.lat != null && probe?.lon != null ? nearestLocation(probe.lat, probe.lon) : null;
 
   /* ── Region : stats du rectangle sur la carte active ──────────────────── */
   const roiStats = roiEntry?.resultId === activeResult ? roiEntry.stats : null;
@@ -112,21 +137,29 @@ export default function ExploreSidePanel({ onDeriveAmplitude, onDeriveWindSpeed 
       {/* ── Sonde liee ── */}
       <Typography className="mcv-ins-h" component="h3">{t('explore.panel.probe')}</Typography>
       <Box className="mcv-coord">
-        {probe ? (
-          <>
-            {fmtDeg(Math.abs(probe.lat))}°{t(probe.lat >= 0 ? 'viz.compass.n' : 'viz.compass.s')} · {fmtDeg(Math.abs(probe.lon))}°{t(probe.lon >= 0 ? 'viz.compass.e' : 'viz.compass.w')}
-          </>
-        ) : '—'}
+        {probeHeader || '—'}
         <small> {probe ? t('explore.panel.probeTag') : t('explore.panel.probeHint')}</small>
       </Box>
       <Box className="mcv-vals">
         {probeRows.length > 0 ? probeRows.map(row => (
-          <Box key={row.id} className="mcv-val">
-            <span className="k">{row.label}</span>
-            <span className="v">
-              {row.value != null ? fmtVal(row.value) : '—'}
-              {row.value != null && row.unit && <em> {row.unit}</em>}
-            </span>
+          /* Deux lignes par vue : valeur, puis le point 4D echantillonne par
+             CETTE vue (heure/altitude/position propres) et son MY/Ls. */
+          <Box key={row.id} sx={{ mb: 0.6 }}>
+            <Box className="mcv-val">
+              <span className="k">{row.label}</span>
+              <span className="v">
+                {row.value != null ? fmtVal(row.value) : '—'}
+                {row.value != null && row.unit && <em> {row.unit}</em>}
+              </span>
+            </Box>
+            {row.meta && (
+              <Typography component="div" sx={{
+                fontSize: '0.66rem', lineHeight: 1.35, px: 0.25, mt: '1px',
+                color: 'var(--text-secondary)', opacity: 0.9,
+              }}>
+                {row.meta}
+              </Typography>
+            )}
           </Box>
         )) : (
           <Typography className="mcv-empty">{t('explore.panel.probeNone')}</Typography>

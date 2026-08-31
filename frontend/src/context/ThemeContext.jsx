@@ -72,26 +72,25 @@ const theme = createTheme({
     },
     MuiPaper: {
       styleOverrides: {
-        root: ({ theme: t }) => ({
+        root: {
           backgroundImage: 'none',
           borderRadius: 16,
-          ...t.applyStyles('dark', {
-            backgroundColor: 'rgba(13, 27, 64, 0.6)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            border: '1px solid rgba(56, 189, 248, 0.12)',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-          }),
-          // En thème clair, le fond, l'aplatissement du glass et l'ombre du
-          // Paper sont pilotés par index.css ([data-theme='light'] .MuiPaper-root,
-          // en !important) : source unique qui rend toutes les surfaces blanches
-          // opaques. On ne garde ici que la bordure structurelle (largeur + style),
-          // dont index.css ne fixe que la couleur. Évite un doublon mort : l'ancienne
-          // ombre 0 1px 4px était déjà écrasée par le 0 1px 6px d'index.css.
-          ...t.applyStyles('light', {
-            border: '1px solid rgba(0, 0, 0, 0.08)',
-          }),
-        }),
+          /* Glass sombre = DÉFAUT, volontairement SANS applyStyles('dark') :
+             avec cssVariables, applyStyles génère `[data-theme="dark"] &`
+             (spécificité 0,2,0) qui bat les `sx` des composants (0,1,0) — les
+             bordures colorées des cartes de l'accueil (liseré BelgiumCard,
+             border FeatureCard, pull-quote…) étaient toutes écrasées par la
+             bordure cyan ci-dessous. En restant à (0,1,0), les sx regagnent la
+             cascade, comme avant la migration MUI 9. */
+          backgroundColor: 'rgba(13, 27, 64, 0.6)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          border: '1px solid rgba(56, 189, 248, 0.12)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+          /* Thème clair : index.css ([data-theme='light'] .MuiPaper-root, en
+             !important) reste la source autoritaire — fond blanc opaque, glass
+             aplati, ombre et couleur de bordure y écrasent ces défauts sombres. */
+        },
       },
     },
     MuiOutlinedInput: {

@@ -386,6 +386,7 @@ body {
 [data-theme='light'] .MuiPaper-root {
   background-color: #ffffff !important;
   backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important; /* le blur du défaut sombre (ThemeContext) doit aussi tomber sous Safari */
   border-color: rgba(0, 0, 0, 0.08) !important;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06) !important;
 }

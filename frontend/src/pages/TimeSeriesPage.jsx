@@ -23,6 +23,7 @@ import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { useToast } from '../context/ToastContext';
 import { usePlotRef } from '../hooks/usePlotRef';
+import { scrollViewerIntoView } from '../utils/scrollToViewer';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useRecentHistory } from '../hooks/useRecentHistory';
@@ -61,6 +62,12 @@ function TimeSeriesPage() {
 
   const [viewerContainerRef, exportPlotRef] = usePlotRef();
   const [linkCopied, copyToClipboard] = useCopyToClipboard();
+
+  // Mobile : amène le viewer à l'écran quand les séries arrivent (même
+  // comportement que useVisualizationPage sur les pages du hook partagé).
+  useEffect(() => {
+    if (seriesData) scrollViewerIntoView(viewerContainerRef.current);
+  }, [seriesData, viewerContainerRef]);
   const [searchParams] = useSearchParams();
   const lastSearchRef = useRef(undefined);
   const pendingAutoLaunch = useRef(false);

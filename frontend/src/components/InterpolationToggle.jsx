@@ -12,8 +12,13 @@ import { useTranslation } from 'react-i18next';
  */
 function InterpolationToggle({ value, onChange, compact = false }) {
   const { t } = useTranslation();
+  // Tooltip sur deux lignes : le nom du réglage + ce que « Natif / 2° / 1° »
+  // signifie (jargon opaque au premier contact, surtout dans la barre Explorer).
   return (
-    <Tooltip title={t('selector.interp.label')} arrow>
+    <Tooltip
+      title={<>{t('selector.interp.label')}<br />{t('selector.interp.help')}</>}
+      arrow
+    >
       <ToggleButtonGroup
         size="small"
         exclusive

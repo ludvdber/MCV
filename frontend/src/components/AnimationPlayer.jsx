@@ -49,7 +49,7 @@ const scrubMarks = [0, 7, 15, 23, 31, 39, 47].map(t => ({
  * @param {string|null} variableCode - code variable pour le titre de la colorbar
  * @param {boolean}     logScale     - afficher l'echelle en log10 (pour variables a faibles valeurs)
  */
-function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocations = false, showSurface = false, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip = false, noExportMenu = false, compact = false, externalPlotRef = null, logScale = false, smooth = true, interpStep = 0 }) {
+function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocations = false, showSurface = false, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip = false, noExportMenu = false, compact = false, externalPlotRef = null, logScale = false, smooth = true, interpStep = 0, onFrameChange = null }) {
   const { t, i18n } = useTranslation();
   const showToast = useToast();
   const { fontColor, paperBg, plotBg, titleSize, margin: responsiveMargin } = usePlotlyTheme();
@@ -70,6 +70,10 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
+
+  /* Publie l'index de frame affiche (la sonde liee de l'Explorer echantillonne
+     la frame VISIBLE, pas la frame 0). */
+  useEffect(() => { onFrameChange?.(currentFrame); }, [currentFrame, onFrameChange]);
 
   /** Grille d'une frame (sur-echantillonnee si interpStep, avec cache par index). */
   const gridForFrame = useCallback((frames, latitudes, longitudes, idx) => {

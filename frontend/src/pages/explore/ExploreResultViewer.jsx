@@ -15,7 +15,7 @@
  *                      actif vers la ref d'export du panneau (PNG/SVG)
  *   windData         — champ de vent (fourni uniquement pour la slice active)
  */
-import { useMemo, useRef, useEffect } from 'react';
+import { useMemo, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { computeAnomalyZ } from '../../utils/heatmapAnalysis';
 import { useResultColorscale } from './useResultColorscale.js';
@@ -23,6 +23,7 @@ import { useExploreState } from './ExploreContext.jsx';
 import { useMars } from '../../context/MarsContext';
 import { INDIVIDUAL_PREFIX } from '../../constants';
 import { largeDataStore } from './largeDataStore.js';
+import { setAnimationFrame, clearAnimationFrame } from './probeBus.js';
 import SliceViewer from '../../components/SliceViewer';
 import TimeSeriesChart from '../../components/TimeSeriesChart';
 import AnimationPlayer from '../../components/AnimationPlayer';
@@ -114,6 +115,14 @@ export default function ExploreResultViewer({ result, isActive = false, onActive
   }, [isActive, onActivePlotNode]);
   const plotRef = localPlotRef;
 
+  /* Sonde liee : tient a jour la frame courante de CETTE animation dans le
+     registre du probeBus (le lecteur ne connait pas l'id du resultat). */
+  const handleFrameChange = useCallback((idx) => setAnimationFrame(r.id, idx), [r.id]);
+  useEffect(() => {
+    if (r.type !== 'animation') return undefined;
+    return () => clearAnimationFrame(r.id);
+  }, [r.id, r.type]);
+
   // Donnees absentes (ex. frames d'animation deja purgees du largeDataStore) :
   // ne rien rendre plutot que de laisser un viewer dereferencer null.
   if (!rData) return null;
@@ -124,7 +133,7 @@ export default function ExploreResultViewer({ result, isActive = false, onActive
     case 'timeseries':
       return <TimeSeriesChart timeSeriesData={rData} variableCode={r.params.variable} datasetLabel={datasetLabel} externalPlotRef={plotRef} noExportMenu compact={compact} />;
     case 'animation':
-      return <AnimationPlayer animationData={rData} variableCode={r.params.variable} datasetLabel={datasetLabel} showLocations={showLocations} showSurface={showSurface} showDetailedTooltip={showDetailedTooltip} colorscaleName={resolvedColorscale.name} reverseColorscale={resolvedColorscale.reverse} customZMin={effZMin} customZMax={effZMax} logScale={showLog} smooth={smoothHeatmap} interpStep={interpStep} externalPlotRef={plotRef} noExportMenu compact={compact} />;
+      return <AnimationPlayer animationData={rData} variableCode={r.params.variable} datasetLabel={datasetLabel} showLocations={showLocations} showSurface={showSurface} showDetailedTooltip={showDetailedTooltip} colorscaleName={resolvedColorscale.name} reverseColorscale={resolvedColorscale.reverse} customZMin={effZMin} customZMax={effZMax} logScale={showLog} smooth={smoothHeatmap} interpStep={interpStep} externalPlotRef={plotRef} noExportMenu compact={compact} onFrameChange={handleFrameChange} />;
     case 'profile':
       return <ProfileViewer profiles={Array.isArray(rData) ? rData : [rData]} variableCode={r.params.variable} datasetLabel={datasetLabel} externalPlotRef={plotRef} noExportMenu compact={compact} />;
     case 'crosssection':

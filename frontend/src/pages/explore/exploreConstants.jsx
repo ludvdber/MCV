@@ -32,6 +32,12 @@ export const MAX_TABS = 4;
 /** Types qui affichent un heatmap lat/lon (POI, surface, tooltip) */
 export const LATLON_HEATMAP_TYPES = ['slice', 'animation'];
 
+/** Types lisibles par la sonde liée : chaque vue expose ses axes en dimensions
+ *  physiques (lat, lon, heure locale, altitude) — voir probeSamplers.js.
+ *  transect (axe = distance le long du trajet) et tides (sous-graphes) restent
+ *  hors sonde. Partagé entre ExploreResultsPanel et ExploreSidePanel. */
+export const PROBE_TYPES = ['slice', 'animation', 'difference', 'hovmoller', 'crosssection', 'zonalmean', 'temporalprofile'];
+
 /** Types qui supportent la palette de couleurs */
 export const COLORSCALE_TYPES = ['slice', 'animation', 'crosssection', 'hovmoller', 'zonalmean', 'difference', 'temporalprofile', 'transect'];
 

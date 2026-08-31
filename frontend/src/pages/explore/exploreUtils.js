@@ -84,6 +84,22 @@ export function computeRegionStats(gridData, bounds) {
 }
 
 /**
+ * Contexte dataset compact d'un résultat : "MY34 · Ls 1.89°" pour un fichier
+ * individuel (Ls réel), "MY35 · Ls 90-120°" pour un MEAN, sinon le label brut.
+ * Partagé entre l'en-tête des cellules de la grille et la sonde liée.
+ */
+export function datasetContext(result) {
+  const label = result.datasetLabel || result.params?.dataset || '';
+  const ls = result.data?.actualLs;
+  const my = result.params?.dataset?.match(/MY(\d+)/)?.[1];
+  if (ls != null && my) return `MY${my} · Ls ${Number(ls).toFixed(2)}°`;
+  // Datasets MEAN nommes mean_MYxx_LsA_B : on en tire une forme courte.
+  const m = result.params?.dataset?.match(/MY(\d+)_Ls(\d+)_(\d+)/i);
+  if (m) return `MY${m[1]} · Ls ${m[2]}-${m[3]}°`;
+  return label;
+}
+
+/**
  * Génère un label court pour l'onglet d'un résultat.
  * @param {number|null} altKm altitude réelle en km (response.altitudeValue) :
  *   affichée à la place de l'index brut « altN » quand elle est connue.
@@ -147,25 +163,4 @@ export function resultLabel(r, t) {
     return r.label ?? genLabel(r.type, r.params, t, r.data?.altitudeValue);
   }
   return genLabel(r.type, r.params, t, r.data?.altitudeValue);
-}
-
-/**
- * Valeur la plus proche de (lat, lon) dans une grille { data, latitudes, longitudes }.
- * Partagee entre la sonde liee (reticule des cellules) et le panneau lateral.
- */
-export function nearestValue(gridData, lat, lon) {
-  const { data, latitudes, longitudes } = gridData ?? {};
-  if (!Array.isArray(data) || !Array.isArray(latitudes) || !Array.isArray(longitudes)) return null;
-  let bi = 0, bd = Infinity;
-  for (let i = 0; i < latitudes.length; i++) {
-    const d = Math.abs(latitudes[i] - lat);
-    if (d < bd) { bd = d; bi = i; }
-  }
-  let bj = 0; bd = Infinity;
-  for (let j = 0; j < longitudes.length; j++) {
-    const d = Math.abs(longitudes[j] - lon);
-    if (d < bd) { bd = d; bj = j; }
-  }
-  const v = data[bi]?.[bj];
-  return (v == null || Number.isNaN(v)) ? null : v;
 }

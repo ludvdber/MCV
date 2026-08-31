@@ -75,7 +75,12 @@ export default function DrillDownMenu({ plotRef, onDrillDown, hiddenTypes = [] }
 
     const attach = () => {
       const el = plotRef?.current;
-      if (!el) return;
+      // Garde identique aux autres couches (ProbeLayer, useSyncZoom…) :
+      // Plotly.purge retire .on/.emit (Events.purge) mais laisse la classe
+      // js-plotly-plot — entre une purge et la re-initialisation, `el` existe
+      // sans `.on` et l'appeler plantait (TypeError pendant la mise a jour
+      // d'une vue). L'interval de 3 s ci-dessous sert de retry.
+      if (!el || typeof el.on !== 'function' || !el._fullLayout) return;
       // Always remove before re-attaching to prevent listener accumulation
       el.removeAllListeners?.('plotly_click');
       el.on('plotly_click', handleClick);

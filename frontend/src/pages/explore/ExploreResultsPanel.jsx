@@ -23,16 +23,13 @@ import {
   GridOn as GridOnIcon,
   Close as CloseIcon,
   CompareArrows as AnomalyIcon,
-  KeyboardDoubleArrowLeft as PanelHideIcon,
-  KeyboardDoubleArrowRight as PanelShowIcon,
   Add as AddIcon,
   HelpOutlined as HelpIcon,
-  Tune as TuneIcon,
   CropSquare as SingleViewIcon,
   GridView as GridViewIcon,
 } from '@mui/icons-material';
 import { LOCATION_COLORS, LOCATION_TYPE_KEYS } from '../../data/marsLocations';
-import { LATLON_HEATMAP_TYPES, COLORSCALE_TYPES, INTERP_TYPES, LAYOUTS, MAX_TABS, MEAN_ONLY_TYPES } from './exploreConstants.jsx';
+import { LATLON_HEATMAP_TYPES, COLORSCALE_TYPES, INTERP_TYPES, LAYOUTS, MAX_TABS, MEAN_ONLY_TYPES, PROBE_TYPES } from './exploreConstants.jsx';
 import { useExploreState, useExploreDispatch, A } from './ExploreContext.jsx';
 import { useResultColorscale } from './useResultColorscale.js';
 import { largeDataStore } from './largeDataStore.js';
@@ -51,15 +48,12 @@ import TransectLayer from './TransectLayer.jsx';
 import SessionChips from './SessionChips.jsx';
 import { useSyncZoom } from './useSyncZoom.js';
 import MiniColorbar from './MiniColorbar.jsx';
-import { computeRegionStats, resultLabel } from './exploreUtils.js';
+import { computeRegionStats, resultLabel, datasetContext } from './exploreUtils.js';
 import { triggerDownload } from '../../utils/exportUtils';
 import { exportGridMontage } from '../../utils/plotExport';
 import { exportAnimationWebM, webmSupported, downloadBlob } from '../../utils/videoExport';
 import { formatTime } from '../../utils/formatTime';
 import { useToast } from '../../context/ToastContext';
-
-/** Types de resultats compatibles avec la sonde liee (grilles lat/lon). */
-const PROBE_TYPES = [...LATLON_HEATMAP_TYPES, 'difference'];
 
 /** Types compatibles avec les statistiques de region (grille dans result.data). */
 const ROI_TYPES = ['slice', 'difference'];
@@ -95,19 +89,8 @@ function axisTitlesFor(result, t) {
   }
 }
 
-/** Contexte dataset compact pour l'en-tete d'une cellule / le tooltip d'un
- *  onglet : "MY34 · Ls 1.89°" pour un fichier individuel, sinon le label du
- *  dataset. L'utilisateur doit voir l'annee et le Ls sans survoler. */
-function datasetContext(result) {
-  const label = result.datasetLabel || result.params?.dataset || '';
-  const ls = result.data?.actualLs;
-  const my = result.params?.dataset?.match(/MY(\d+)/)?.[1];
-  if (ls != null && my) return `MY${my} · Ls ${Number(ls).toFixed(2)}°`;
-  // Datasets MEAN nommes mean_MYxx_LsA_B : on en tire une forme courte.
-  const m = result.params?.dataset?.match(/MY(\d+)_Ls(\d+)_(\d+)/i);
-  if (m) return `MY${m[1]} · Ls ${m[2]}-${m[3]}°`;
-  return label;
-}
+/* Le contexte dataset compact ("MY35 · Ls 90-120°") vit dans exploreUtils
+   (datasetContext) : partagé avec la sonde liée du panneau latéral. */
 
 /**
  * Cellule de la grille multi-vues : en-tete (titre + badge + fermeture),
@@ -203,7 +186,7 @@ function GridCell({
   );
 }
 
-export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExportNetCDF, onDrillDown, onTransectSelect, panelVisible = true, onTogglePanel, onRequestParams, onReplayTour }) {
+export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExportNetCDF, onDrillDown, onTransectSelect, onRequestParams, onReplayTour }) {
   const { t } = useTranslation();
   const showToast = useToast();
   const state    = useExploreState();
@@ -370,21 +353,6 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExp
     dispatch({ type: A.SET_ROI_ENTRY, value: null });
   }, [dispatch]);
 
-  /* ─── Repli du panneau de parametres : chevron discret en tete de la
-     rangee d'onglets (l'ex-rail vertical ne servait qu'a ca sans onglet) ── */
-  const panelToggle = onTogglePanel && (
-    <Tooltip title={panelVisible ? t('explore.panel.hide') : t('explore.panel.show')} arrow>
-      <IconButton
-        size="small"
-        onClick={onTogglePanel}
-        aria-label={panelVisible ? t('explore.panel.hide') : t('explore.panel.show')}
-        sx={{ mr: 0.5, flexShrink: 0, color: panelVisible ? 'var(--text-secondary)' : 'var(--mars-orange)' }}
-      >
-        {panelVisible ? <PanelHideIcon fontSize="small" /> : <PanelShowIcon fontSize="small" />}
-      </IconButton>
-    </Tooltip>
-  );
-
   /* ─── Switcher de disposition (vivait dans la barre superieure, fusionne
      ici : la barre dediee prenait trop de place verticale) ─────────────── */
   const layoutIcon = { 1: <SingleViewIcon sx={{ fontSize: 16 }} />, 4: <GridViewIcon sx={{ fontSize: 16 }} /> };
@@ -445,7 +413,6 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExp
     return (
       <>
         <Paper className="mcv-tabrow" sx={{ px: 1, py: 0.5, mb: 1, display: 'flex', alignItems: 'center', minHeight: 40, flexWrap: 'wrap', rowGap: 0.5 }}>
-          {panelToggle}
           <SessionChips />
           <Box sx={{ flex: 1 }} />
           {replayButton}
@@ -470,11 +437,9 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExp
               <li><Typography variant="body2">{t('page.explore.emptyStep2')}</Typography></li>
               <li><Typography variant="body2">{t('page.explore.emptyStep3')}</Typography></li>
             </Box>
-            {onRequestParams && (
-              <Button variant="contained" startIcon={<TuneIcon />} onClick={onRequestParams}>
-                {t('page.explore.openParams')}
-              </Button>
-            )}
+            {/* Pas de CTA « Ouvrir les paramètres » ici : tant qu'aucune vue
+                n'existe, ExplorePage force le panneau OUVERT (paramsExpanded =
+                noResults) — le bouton épinglait un panneau déjà visible. */}
           </Box>
         </Paper>
       </>
@@ -485,7 +450,6 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExp
     <>
       {/* ── Rangee d'onglets fine : sessions, onglets, disposition, export ── */}
       <Paper className="mcv-tabrow" sx={{ px: 1, mb: 1, display: 'flex', alignItems: 'center', minHeight: 40, flexWrap: 'wrap', rowGap: 0.5 }}>
-        {panelToggle}
         <SessionChips />
         <Tabs
           // `false` = aucun onglet selectionne : pendant le rejeu d'une session

@@ -76,9 +76,20 @@ function HeroMars({ finePointer, reducedMotion }) {
     const newBox = new THREE.Box3().setFromObject(scene);
     scene.position.sub(newBox.getCenter(new THREE.Vector3()));
   }, [scene]);
+  /* Apparition en douceur : le composant ne monte qu'une fois le GLB chargé
+     (textures comprises, elles sont embarquées dans le .glb) — léger zoom
+     0.92 → 1 au lieu d'un pop sec. Remplace l'ancienne sphère orange de
+     repli, illisible sur connexion lente. */
+  const appearRef = useRef(0);
   useFrame((_, delta) => {
     const g = groupRef.current;
-    if (!g || dragXRef.current !== null) return;
+    if (!g) return;
+    if (appearRef.current < 1) {
+      appearRef.current = reducedMotion ? 1 : Math.min(1, appearRef.current + delta * 2.4);
+      const e = 1 - (1 - appearRef.current) ** 3;
+      g.scale.setScalar(0.92 + 0.08 * e);
+    }
+    if (dragXRef.current !== null) return;
     g.rotation.y += (reducedMotion ? 0 : 0.11 * delta) + velRef.current;
     velRef.current *= Math.exp(-3.2 * delta);
   });
@@ -117,11 +128,6 @@ function HeroMars({ finePointer, reducedMotion }) {
       </mesh>
     </group>
   );
-}
-function MarsFallback() {
-  const ref = useRef();
-  useFrame(({ clock }) => { if (ref.current) ref.current.rotation.y = clock.getElapsedTime() * 0.15; });
-  return <mesh ref={ref}><sphereGeometry args={[1, 64, 64]} /><meshBasicMaterial color="#c1440e" /></mesh>;
 }
 
 /* ═══ Carte « raison » — composant dédié pour que useReveal soit appelé au
@@ -171,10 +177,14 @@ function Home() {
         <Grid container spacing={4} sx={{ alignItems: 'center' }}>
           <Grid size={{ xs: 12, md: 7 }}>
             <Box {...useReveal(0)}>
+              {/* Titre en MAJUSCULES dégradé orange : c'est la version historique
+                  du site (Orbitron en minuscules perdait toute son identité, et la
+                  fin bleue du dégradé jurait avec la planète). */}
               <Typography variant="h3" component="h1" sx={{
                 fontFamily: 'var(--font-display)', fontWeight: 700,
                 fontSize: { xs: '2rem', md: '3.5rem' },
-                background: 'linear-gradient(135deg, #e05a2b, #ff7043, #38bdf8)',
+                textTransform: 'uppercase',
+                background: 'linear-gradient(135deg, #e05a2b 0%, #ff7043 55%, #ffc9b0 100%)',
                 backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', lineHeight: 1.1,
               }}>
                 {hero.title}
@@ -212,7 +222,10 @@ function Home() {
                 <hemisphereLight args={['#ffd4a0', '#1a1a4a', 0.6]} />
                 <directionalLight position={[5, 2, 5]} intensity={2.5} color="#ffd4a0" />
                 <pointLight position={[-4, -2, -3]} intensity={0.5} color="#4488ff" />
-                <Suspense fallback={<MarsFallback />}>
+                {/* Pendant le chargement du GLB : rien (le champ d'étoiles suffit).
+                    Mars n'apparaît que complète — l'ancienne sphère orange unie
+                    faisait « brouillon » sur connexion lente. */}
+                <Suspense fallback={null}>
                   <HeroMars finePointer={finePointer} reducedMotion={reducedMotion} />
                 </Suspense>
               </Canvas>
