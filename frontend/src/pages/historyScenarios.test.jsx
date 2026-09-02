@@ -58,7 +58,10 @@ vi.mock('../services/api', () => {
     getTimeSeries: vi.fn(() => Promise.resolve({ data: { variable: 'TT', values: [1, 2, 3], stats } })),
     getCrossSection: vi.fn(() => Promise.resolve({ data: { ...grid, altitudes: [0, 1], horizontalCoords: [0, 1] } })),
     getHovmoller: vi.fn(() => Promise.resolve({ data: { ...grid, times: [0, 1], spatialCoords: [0, 1] } })),
-    getAnimation: vi.fn(() => Promise.resolve({ data: { variable: 'TT', frames: [], latitudes: [], longitudes: [] } })),
+    // Une frame reelle (et non `frames: []`) : le filtre de corps exploitable
+    // refuse desormais une reponse dont tous les tableaux sont vides, ce qui
+    // est le comportement voulu — l'endpoint renvoie toujours 48 frames.
+    getAnimation: vi.fn(() => Promise.resolve({ data: { variable: 'TT', frameCount: 1, frames: [[[1, 2], [3, 4]]], latitudes: [0, 1], longitudes: [0, 1], stats } })),
     exportSliceCSV: vi.fn(), exportSliceNetCDF: vi.fn(), exportProfileCSV: vi.fn(),
     exportTimeSeriesCSV: vi.fn(), exportCrossSectionCSV: vi.fn(), exportHovmollerCSV: vi.fn(),
   };

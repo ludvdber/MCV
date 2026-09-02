@@ -10,6 +10,24 @@ import { useRecentHistory } from './useRecentHistory';
 import { scrollViewerIntoView } from '../utils/scrollToViewer';
 
 /**
+ * Un corps de reponse est exploitable s'il porte au moins un tableau non vide.
+ *
+ * C'est le seul invariant vrai pour TOUS les endpoints de visualisation : ils
+ * renvoient soit un tableau (timeseries, profile), soit un objet contenant des
+ * grilles ou des axes (data, frames, values, latitudes, altitudes, times...).
+ * Le reste est du bruit reseau :
+ *   - JSON tronque ou page HTML d'un proxy -> axios rend une CHAINE (son
+ *     JSON.parse par defaut echoue en silence)
+ *   - corps vide -> chaine vide
+ *   - `{}` ou `{"data": null}` -> objet sans aucune donnee
+ */
+export function isUsablePayload(body) {
+  if (body == null || typeof body !== 'object') return false;
+  if (Array.isArray(body)) return body.length > 0;
+  return Object.values(body).some(v => Array.isArray(v) && v.length > 0);
+}
+
+/**
  * Hook partagé pour toutes les pages de visualisation.
  *
  * Encapsule le boilerplate commun :
@@ -96,6 +114,16 @@ export function useVisualizationPage({
     fetchData(controller.signal)
       .then(res => {
         const responseData = res.data;
+        // Un 200 ne garantit pas un corps exploitable : JSON tronque, page HTML
+        // d'erreur inseree par un proxy inverse, corps vide, `data: null`. On
+        // refuse ici plutot que de laisser la donnee exploser au rendu quelques
+        // lignes plus bas — c'est le seul point de passage de toutes les pages
+        // de visualisation. Sans ce garde-fou, le bouton restait muet (au mieux)
+        // ou l'application entiere tombait dans l'ErrorBoundary (au pire).
+        if (!isUsablePayload(responseData)) {
+          setError(t('error.malformedResponse'));
+          return;
+        }
         setData(responseData);
         const entry = buildHistoryEntry(responseData);
         if (entry) {
@@ -113,7 +141,7 @@ export function useVisualizationPage({
         setError(err.response?.data?.message || err.message);
       })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
-  }, [fetchData, buildHistoryEntry, buildPermalink, canLaunch, addEntry]);
+  }, [fetchData, buildHistoryEntry, buildPermalink, canLaunch, addEntry, t]);
 
   // Annule la requête encore en vol lorsque la page est démontée.
   useEffect(() => () => launchAbortRef.current?.abort(), []);

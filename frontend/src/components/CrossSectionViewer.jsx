@@ -35,6 +35,9 @@ function CrossSectionViewer({ crossSectionData, variableCode, datasetLabel, colo
     if (!el || !crossSectionData) return;
 
     const { type, fixedCoordinate, altitudes, horizontalCoords, data } = crossSectionData;
+    // Garde defensive : si la reponse arrive partielle (course montage/donnees),
+    // on n'entre pas dans le rendu Plotly (data.map / z:data planteraient -> ErrorBoundary).
+    if (!Array.isArray(data) || !Array.isArray(altitudes) || !Array.isArray(horizontalCoords)) return;
     const varInfo = VARIABLES_MAP.get(variableCode);
     const variableLabel = varInfo ? t(`variable.${variableCode}`) : variableCode;
     const unit = varInfo?.unit || '';

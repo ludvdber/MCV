@@ -87,7 +87,7 @@ function ZonalMeanPage() {
   };
 
   const tableData = useMemo(() =>
-    zmData ? grid2DToTable(zmData.data, zmData.altitudes, zmData.latitudes, 'Altitude (km)', 'Latitude (\u00b0)', selectedVariable) : null,
+    zmData?.data?.length ? grid2DToTable(zmData.data, zmData.altitudes, zmData.latitudes, 'Altitude (km)', 'Latitude (\u00b0)', selectedVariable) : null,
   [zmData, selectedVariable]);
 
   if (catalogLoading) return <PageLoader />;

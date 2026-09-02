@@ -7,8 +7,39 @@
  * (newPlot + toImage + purge).
  */
 import Plotly from '../plotlyBundle';
+import { quiverScales, buildQuiverSegments } from './windQuiver';
 
 const INK = '#222222';
+
+/**
+ * Adapte les champs de fleches du clone a SA geometrie et a son theme.
+ *
+ * Une fleche de vent est construite a partir de la zone de trace, pour que
+ * l'angle dessine soit celui du vent (cf. windQuiver.js). Une figure exportee
+ * en 1920x1080 n'a pas la forme du cadre affiche a l'ecran : sans ce recalcul,
+ * elle porterait les angles de l'ecran. Les traces concernees se reconnaissent
+ * a `meta.quiver`, qui transporte le champ de vent brut.
+ *
+ * L'encre passe aussi en gris fonce, comme le reste du clone clair : les
+ * fleches heritaient sinon du blanc du theme sombre et disparaissaient sur
+ * les zones claires de la palette.
+ */
+async function refreshQuiverTraces(el) {
+  const fl = el._fullLayout;
+  if (!fl?._size) return;
+  const indices = [], xs = [], ys = [];
+  (el.data ?? []).forEach((trace, i) => {
+    const wind = trace.meta?.quiver;
+    if (!wind) return;
+    const seg = buildQuiverSegments(
+      wind, quiverScales(fl._size, fl.xaxis?.range, fl.yaxis?.range));
+    indices.push(i);
+    xs.push(seg.x);
+    ys.push(seg.y);
+  });
+  if (!indices.length) return;
+  await Plotly.restyle(el, { x: xs, y: ys, 'line.color': INK }, indices);
+}
 
 /**
  * Construit une copie { data, layout } du graphique en theme clair :
@@ -125,12 +156,18 @@ export function applyPublication(clone, pub) {
 export async function exportPlotImage(gd, format, opts = {}) {
   const { publication, ...imgOpts } = opts;
   const el = document.createElement('div');
-  el.style.cssText = 'position:fixed;left:-9999px;top:0;width:1200px;height:700px;visibility:hidden;';
+  // Le div hors ecran prend la taille de l'image demandee : la mise en page
+  // que Plotly calcule est alors celle de l'image finale, ce dont depend le
+  // recalcul des fleches de vent ci-dessous.
+  const w = imgOpts.width ?? 1200;
+  const h = imgOpts.height ?? 700;
+  el.style.cssText = `position:fixed;left:-9999px;top:0;width:${w}px;height:${h}px;visibility:hidden;`;
   document.body.appendChild(el);
   try {
     const clone = buildLightClone(gd);
     if (publication) applyPublication(clone, publication);
     await Plotly.newPlot(el, clone.data, clone.layout, { staticPlot: true, responsive: false });
+    await refreshQuiverTraces(el);
     return await Plotly.toImage(el, { format, ...imgOpts });
   } finally {
     Plotly.purge(el);

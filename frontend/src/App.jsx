@@ -19,6 +19,7 @@ import { ToastProvider } from './context/ToastContext';
 import { AppThemeProvider, useThemeMode } from './context/ThemeContext';
 import StarField from './components/StarField';
 import Sidebar, { SIDEBAR_WIDTH_EXPANDED, SIDEBAR_WIDTH_COLLAPSED } from './components/Sidebar';
+import RouteErrorBoundary from './components/RouteErrorBoundary';
 import PageTransition from './components/PageTransition';
 import { LazyMotion, domAnimation } from 'framer-motion';
 import KeyboardShortcutsDialog from './components/KeyboardShortcutsDialog';
@@ -141,6 +142,7 @@ class ErrorBoundary extends Component {
 
 function AppContent() {
   const location = useLocation();
+  const { t } = useTranslation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const sidebarWidth = sidebarCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
@@ -197,6 +199,9 @@ function AppContent() {
         >
           <Suspense fallback={<Loading />}>
             <LazyMotion features={domAnimation}>
+            {/* key={pathname} : reinitialise le filet de securite en changeant
+                de route (une page plantee redevient saine des qu'on la quitte). */}
+            <RouteErrorBoundary key={location.pathname} t={t}>
             {/* key={pathname} rejoue le fondu d'entrée à chaque page. Pas
                 d'AnimatePresence : il re-parentait le Canvas R3F de l'accueil
                 pendant la navigation, ce qui plantait Three.js. */}
@@ -215,6 +220,7 @@ function AppContent() {
                 <Route path="/temporal-profile" element={<PageTransition><TemporalProfilePage /></PageTransition>} />
                 <Route path="*" element={<PageTransition><NotFoundPage /></PageTransition>} />
               </Routes>
+            </RouteErrorBoundary>
             </LazyMotion>
           </Suspense>
         </Box>

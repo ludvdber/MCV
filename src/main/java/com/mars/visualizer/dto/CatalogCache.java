@@ -7,9 +7,14 @@ import java.util.List;
 /**
  * DTO de sérialisation JSON pour le cache du catalogue INDIVIDUAL.
  * Record Java 21 — sérialisé/désérialisé nativement par Jackson 3.
+ *
+ * <p>{@code signature} est l'empreinte du contenu du dossier {@code individual/}
+ * au moment du scan (nom et date de modification de chaque sous-répertoire).
+ * Le cache n'est réutilisé que si l'empreinte recalculée au démarrage lui est
+ * identique. Voir {@code IndividualCatalogService#computeSignature}.
  */
 public record CatalogCache(
-    long dirLastModified,
+    String signature,
     List<IndividualYearInfo> yearInfos,
     List<CachedDirInfo> dirInfos
 ) {

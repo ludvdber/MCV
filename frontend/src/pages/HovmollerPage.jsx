@@ -88,7 +88,7 @@ function HovmollerPage() {
   };
 
   const tableData = useMemo(() =>
-    hovData ? grid2DToTable(hovData.data, hovData.times, hovData.spatialCoords, 'Time (h)', 'Latitude/Longitude', selectedVariable) : null,
+    hovData?.data?.length ? grid2DToTable(hovData.data, hovData.times, hovData.spatialCoords, 'Time (h)', 'Latitude/Longitude', selectedVariable) : null,
   [hovData, selectedVariable]);
 
   if (catalogLoading) return <PageLoader />;

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -29,9 +30,10 @@ import lombok.extern.slf4j.Slf4j;
  * au demarrage et construit un catalogue en memoire indexe par annee martienne (MY).
  *
  * <p>Le catalogue est persisté dans {@code .catalog-cache.json} dans le dossier
- * {@code individual/}. Au redémarrage, si le dossier n'a pas été modifié
- * (comparaison par {@code lastModifiedTime}), le JSON est rechargé directement
- * sans rescanner le filesystem — démarrage quasi-instantané.
+ * {@code individual/}. Au redémarrage, si le contenu du dossier n'a pas changé,
+ * le JSON est rechargé directement sans rescanner le filesystem — démarrage
+ * quasi-instantané. Le contrôle porte sur une empreinte des sous-répertoires,
+ * pas sur la date du dossier racine : voir {@link #computeSignature(Path)}.
  *
  * <p>Structure attendue sur disque :
  * <pre>
@@ -53,6 +55,8 @@ public class IndividualCatalogService {
 	/** Regex pour extraire Ls depuis le nom de fichier : ls{AAA}_{BBBB}. */
 	private static final Pattern LS_PATTERN    = Pattern.compile("ls(\\d{3})_(\\d{4})");
 	private static final String  CACHE_FILENAME = ".catalog-cache.json";
+	/** Un sous-répertoire d'année n'est retenu que si son nom est entièrement numérique. */
+	private static final String  DIR_NAME_PATTERN = "\\d+";
 
 	private final DataPathConfig pathConfig;
 	private final ObjectMapper   objectMapper;
@@ -88,13 +92,17 @@ public class IndividualCatalogService {
 		Path individualRoot = pathConfig.getIndividualPath();
 		Path cacheFile      = individualRoot.resolve(CACHE_FILENAME);
 
-		// 1. Tenter de charger depuis le cache JSON
-		if (Files.exists(cacheFile)) {
-			try {
-				long         dirLastModified = Files.getLastModifiedTime(individualRoot).toMillis();
-				CatalogCache cached          = objectMapper.readValue(cacheFile.toFile(), CatalogCache.class);
+		// Empreinte calculée AVANT le scan : si le dossier change pendant, la
+		// signature enregistrée ne correspondra plus au prochain démarrage et
+		// un rescan aura lieu. L'erreur penche du bon côté.
+		String signature = computeSignature(individualRoot);
 
-				if (cached.dirLastModified() == dirLastModified) {
+		// 1. Tenter de charger depuis le cache JSON
+		if (signature != null && Files.exists(cacheFile)) {
+			try {
+				CatalogCache cached = objectMapper.readValue(cacheFile.toFile(), CatalogCache.class);
+
+				if (signature.equals(cached.signature())) {
 					this.yearInfos = Collections.unmodifiableList(cached.yearInfos());
 					this.dirInfos  = Collections.unmodifiableList(
 						cached.dirInfos().stream()
@@ -107,9 +115,13 @@ public class IndividualCatalogService {
 						yearInfos.size(), dirInfos.size());
 					return;
 				}
-				log.info("Cache JSON périmé (dossier individual/ modifié), rescan complet");
+				log.info("Cache JSON périmé (contenu de individual/ modifié), rescan complet");
 
-			} catch (IOException e) {
+			} catch (Exception e) {
+				// Volontairement Exception et non IOException : Jackson 3 lève des
+				// exceptions NON VÉRIFIÉES. Un cache tronqué (écriture interrompue,
+				// disque plein) empêchait le démarrage au lieu de retomber sur un
+				// scan complet.
 				log.warn("Cache JSON illisible ou corrompu, rescan complet : {}", e.getMessage());
 			}
 		}
@@ -117,8 +129,43 @@ public class IndividualCatalogService {
 		// 2. Scan complet du filesystem
 		doFullScan(individualRoot);
 
-		// 3. Sauvegarder le nouveau cache
-		saveToCache(cacheFile, individualRoot);
+		// 3. Sauvegarder le nouveau cache (sans empreinte fiable, on ne mémorise
+		//    rien : mieux vaut rescanner que servir un catalogue faux)
+		if (signature != null) {
+			saveToCache(cacheFile, signature);
+		}
+	}
+
+	/**
+	 * Empreinte du contenu de {@code individual/} : nom et date de modification
+	 * de chaque sous-répertoire d'année, triés.
+	 *
+	 * <p>Pourquoi pas simplement la date du dossier racine : un système de
+	 * fichiers ne met à jour la date d'un dossier que lorsque <b>ses propres
+	 * entrées</b> changent. Ajouter un {@code .nc} dans {@code individual/000960/}
+	 * modifie la date de {@code 000960/}, pas celle de {@code individual/} — le
+	 * cache se croyait alors valide et les bornes Ls de l'année restaient
+	 * périmées, même après redémarrage. Regarder les sous-répertoires évite au
+	 * passage que l'écriture de {@code .catalog-cache.json} dans le dossier
+	 * racine n'invalide le cache qui vient d'être écrit.
+	 *
+	 * @return l'empreinte, ou {@code null} si le dossier est illisible
+	 */
+	private String computeSignature(Path individualRoot) {
+		List<String> parts = new ArrayList<>();
+		try (DirectoryStream<Path> stream = Files.newDirectoryStream(individualRoot)) {
+			for (Path entry : stream) {
+				String name = entry.getFileName().toString();
+				if (name.matches(DIR_NAME_PATTERN) && Files.isDirectory(entry)) {
+					parts.add(name + ':' + Files.getLastModifiedTime(entry).toMillis());
+				}
+			}
+		} catch (IOException e) {
+			log.warn("Empreinte du dossier INDIVIDUAL incalculable, scan complet : {}", e.getMessage());
+			return null;
+		}
+		Collections.sort(parts);   // l'ordre de parcours du filesystem n'est pas garanti
+		return String.join("|", parts);
 	}
 
 	// =========================================================================
@@ -236,7 +283,7 @@ public class IndividualCatalogService {
 		List<Path> subDirs = new ArrayList<>();
 		try (DirectoryStream<Path> stream = Files.newDirectoryStream(individualRoot)) {
 			for (Path entry : stream) {
-				if (Files.isDirectory(entry) && entry.getFileName().toString().matches("\\d+")) {
+				if (Files.isDirectory(entry) && entry.getFileName().toString().matches(DIR_NAME_PATTERN)) {
 					subDirs.add(entry);
 				}
 			}
@@ -351,12 +398,15 @@ public class IndividualCatalogService {
 
 	/**
 	 * Sérialise le catalogue courant dans {@code cacheFile}.
-	 * Toute erreur d'écriture est loggée sans bloquer le démarrage.
+	 *
+	 * <p>Écriture dans un fichier temporaire puis renommage : une écriture
+	 * interrompue (arrêt du serveur, disque plein) laisse alors le cache
+	 * précédent intact au lieu d'un JSON tronqué. Toute erreur est journalisée
+	 * sans bloquer le démarrage, le cache n'étant qu'une optimisation.
 	 */
-	private void saveToCache(Path cacheFile, Path individualRoot) {
+	private void saveToCache(Path cacheFile, String signature) {
+		Path tmpFile = cacheFile.resolveSibling(CACHE_FILENAME + ".tmp");
 		try {
-			long dirLastModified = Files.getLastModifiedTime(individualRoot).toMillis();
-
 			List<CatalogCache.CachedDirInfo> cachedDirs = dirInfos.stream()
 				.map(d -> new CatalogCache.CachedDirInfo(
 					d.dirName(),
@@ -367,13 +417,20 @@ public class IndividualCatalogService {
 				.toList();
 
 			objectMapper.writeValue(
-				cacheFile.toFile(),
-				new CatalogCache(dirLastModified, new ArrayList<>(yearInfos), cachedDirs));
+				tmpFile.toFile(),
+				new CatalogCache(signature, new ArrayList<>(yearInfos), cachedDirs));
+			Files.move(tmpFile, cacheFile, StandardCopyOption.REPLACE_EXISTING);
 
 			log.info("Cache catalogue INDIVIDUAL sauvegardé : {}", cacheFile);
 
-		} catch (IOException e) {
+		} catch (Exception e) {
+			// Exception et non IOException : Jackson 3 lève des exceptions non vérifiées.
 			log.warn("Impossible de sauvegarder le cache catalogue (non bloquant) : {}", e.getMessage());
+			try {
+				Files.deleteIfExists(tmpFile);
+			} catch (IOException suppressed) {
+				log.debug("Fichier temporaire de cache non supprimé : {}", suppressed.getMessage());
+			}
 		}
 	}
 

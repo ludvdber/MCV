@@ -27,6 +27,7 @@ import { scrollViewerIntoView } from '../utils/scrollToViewer';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useRecentHistory } from '../hooks/useRecentHistory';
+import { isUsablePayload } from '../hooks/useVisualizationPage';
 import { isSurfaceVariable as checkIsSurface } from '../utils/variableUtils';
 import ChartOrTable from '../components/ChartOrTable';
 import ViewExplainer from '../components/ViewExplainer';
@@ -138,6 +139,12 @@ function TimeSeriesPage() {
       )
     )
       .then(results => {
+        // Cette page ne passe pas par useVisualizationPage (N points en
+        // parallele) : elle refait donc le meme controle de corps exploitable.
+        if (!results.every(isUsablePayload)) {
+          setError(t('error.malformedResponse'));
+          return;
+        }
         setSeriesData(results);
         const pp = new URLSearchParams();
         if (selectedDataset) pp.set('ds', selectedDataset);
@@ -233,7 +240,7 @@ function TimeSeriesPage() {
 
   const varUnit = VARIABLES_MAP.get(selectedVariable)?.unit || '';
   const tableData = useMemo(() =>
-    seriesData?.length > 0 ? timeSeriesToTable(seriesData[0].values, varUnit) : null,
+    seriesData?.[0]?.values?.length ? timeSeriesToTable(seriesData[0].values, varUnit) : null,
   [seriesData, varUnit]);
 
   if (catalogLoading) return <PageLoader />;

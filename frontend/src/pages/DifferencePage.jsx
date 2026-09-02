@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import {
   Container, Paper, Typography, Button, CircularProgress,
-  Alert, Box, Chip, LinearProgress,
+  Alert, Box, Chip, LinearProgress, Tooltip,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import { getDifference, exportDifferenceCSV } from '../services/api';
@@ -48,6 +48,16 @@ function DifferencePage() {
   const datasetBLabel = datasetBObj
     ? t('selector.dataset.format', { my: datasetBObj.marsYear, lsStart: datasetBObj.lsStart, lsEnd: datasetBObj.lsEnd })
     : datasetB;
+  /* Source unique de verite du « pourquoi c'est grise » : le bouton, l'infobulle,
+     le message visible ET la condition de lancement en derivent tous. Auparavant
+     la condition du bouton etait recopiee a cote de canLaunch, et seul le cas
+     A == B etait explique — les trois autres laissaient l'utilisateur devant un
+     bouton mort sans indication. */
+  const disabledReason =
+    selectedDataset && datasetB && selectedDataset === datasetB ? t('page.difference.sameDataset')
+    : (!selectedDataset || !datasetB || !selectedVariable) ? t('page.difference.needSelection')
+    : '';
+
   const [colorscale, setColorscale] = useState('auto');
   const [logScale, setLogScale] = useState(false);
   const [showLocations, setShowLocations] = useState(false);
@@ -92,8 +102,7 @@ function DifferencePage() {
       params: { datasetB, time: selectedTime, altitude: selectedAltitude },
       label: `\u0394 ${selectedVariable} A\u2212B`,
     }), [selectedDataset, datasetB, selectedVariable, selectedTime, selectedAltitude]),
-    canLaunch: useCallback(() => !!selectedDataset && !!datasetB && !!selectedVariable && selectedDataset !== datasetB,
-      [selectedDataset, datasetB, selectedVariable]),
+    canLaunch: useCallback(() => !disabledReason, [disabledReason]),
   });
 
   const resolvedColorscale = useResolvedColorscale(colorscale, diffData?.variable, selectedVariable);
@@ -109,7 +118,7 @@ function DifferencePage() {
   };
 
   const tableData = useMemo(() =>
-    diffData ? gridToTable(diffData.data, diffData.latitudes, diffData.longitudes, '\u0394 ' + selectedVariable) : null,
+    diffData?.data?.length ? gridToTable(diffData.data, diffData.latitudes, diffData.longitudes, '\u0394 ' + selectedVariable) : null,
   [diffData, selectedVariable]);
 
   if (catalogLoading) return <PageLoader />;
@@ -120,18 +129,17 @@ function DifferencePage() {
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2}>
+          {/* Le role (A = reference, B = compare) est porte par le LIBELLE du
+              champ, pas par une legende au-dessus : sans cela les deux
+              selecteurs s'annoncent tous deux « Dataset » au lecteur d'ecran. */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-              {t('page.difference.datasetA')}
-            </Typography>
             <DatasetSelector datasets={datasets} value={selectedDataset}
+              label={t('page.difference.datasetA')}
               onChange={v => { setSelectedDataset(v); markDirty(); }} />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-              {t('page.difference.datasetB')}
-            </Typography>
             <DatasetSelector datasets={datasets} value={datasetB}
+              label={t('page.difference.datasetB')}
               onChange={v => { setDatasetB(v); markDirty(); }} />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
@@ -154,13 +162,20 @@ function DifferencePage() {
         </Grid>
 
         <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          <Button variant="contained" onClick={handleLaunch}
-            disabled={!selectedDataset || !datasetB || !selectedVariable || loading || selectedDataset === datasetB}>
-            {loading ? <CircularProgress size={20} color="inherit" /> : t('page.difference.button')}
-          </Button>
-          {selectedDataset && datasetB && selectedDataset === datasetB && (
-            <Alert severity="info" sx={{ py: 0, '& .MuiAlert-message': { fontSize: '0.75rem' } }}>
-              {t('page.difference.sameDataset')}
+          {/* Le bouton grise DOIT dire pourquoi : infobulle a la souris, texte
+              visible pour le tactile, aria-describedby pour le lecteur d'ecran. */}
+          <Tooltip title={disabledReason} placement="top" arrow>
+            <span>
+              <Button variant="contained" onClick={handleLaunch}
+                aria-describedby={disabledReason ? 'difference-disabled-reason' : undefined}
+                disabled={!!disabledReason || loading}>
+                {loading ? <CircularProgress size={20} color="inherit" /> : t('page.difference.button')}
+              </Button>
+            </span>
+          </Tooltip>
+          {disabledReason && !loading && (
+            <Alert id="difference-disabled-reason" severity="info" sx={{ py: 0, '& .MuiAlert-message': { fontSize: '0.75rem' } }}>
+              {disabledReason}
             </Alert>
           )}
           {diffData && (

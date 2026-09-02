@@ -130,6 +130,9 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
   useEffect(() => {
     const el = plotRef.current;
     if (!el || !animationData) return;
+    // Garde defensive : si la reponse arrive partielle (course montage/donnees),
+    // on n'entre pas dans le rendu Plotly (frames[0] planterait -> ErrorBoundary).
+    if (!Array.isArray(animationData.frames) || animationData.frames.length === 0) return;
 
     setCurrentFrame(0);
     setIsPlaying(false);
@@ -424,7 +427,9 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
     }
   }), [isPlaying, frameDuration]);
 
-  if (!animationData) {
+  // `frames` absent ou vide = rien a lire : on retombe sur l'etat vide plutot
+  // que de deriver maxFrame d'un tableau inexistant.
+  if (!animationData?.frames?.length) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
         <Typography color="text.secondary">

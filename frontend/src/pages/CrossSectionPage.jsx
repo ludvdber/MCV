@@ -107,7 +107,7 @@ function CrossSectionPage() {
   };
 
   const tableData = useMemo(() =>
-    csData ? grid2DToTable(csData.data, csData.altitudes, csData.horizontalCoords, 'Altitude (km)', csType === 'meridional' ? 'Latitude (\u00b0)' : 'Longitude (\u00b0)', selectedVariable) : null,
+    csData?.data?.length ? grid2DToTable(csData.data, csData.altitudes, csData.horizontalCoords, 'Altitude (km)', csType === 'meridional' ? 'Latitude (\u00b0)' : 'Longitude (\u00b0)', selectedVariable) : null,
   [csData, csType, selectedVariable]);
 
   if (catalogLoading) return <PageLoader />;

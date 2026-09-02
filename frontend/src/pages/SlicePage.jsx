@@ -120,7 +120,7 @@ function SlicePage() {
   };
 
   const tableData = useMemo(() =>
-    sliceData ? gridToTable(sliceData.data, sliceData.latitudes, sliceData.longitudes, selectedVariable) : null,
+    sliceData?.data?.length ? gridToTable(sliceData.data, sliceData.latitudes, sliceData.longitudes, selectedVariable) : null,
   [sliceData, selectedVariable]);
 
   if (catalogLoading) return <PageLoader />;

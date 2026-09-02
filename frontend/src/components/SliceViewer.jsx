@@ -9,6 +9,7 @@ import { computeHeatmapCustomData } from '../utils/heatmapAnalysis';
 import { RDBU_VARIABLES } from '../utils/colorscales';
 import { upsampleLatLonGrid, nativeStep } from '../utils/gridInterpolation';
 import { compactLayout } from '../utils/compactPlot';
+import { plotAreaSize, quiverScales, buildQuiverSegments } from '../utils/windQuiver';
 import ExportMenu from './ExportMenu';
 import StatsBar from './StatsBar';
 import WindParticlesLayer from './WindParticlesLayer';
@@ -49,6 +50,9 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
   useEffect(() => {
     const el = plotRef.current;
     if (!el || !sliceData) return;
+    // Garde defensive : si la reponse arrive partielle (course montage/donnees),
+    // on n'entre pas dans le rendu Plotly (data.map / z:data planteraient -> ErrorBoundary).
+    if (!Array.isArray(sliceData.data) || !Array.isArray(sliceData.latitudes) || !Array.isArray(sliceData.longitudes)) return;
 
     const { timeIndex, altitudeIndex, altitudeValue } = sliceData;
     const varInfo = VARIABLES_MAP.get(variableCode);
@@ -173,50 +177,23 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
     // ---- Vecteurs de vent (quiver) ----
     // Les fleches s'effacent quand les particules animees sont actives
     // (WindParticlesLayer rend le meme champ, en plus lisible).
+    // Les segments sont remplis plus bas, une fois le layout fige : leur trace
+    // depend de la geometrie de la zone de trace, cf. utils/windQuiver.js.
+    let windTraceIndex = -1;
     if (windData && !windParticles && windData.lats && windData.lats.length > 0) {
-      const { lats: wLats, lons: wLons, u, v } = windData;
-      let maxSpeed = 0;
-      for (let i = 0; i < u.length; i++) {
-        const spd = Math.hypot(u[i], v[i]);
-        if (spd > maxSpeed) maxSpeed = spd;
-      }
-      if (maxSpeed === 0) maxSpeed = 1;
-      const scale = 6.0; // longueur max en degrés (vecteur le plus rapide = 6°)
-
-      const xLines = [], yLines = [];
-
-      for (let i = 0; i < wLats.length; i++) {
-        const spd = Math.hypot(u[i], v[i]);
-        if (spd < 0.5) continue; // ignorer les vents quasi-nuls
-
-        const dx = (u[i] / maxSpeed) * scale;
-        const dy = (v[i] / maxSpeed) * scale;
-        const tx = wLons[i] + dx;
-        const ty = wLats[i] + dy;
-
-        // Corps de la flèche
-        xLines.push(wLons[i], tx, null);
-        yLines.push(wLats[i], ty, null);
-
-        // Tête de flèche (deux segments)
-        const angle = Math.atan2(dy, dx);
-        const hlen = Math.hypot(dx, dy) * 0.35;
-        const ha = Math.PI / 6;
-        xLines.push(tx, tx - hlen * Math.cos(angle - ha), null,
-                    tx, tx - hlen * Math.cos(angle + ha), null);
-        yLines.push(ty, ty - hlen * Math.sin(angle - ha), null,
-                    ty, ty - hlen * Math.sin(angle + ha), null);
-      }
-
+      windTraceIndex = traces.length;
       traces.push({
         type: 'scatter',
-        x: xLines,
-        y: yLines,
+        x: [],
+        y: [],
         mode: 'lines',
         line: { color: fontColor, width: 1.2 },
         // 'skip' (et non 'none') pour laisser le survol atteindre la heatmap dessous.
         hoverinfo: 'skip',
         showlegend: false,
+        // Le champ brut voyage avec la trace : l'export d'image reconstruit les
+        // fleches pour la geometrie de la figure exportee (cf. plotExport.js).
+        meta: { quiver: windData },
       });
     }
 
@@ -261,12 +238,112 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
       }];
     }
 
-    renderPlot(el, traces, layout, {
+    /**
+     * Geometrie courante de la zone de trace.
+     *
+     * `_fullLayout._size` fait foi des que Plotly a calcule sa mise en page :
+     * il tient compte de l'automargin, c'est-a-dire de la place que Plotly
+     * reprend de lui-meme quand la colorbar ou les etiquettes d'axes ne
+     * tiennent pas dans les marges demandees. La soustraction des marges ne
+     * sert donc qu'au tout premier rendu, avant que ce calcul existe.
+     * Meme source que WindParticlesLayer, qui suit deja les memes axes.
+     */
+    const currentGeometry = () => {
+      const fl = el._fullLayout;
+      return {
+        size: fl?._size ?? plotAreaSize(el, layout.margin),
+        xRange: fl?.xaxis?.range ?? layout.xaxis.range,
+        yRange: fl?.yaxis?.range ?? layout.yaxis.range,
+      };
+    };
+
+    /** Empreinte de cette geometrie, pour ne retracer que si elle a change. */
+    const geometryKey = () => {
+      const { size, xRange, yRange } = currentGeometry();
+      return size ? `${size.w}x${size.h}|${xRange}|${yRange}` : '';
+    };
+
+    /** Recalcule les fleches pour la geometrie courante. */
+    const buildWind = () => {
+      const { size, xRange, yRange } = currentGeometry();
+      return buildQuiverSegments(windData, quiverScales(size, xRange, yRange));
+    };
+
+    if (windTraceIndex >= 0) {
+      const segments = buildWind();
+      traces[windTraceIndex].x = segments.x;
+      traces[windTraceIndex].y = segments.y;
+    }
+
+    const rendered = renderPlot(el, traces, layout, {
       responsive: true,
       displaylogo: false,
       modeBarButtonsToRemove: ['lasso2d', 'select2d']
     });
-  }, [sliceData, variableCode, datasetLabel, showLocations, showSurface, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip, windData, windParticles, topoData, titleText, logScale, smooth, interpStep, compact, i18n.language, fontColor, paperBg, plotBg, titleSize, responsiveMargin]);
+
+    if (windTraceIndex < 0) return undefined;
+
+    // Zoom, pan et redimensionnement changent l'echelle degres/pixel : sans
+    // ce rafraichissement les fleches reprendraient un angle faux des que la
+    // forme du cadre change. Seule la trace des fleches est retracee.
+    let disposed = false;
+    let running = false;
+    let timer = 0;
+    /** Signature de la geometrie ayant servi au dernier trace des fleches. */
+    let lastGeometry = geometryKey();
+
+    const refreshWind = () => {
+      if (disposed || running || !el._fullLayout) return;
+      const key = geometryKey();
+      if (!key || key === lastGeometry) return;   // rien n'a bouge
+      running = true;
+      lastGeometry = key;
+      const segments = buildWind();
+      Promise.resolve(Plotly.restyle(el, { x: [segments.x], y: [segments.y] }, [windTraceIndex]))
+        .catch(() => {})
+        .finally(() => {
+          running = false;
+          // La geometrie a pu changer pendant le retrace : on relance jusqu'a
+          // convergence plutot que de perdre l'evenement.
+          if (!disposed && geometryKey() !== lastGeometry) scheduleRefresh();
+        });
+    };
+
+    /**
+     * Rafraichissement differe. Un changement de largeur de fenetre traverse
+     * plusieurs etats intermediaires (repliement de la barre laterale, calcul
+     * de mise en page) : sans ce delai, les fleches se figeaient sur une
+     * largeur transitoire et gardaient un angle faux une fois la page stabilisee.
+     */
+    const scheduleRefresh = () => {
+      if (disposed) return;
+      clearTimeout(timer);
+      timer = setTimeout(refreshWind, 150);
+    };
+
+    const ro = new ResizeObserver(scheduleRefresh);
+    ro.observe(el);
+
+    // `.on` n'existe qu'une fois le graphe cree : au tout premier rendu il faut
+    // attendre la promesse. Garde identique aux autres couches (DrillDownMenu,
+    // ProbeLayer) : entre un purge et la re-initialisation, `el` existe sans `.on`.
+    Promise.resolve(rendered).then(() => {
+      if (disposed) return;
+      if (typeof el.on === 'function') el.on('plotly_relayout', scheduleRefresh);
+      // Le rendu lui-meme a pu deplacer la zone de trace (automargin) sans
+      // qu'aucun evenement ne le signale : on verifie une fois de plus.
+      scheduleRefresh();
+    }).catch(() => {});
+
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+      ro.disconnect();
+      // removeListener et non removeAllListeners : d'autres couches (synchro
+      // du zoom de l'Explorateur) ecoutent le meme evenement sur ce div.
+      if (typeof el.removeListener === 'function') el.removeListener('plotly_relayout', scheduleRefresh);
+    };
+  }, [sliceData, variableCode, datasetLabel, showLocations, showSurface, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip, windData, windParticles, topoData, titleText, logScale, smooth, interpStep, compact, i18n.language, fontColor, paperBg, plotBg, titleSize, responsiveMargin, plotRef]);
 
   if (!sliceData) {
     return (

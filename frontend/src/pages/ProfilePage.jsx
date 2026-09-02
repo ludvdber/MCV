@@ -27,6 +27,7 @@ import { scrollViewerIntoView } from '../utils/scrollToViewer';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useRecentHistory } from '../hooks/useRecentHistory';
+import { isUsablePayload } from '../hooks/useVisualizationPage';
 import { isSurfaceVariable as checkIsSurface } from '../utils/variableUtils';
 import ChartOrTable from '../components/ChartOrTable';
 import ViewExplainer from '../components/ViewExplainer';
@@ -138,6 +139,12 @@ function ProfilePage() {
       )
     )
       .then(results => {
+        // Cette page ne passe pas par useVisualizationPage (N points en
+        // parallele) : elle refait donc le meme controle de corps exploitable.
+        if (!results.every(isUsablePayload)) {
+          setError(t('error.malformedResponse'));
+          return;
+        }
         setProfiles(results);
         const p = new URLSearchParams();
         if (selectedDataset) p.set('ds', selectedDataset);
@@ -233,7 +240,7 @@ function ProfilePage() {
 
   const varUnit = VARIABLES_MAP.get(selectedVariable)?.unit || '';
   const tableData = useMemo(() =>
-    profiles?.length > 0 ? profileToTable(profiles[0].values, profiles[0].altitudes, varUnit) : null,
+    profiles?.[0]?.values?.length ? profileToTable(profiles[0].values, profiles[0].altitudes, varUnit) : null,
   [profiles, varUnit]);
 
   if (catalogLoading) return <PageLoader />;

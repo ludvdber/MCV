@@ -93,7 +93,7 @@ function TemporalProfilePage() {
   };
 
   const tableData = useMemo(() =>
-    profileData ? grid2DToTable(profileData.data, profileData.altitudes, Array.from({length: profileData.data[0]?.length || 0}, (_, i) => (i * 24 / (profileData.data[0]?.length || 48)).toFixed(1)), 'Altitude (km)', 'Time (h)', selectedVariable) : null,
+    profileData?.data?.length ? grid2DToTable(profileData.data, profileData.altitudes, Array.from({length: profileData.data[0]?.length || 0}, (_, i) => (i * 24 / (profileData.data[0]?.length || 48)).toFixed(1)), 'Altitude (km)', 'Time (h)', selectedVariable) : null,
   [profileData, selectedVariable]);
 
   if (catalogLoading) return <PageLoader />;

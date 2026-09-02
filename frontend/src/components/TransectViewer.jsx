@@ -41,6 +41,9 @@ function TransectViewer({ transectData, variableCode, datasetLabel, colorscaleNa
     if (!el || !transectData) return;
 
     const { altitudes, distances, lats, lons, data, lat1, lon1, lat2, lon2 } = transectData;
+    // Garde defensive : si la reponse arrive partielle (course montage/donnees),
+    // on n'entre pas dans le rendu Plotly (data.map / z:data planteraient -> ErrorBoundary).
+    if (!Array.isArray(data) || !Array.isArray(altitudes) || !Array.isArray(distances)) return;
     const varInfo = VARIABLES_MAP.get(variableCode);
     const variableLabel = varInfo ? t(`variable.${variableCode}`) : variableCode;
     const unit = varInfo?.unit || '';

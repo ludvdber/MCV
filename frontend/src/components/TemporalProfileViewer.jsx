@@ -35,6 +35,9 @@ function TemporalProfileViewer({ profileData, variableCode, datasetLabel,
     if (!el || !profileData) return;
 
     const { altitudes, times, data, latitude, longitude } = profileData;
+    // Garde defensive : si la reponse arrive partielle (course montage/donnees),
+    // on n'entre pas dans le rendu Plotly (data.map / z:data planteraient -> ErrorBoundary).
+    if (!Array.isArray(data) || !Array.isArray(altitudes) || !Array.isArray(times)) return;
     const varInfo = VARIABLES_MAP.get(variableCode);
     const variableLabel = varInfo ? t(`variable.${variableCode}`) : variableCode;
     const unit = varInfo?.unit || '';

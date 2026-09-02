@@ -15,12 +15,15 @@ import { INDIVIDUAL_PREFIX } from '../constants';
  * @param {Object[]} datasets - liste des datasets MEAN
  * @param {string|null} value - ID du dataset selectionne
  * @param {function} onChange - callback avec l'ID
+ * @param {string} [label] - libelle du champ. A surcharger des qu'une page
+ *        affiche DEUX selecteurs (page Difference) : sans cela les deux champs
+ *        portent le meme nom accessible « Dataset » et rien ne distingue A de B.
  * @param {boolean} [disabled=false]
  * @param {Object[]} [individualYears=[]] - catalogue individual
  * @param {number|null} [initialIndividualMY=null] - MY pre-selectionnee (restore permalien)
  * @param {number|null} [initialIndividualLs=null] - Ls pre-selectionnee (restore permalien)
  */
-function DatasetSelector({ datasets, value, onChange, disabled = false, individualYears = [], initialIndividualMY = null, initialIndividualLs = null, disableIndividual = false, disableIndividualReason = '' }) {
+function DatasetSelector({ datasets, value, onChange, label = null, disabled = false, individualYears = [], initialIndividualMY = null, initialIndividualLs = null, disableIndividual = false, disableIndividualReason = '' }) {
   const { t } = useTranslation();
   const [mode, setMode] = useState('mean');
   const selected = datasets.find(ds => ds.id === value) || null;
@@ -119,7 +122,7 @@ function DatasetSelector({ datasets, value, onChange, disabled = false, individu
           renderInput={(params) => (
             <TextField
               {...params}
-              label={t('selector.dataset.label')}
+              label={label ?? t('selector.dataset.label')}
               placeholder={t('selector.dataset.placeholder')}
               variant="outlined"
             />

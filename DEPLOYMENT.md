@@ -66,6 +66,57 @@ Two known pitfalls:
 
 At startup the application validates both folders and stops with an explicit message if one of them cannot be found; the message names the property to fix and the accepted path formats.
 
+## Adding new data
+
+**The catalog is built once, at startup. A file dropped in while the application is running stays invisible until it is restarted.**
+
+This is not only about the menus: a `mean/` file added at runtime does not show up in the dropdowns, and a request naming it directly returns a 404, because dataset ids are resolved against the in-memory catalog rather than against the disk.
+
+### What to do, case by case
+
+| What you add | What to do |
+|---|---|
+| A `.nc` file in `mean/` | restart |
+| A new subfolder in `individual/` | restart |
+| A `.nc` file inside an **existing** subfolder of `individual/` | delete `individual/.catalog-cache.json`, **then** restart |
+
+The third case deserves an explanation. To avoid rescanning thousands of files on every start, the individual-file catalog is stored in `individual/.catalog-cache.json`. That cache is treated as stale when the modification time of the `individual/` folder changes. But a filesystem only updates a folder's timestamp when **its own entries** change: adding a file inside `individual/000960/` updates the timestamp of `000960/`, not of `individual/`. The cache therefore still believes it is valid, and the Ls bounds advertised for that Martian year stay as they were. Deleting the cache file forces a full scan.
+
+### Procedure
+
+```bash
+# 1. Drop the .nc files into the right folder
+
+# 2. Only if files were added inside an existing subfolder:
+rm /mnt/gem-mars/individual/.catalog-cache.json
+
+# 3. Restart the application
+sudo systemctl restart mcv          # systemd service
+                                    # or restart the java -jar
+
+# 4. Check that the new files are seen
+curl http://server:8080/api/catalog
+```
+
+The startup log confirms the outcome:
+
+```text
+Catalogue initialisé : 42 datasets trouvés
+Catalogue INDIVIDUAL : 3 annees, 18 repertoires scannes
+```
+
+An unreadable or badly named file does not prevent startup: it is simply skipped, with an `Impossible d'indexer le fichier '...'` warning in the log. If you expect 42 datasets and the log announces 41, that warning is where to look.
+
+### The browser-side delay
+
+Browsers cache the catalog for one hour. A returning visitor may therefore take up to an hour to see the new dataset; a first-time visitor sees it immediately. `Ctrl+F5` forces a refresh.
+
+### Correcting an existing file
+
+The data itself is re-read from disk on every request, but browsers keep the responses for **thirty days**. If a file is corrected under the same name, anyone who already viewed it will keep seeing the old version for that whole period, and restarting the server changes nothing.
+
+Publishing the correction under a **new filename** avoids the problem entirely: the dataset id changes, so the URL changes, so no cache can answer in its place.
+
 ## Environment variables (alternative to the file)
 
 Every setting can also be supplied as an environment variable, which is convenient for a systemd service or a container:

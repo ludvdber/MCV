@@ -32,6 +32,9 @@ function DifferenceViewer({ differenceData, variableCode, datasetLabelA, dataset
   useEffect(() => {
     const el = plotRef.current;
     if (!el || !differenceData) return;
+    // Garde defensive : si la reponse arrive partielle (course montage/donnees),
+    // on n'entre pas dans le rendu Plotly (data.map / z:data planteraient -> ErrorBoundary).
+    if (!Array.isArray(differenceData.data) || !Array.isArray(differenceData.latitudes) || !Array.isArray(differenceData.longitudes)) return;
 
     const { datasetA, datasetB, stats } = differenceData;
     // Sur-echantillonnage optionnel (les points crees sont marques via `text`).
