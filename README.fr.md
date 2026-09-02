@@ -43,13 +43,14 @@ L'application a besoin de deux dossiers de données. Renseignez-les **avant le p
 
 | Propriété | Variable d'environnement | Défaut | Description |
 |---|---|---|---|
-| `netcdf.mean.path` | `NETCDF_MEAN_PATH` | `C:/Users/User/Desktop/mars-data/mean` | Dossier des fichiers `.nc` moyennés (48 pas d'heure locale) |
-| `netcdf.individual.path` | `NETCDF_INDIVIDUAL_PATH` | `C:/Users/User/Desktop/mars-data/individual` | Dossier contenant un sous-dossier par année martienne (`34/`, `35/`, …) |
+| `netcdf.mean.path` | `NETCDF_MEAN_PATH` | `/data/gem-mars/mean` | Dossier des fichiers `.nc` moyennés (48 pas d'heure locale). La valeur par défaut est un chemin neutre : le démarrage échoue avec un message explicite tant qu'elle n'est pas renseignée |
+| `netcdf.individual.path` | `NETCDF_INDIVIDUAL_PATH` | `/data/gem-mars/individual` | Dossier contenant un sous-dossier par année martienne (`34/`, `35/`, …) |
 | `netcdf.individual.my_base` | — | `34` | Première année martienne présente dans ce dossier ; les suivantes sont détectées automatiquement |
 | `server.port` | `SERVER_PORT` | `8080` | Port HTTP servant l'API et l'interface |
 | `ratelimit.requests-per-minute` | — | `120` | Limite de requêtes par IP |
 | `ratelimit.export-per-minute` | — | `20` | Limite d'exports par IP (CSV/NetCDF) |
 | `cors.allowed-origin` | — | `http://localhost:5173` | Utilisé uniquement si le frontend est servi séparément (mode développement) |
+| `server.tomcat.remoteip.internal-proxies` | `TRUSTED_PROXIES` | loopback + plages privées | Proxys dont le `X-Forwarded-For` est cru. À laisser tel quel pour un proxy sur la même machine ou le même réseau ; voir [DEPLOYMENT.fr.md](DEPLOYMENT.fr.md#derrière-un-reverse-proxy) |
 
 **Les partages réseau sont pris en charge.** Dans un fichier `.properties`, `\` est un caractère d'échappement : doublez chaque antislash ou utilisez des slashes — les deux formes fonctionnent pour les chemins UNC :
 
@@ -79,6 +80,13 @@ cd frontend && npm run dev        # frontend sur :5173, proxy /api vers :8080
 ```
 
 Ouvrir http://localhost:5173.
+
+Les chemins de données de votre machine se mettent dans `config/application-local.properties`, un fichier non versionné que `config/application.properties` importe automatiquement. Il évite d'avoir à modifier le modèle de configuration livré, qui ne doit contenir que des chemins d'exemple neutres :
+
+```properties
+netcdf.mean.path=D:/mars-data/mean
+netcdf.individual.path=D:/mars-data/individual
+```
 
 ### Production (JAR unique)
 
@@ -127,7 +135,7 @@ Installation serveur, service systemd et reverse proxy : **[DEPLOYMENT.fr.md](DE
 | `./gradlew build` | Build complet : frontend, compilation, tests, JAR dans `build/libs/` |
 | `./gradlew build -x test` | Idem sans la suite de tests |
 | `./gradlew bootJar` | JAR uniquement, sans tests |
-| `./gradlew test` | Suite JUnit 5 (156 tests) + rapport de couverture JaCoCo |
+| `./gradlew test` | Suite JUnit 5 (164 tests) + rapport de couverture JaCoCo |
 | `./gradlew buildFrontend` | Build de production du frontend uniquement |
 
 Rapport de couverture : `build/reports/jacoco/test/html/index.html`.
@@ -159,6 +167,7 @@ Rapport de couverture : `build/reports/jacoco/test/html/index.html`.
 | Rose des vents | `/windrose` | distribution direction/vitesse du vent en un point |
 | Différence | `/difference` | carte d'anomalies entre deux jeux de données |
 | Exploration | `/explore` | console : jusqu'à 4 vues liées, sonde, statistiques de région, sessions |
+| Mentions légales | `/legal` | éditeur, licence du code, provenance et citation des données, stockage navigateur |
 
 Toutes les vues offrent permaliens, export CSV, export PNG/SVG, échelle log₁₀ et choix de palette. L'interface est disponible en anglais, français, néerlandais, allemand et espagnol.
 

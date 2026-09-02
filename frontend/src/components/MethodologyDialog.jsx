@@ -50,7 +50,7 @@ function MethodologyDialog({ open, onClose }) {
           {SECTIONS.map((s, i) => (
             <Box key={s.key}>
               {i > 0 && <Divider sx={{ mb: 2 }} />}
-              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              <Typography variant="subtitle2" component="h3" sx={{ fontWeight: 700 }}>
                 {t(`method.${s.key}.title`)}
               </Typography>
               <Box

@@ -247,7 +247,7 @@ function ProfilePage() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
-      <Typography variant="h5" gutterBottom>{t('page.profile.title')}</Typography>
+      <Typography variant="h5" component="h1" gutterBottom>{t('page.profile.title')}</Typography>
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2}>
@@ -274,7 +274,7 @@ function ProfilePage() {
 
         {/* Comparison points */}
         <Box sx={{ mt: 2 }}>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          <Typography variant="subtitle2" component="h2" color="text.secondary" gutterBottom>
             {t('page.profile.pointsLabel')} ({points.length}/{MAX_POINTS})
           </Typography>
           {points.map((pt, idx) => (

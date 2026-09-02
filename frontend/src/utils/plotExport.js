@@ -104,6 +104,42 @@ export function buildLightClone(gd) {
 }
 
 /**
+ * Mention portee par TOUTE figure exportee, quel que soit le format.
+ *
+ * Une figure quitte le site pour vivre dans une presentation ou un article :
+ * elle doit dire d'ou elle vient. Le mode publication portait deja ce credit,
+ * mais il n'est pas le chemin par defaut, et les exports PNG et SVG ordinaires
+ * partaient sans aucune source.
+ *
+ * Codes et noms propres non traduits, comme partout dans l'application.
+ */
+export const FIGURE_CREDIT = 'Mars Climate Viewer · GEM-Mars · BIRA-IASB';
+
+/**
+ * Inscrit le credit sous l'axe des abscisses, dans la marge basse.
+ *
+ * Le decalage est exprime en PIXELS (yshift) et non en fraction de la zone de
+ * trace : une fraction depend de la hauteur du graphique et finit par sortir de
+ * la marge sur les figures basses, ou le texte serait rogne.
+ *
+ * @param {Object} layout mise en page du clone (mutee en place)
+ */
+function addFigureCredit(layout) {
+  const margin = layout.margin ?? {};
+  layout.margin = { ...margin, b: Math.max(margin.b ?? 40, 56) };
+  layout.annotations = [
+    ...(layout.annotations ?? []),
+    {
+      text: FIGURE_CREDIT,
+      xref: 'paper', yref: 'paper', x: 1, y: 0,
+      xanchor: 'right', yanchor: 'top', yshift: -34,
+      showarrow: false,
+      font: { size: 11, color: '#777777' },
+    },
+  ];
+}
+
+/**
  * Applique le mode publication a un clone clair : titre complet (avec
  * sous-titre dataset), titres d'axes, colorbar reaffichee meme si la vue
  * d'origine etait compacte, et mention de credit en pied de figure.
@@ -165,7 +201,10 @@ export async function exportPlotImage(gd, format, opts = {}) {
   document.body.appendChild(el);
   try {
     const clone = buildLightClone(gd);
+    // Le mode publication pose sa propre mention, plus complete et alignee a
+    // gauche sous une marge genereuse : on ne la double pas.
     if (publication) applyPublication(clone, publication);
+    else addFigureCredit(clone.layout);
     await Plotly.newPlot(el, clone.data, clone.layout, { staticPlot: true, responsive: false });
     await refreshQuiverTraces(el);
     return await Plotly.toImage(el, { format, ...imgOpts });

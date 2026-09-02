@@ -100,6 +100,23 @@ class SecurityHeadersFilterTest {
     }
 
     @Test
+    @DisplayName("CSP déclare frame-ancestors, base-uri et form-action")
+    void cspDeclareLesTroisDirectivesDeDurcissement() throws Exception {
+        String csp = doFilter().getHeader("Content-Security-Policy");
+
+        // frame-ancestors est la forme moderne de X-Frame-Options : les
+        // navigateurs récents lisent celle-là en priorité, et X-Frame-Options
+        // reste servi pour les plus anciens.
+        assertThat(csp).contains("frame-ancestors 'none'");
+        // base-uri : sans elle, une injection de <base> détournerait toutes les
+        // URL relatives de la page vers un autre domaine.
+        assertThat(csp).contains("base-uri 'self'");
+        // form-action : l'application ne soumet aucun formulaire vers
+        // l'extérieur, autant l'interdire.
+        assertThat(csp).contains("form-action 'self'");
+    }
+
+    @Test
     @DisplayName("Filter appelle chain.doFilter (requête transmise)")
     void filterAppelleChainDoFilter() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();

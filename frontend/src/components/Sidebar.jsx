@@ -32,7 +32,7 @@ import {
   Timeline as ProfilesIcon,
   BarChart as DiagnosticsIcon,
 } from '@mui/icons-material';
-import { DarkMode as DarkModeIcon, LightMode as LightModeIcon, Contrast as ContrastIcon, InfoOutlined as AboutIcon, Science as ScienceIcon } from '@mui/icons-material';
+import { DarkMode as DarkModeIcon, LightMode as LightModeIcon, Contrast as ContrastIcon, InfoOutlined as AboutIcon, Science as ScienceIcon, Gavel as GavelIcon } from '@mui/icons-material';
 import MethodologyDialog from './MethodologyDialog';
 import LanguageSwitcher from './LanguageSwitcher';
 import AboutDialog from './AboutDialog';
@@ -547,6 +547,18 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
                 <AboutIcon fontSize="small" />
               </IconButton>
             </Tooltip>
+            {/* Mentions legales : meme raison que la langue ci-dessous, /explore
+                replie la nav et prive sinon la page de tout lien legal. */}
+            <Tooltip title={t('nav.legal')} placement="right" arrow>
+              <IconButton
+                component={Link}
+                to="/legal"
+                aria-label={t('nav.legal')}
+                sx={{ color: 'var(--text-secondary)', p: 1, '&:hover': { color: 'var(--text-primary)' } }}
+              >
+                <GavelIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
             {/* Langue accessible même rail replié (sinon /explore, qui replie la
                 nav automatiquement, prive l'utilisateur du choix de langue). */}
             <LanguageSwitcher iconOnly />
@@ -581,6 +593,21 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
             {/* Provenance des donnees, visible sur toutes les pages */}
             <Typography variant="caption" sx={{ color: 'var(--text-secondary)', opacity: 0.65, fontSize: '0.66rem', letterSpacing: '0.02em' }}>
               {t('nav.dataCredit')} : GEM-Mars · BIRA-IASB
+            </Typography>
+            {/* Mentions legales : une page publique doit etre joignable depuis
+                n'importe laquelle de ses pages, d'ou le pied de barre plutot
+                qu'un lien sur le seul accueil. */}
+            <Typography
+              component={Link}
+              to="/legal"
+              variant="caption"
+              sx={{
+                color: 'var(--text-secondary)', opacity: 0.65, fontSize: '0.66rem',
+                letterSpacing: '0.02em', textDecoration: 'none', width: 'fit-content',
+                '&:hover': { color: 'var(--mars-orange)', opacity: 1 },
+              }}
+            >
+              {t('nav.legal')}
             </Typography>
           </>
         )}

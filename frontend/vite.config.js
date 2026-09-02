@@ -42,6 +42,7 @@ const SITE_ROUTES = [
   { path: '/windrose', priority: '0.6' },
   { path: '/difference', priority: '0.6' },
   { path: '/temporal-profile', priority: '0.6' },
+  { path: '/legal', priority: '0.2' },
 ]
 
 function buildSitemap() {

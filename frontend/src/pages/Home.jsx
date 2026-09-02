@@ -191,7 +191,7 @@ function Home() {
               </Typography>
             </Box>
             <Box {...useReveal(0.2)} sx={{ mt: 2 }}>
-              <Typography variant="h6" sx={{ fontFamily: 'var(--font-body)', fontSize: { xs: '1.1rem', md: '1.3rem' }, color: 'var(--text-secondary)' }}>
+              <Typography variant="h6" component="p" sx={{ fontFamily: 'var(--font-body)', fontSize: { xs: '1.1rem', md: '1.3rem' }, color: 'var(--text-secondary)' }}>
                 {hero.subtitle}
               </Typography>
             </Box>
@@ -418,7 +418,7 @@ function Home() {
       <Box sx={{ py: 10, textAlign: 'center', background: 'radial-gradient(ellipse at center, rgba(224,90,43,0.09) 0%, transparent 65%)' }}>
         <Container maxWidth="sm">
           <Box {...useReveal(0)}>
-            <Typography variant="h5" sx={{ fontFamily: 'var(--font-display)', mb: 3, fontSize: { xs: '1.3rem', md: '1.6rem' } }}>
+            <Typography variant="h5" component="h2" sx={{ fontFamily: 'var(--font-display)', mb: 3, fontSize: { xs: '1.3rem', md: '1.6rem' } }}>
               {t('home.ctaTitle')}
             </Typography>
             <Button variant="contained" size="large" component={Link} to="/explore" startIcon={<RocketIcon />} sx={{ px: 5, py: 1.5 }}>

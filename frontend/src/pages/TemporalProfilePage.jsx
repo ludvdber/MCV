@@ -100,7 +100,7 @@ function TemporalProfilePage() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
-      <Typography variant="h5" gutterBottom>{t('page.temporalprofile.title')}</Typography>
+      <Typography variant="h5" component="h1" gutterBottom>{t('page.temporalprofile.title')}</Typography>
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2}>

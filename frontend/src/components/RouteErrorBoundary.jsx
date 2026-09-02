@@ -33,7 +33,7 @@ export default class RouteErrorBoundary extends Component {
           display: 'flex', flexDirection: 'column', alignItems: 'center',
           justifyContent: 'center', gap: 2, minHeight: '60vh', p: 3, textAlign: 'center',
         }}>
-          <Typography variant="h6">{t('error.pageTitle')}</Typography>
+          <Typography variant="h6" component="h1">{t('error.pageTitle')}</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 460 }}>
             {t('error.pageBody')}
           </Typography>

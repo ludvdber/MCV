@@ -172,7 +172,13 @@
    la cascade -> plus aucun anneau visible au clavier. On retablit un focus
    visible en rehaussant la specificite (element + pseudo = 0,1,1), sans
    !important : ca bat le outline:0 de MUI tout en laissant primer les regles
-   dediees .mcv-*:focus-visible (specificite classe, superieure). */
+   dediees .mcv-*:focus-visible (specificite classe, superieure).
+
+   NB de mesure : les entrees de navigation portent `transition: all 0.2s`, et
+   l'anneau s'y installe donc progressivement. Une sonde qui lit le style
+   calcule juste apres la tabulation le trouve encore a 0 pixel et conclut a
+   tort qu'il n'y a pas de focus visible. Il faut laisser passer la transition
+   avant de mesurer. */
 a:focus-visible,
 button:focus-visible,
 [role='button']:focus-visible,

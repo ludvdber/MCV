@@ -12,6 +12,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, CircularProgress, Typography, useTheme, useMediaQuery } from '@mui/material';
+import { visuallyHidden } from '@mui/utils';
 import { Tune as TuneIcon, PushPin as PushPinIcon } from '@mui/icons-material';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -884,6 +885,11 @@ function ExplorePageContent() {
       p: 1.25,
       boxSizing: 'border-box',
     }}>
+      {/* La console n'affiche volontairement aucun bandeau de titre : l'espace
+          revient aux vues. Le titre existe quand meme dans le document, sinon
+          la page n'a pas de h1 et un lecteur d'ecran qui liste les titres n'y
+          trouve que les en-tetes du panneau lateral. */}
+      <Typography variant="h1" sx={visuallyHidden}>{t('page.explore.title')}</Typography>
       <Box className="mcv-body" sx={{
         flex: 1, minHeight: 0,
         display: 'flex',

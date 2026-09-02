@@ -3,7 +3,7 @@ import Plotly, { renderPlot } from '../plotlyBundle';
 import { Paper, Typography, Box } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { VARIABLES_MAP } from './VariableSelector';
-import { RDBU_VARIABLES } from '../utils/colorscales';
+import { autoColorscaleFor } from '../utils/colorscales';
 import ExportMenu from './ExportMenu';
 import StatsBar from './StatsBar';
 import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
@@ -48,8 +48,7 @@ function TransectViewer({ transectData, variableCode, datasetLabel, colorscaleNa
     const variableLabel = varInfo ? t(`variable.${variableCode}`) : variableCode;
     const unit = varInfo?.unit || '';
 
-    const useRdBu = RDBU_VARIABLES.includes(variableCode);
-    const finalColorscale = colorscaleName || (useRdBu ? 'RdBu' : 'Viridis');
+    const finalColorscale = colorscaleName || autoColorscaleFor(variableCode);
     const finalReverse = reverseColorscale ?? false;
 
     // (lat, lon) du point de trajet en customdata pour le survol : la position

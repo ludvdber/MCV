@@ -14,6 +14,19 @@ const CYAN = '#38bdf8';
 const MARS_LIGHT = '#c44b1f';
 const CYAN_LIGHT = '#0284c7';
 
+/* Extremites du degrade du bouton d'action principal.
+   Le texte y est blanc, et le contraste doit donc tenir sur TOUTE la surface du
+   degrade, pas seulement a son point de depart. L'ancienne fin claire #ff7043
+   tombait a 2,74:1 pour un seuil AA de 4,5, et le depart sombre #e05a2b a 3,71.
+   Les quatre valeurs ci-dessous conservent la teinte (15 a 16 degres) et la
+   saturation de l'orange de la marque : seule leur luminosite descend, juste
+   assez pour passer le seuil. Elles ne servent qu'ici ; l'orange du reste de
+   l'interface (--mars-orange, logo, accents) est inchange. */
+const CTA_DARK_FROM = '#b8410f';   /* 5,52:1 */
+const CTA_DARK_TO = '#cc4b1e';     /* 4,57:1 */
+const CTA_LIGHT_FROM = '#a83a12';  /* 6,40:1 */
+const CTA_LIGHT_TO = '#c44b1f';    /* 4,80:1 */
+
 /**
  * Thème unique piloté par CSS variables (`cssVariables`) et deux color schemes.
  *
@@ -158,48 +171,62 @@ const theme = createTheme({
       },
     },
     MuiButton: {
-      styleOverrides: {
-        containedPrimary: ({ theme: t }) => ({
-          fontWeight: 600,
-          letterSpacing: '0.05em',
-          ...t.applyStyles('dark', {
-            background: `linear-gradient(135deg, ${MARS}, #ff7043)`,
-            boxShadow: `0 4px 20px ${alpha(MARS, 0.4)}`,
-            '&:hover': {
-              background: `linear-gradient(135deg, #ff7043, ${MARS})`,
-              boxShadow: `0 6px 28px ${alpha(MARS, 0.6)}`,
-            },
+      /* MUI 9 ne compose plus de classe « MuiButton-containedPrimary » : le
+         bouton porte « MuiButton-contained » ET « MuiButton-colorPrimary »
+         separement. Un slot nomme `containedPrimary` dans styleOverrides ne
+         s'applique donc plus a rien, et le degrade comme le halo du bouton
+         principal etaient silencieusement perdus depuis la migration.
+         C'est `variants` qui porte, depuis la v6, les styles conditionnes a une
+         combinaison de props : la regle est alors ecrite en fonction de ce que
+         le composant recoit, et non du nom d'une classe interne. */
+      variants: [
+        {
+          props: { variant: 'contained', color: 'primary' },
+          style: ({ theme: t }) => ({
+            fontWeight: 600,
+            letterSpacing: '0.05em',
+            ...t.applyStyles('dark', {
+              background: `linear-gradient(135deg, ${CTA_DARK_FROM}, ${CTA_DARK_TO})`,
+              boxShadow: `0 4px 20px ${alpha(MARS, 0.4)}`,
+              '&:hover': {
+                background: `linear-gradient(135deg, ${CTA_DARK_TO}, ${CTA_DARK_FROM})`,
+                boxShadow: `0 6px 28px ${alpha(MARS, 0.6)}`,
+              },
+            }),
+            ...t.applyStyles('light', {
+              background: `linear-gradient(135deg, ${CTA_LIGHT_FROM}, ${CTA_LIGHT_TO})`,
+              boxShadow: `0 4px 20px ${alpha(MARS_LIGHT, 0.4)}`,
+              '&:hover': {
+                background: `linear-gradient(135deg, ${CTA_LIGHT_TO}, ${CTA_LIGHT_FROM})`,
+                boxShadow: `0 6px 28px ${alpha(MARS_LIGHT, 0.6)}`,
+              },
+            }),
           }),
-          ...t.applyStyles('light', {
-            background: `linear-gradient(135deg, ${MARS_LIGHT}, #ff7043)`,
-            boxShadow: `0 4px 20px ${alpha(MARS_LIGHT, 0.4)}`,
-            '&:hover': {
-              background: `linear-gradient(135deg, #ff7043, ${MARS_LIGHT})`,
-              boxShadow: `0 6px 28px ${alpha(MARS_LIGHT, 0.6)}`,
-            },
+        },
+        {
+          props: { variant: 'outlined', color: 'secondary' },
+          style: ({ theme: t }) => ({
+            ...t.applyStyles('dark', {
+              borderColor: alpha(CYAN, 0.5),
+              color: CYAN,
+              '&:hover': {
+                borderColor: CYAN,
+                backgroundColor: alpha(CYAN, 0.08),
+                boxShadow: `0 0 16px ${alpha(CYAN, 0.2)}`,
+              },
+            }),
+            ...t.applyStyles('light', {
+              borderColor: alpha(CYAN_LIGHT, 0.5),
+              color: CYAN_LIGHT,
+              '&:hover': {
+                borderColor: CYAN_LIGHT,
+                backgroundColor: alpha(CYAN_LIGHT, 0.08),
+                boxShadow: `0 0 16px ${alpha(CYAN_LIGHT, 0.2)}`,
+              },
+            }),
           }),
-        }),
-        outlinedSecondary: ({ theme: t }) => ({
-          ...t.applyStyles('dark', {
-            borderColor: alpha(CYAN, 0.5),
-            color: CYAN,
-            '&:hover': {
-              borderColor: CYAN,
-              backgroundColor: alpha(CYAN, 0.08),
-              boxShadow: `0 0 16px ${alpha(CYAN, 0.2)}`,
-            },
-          }),
-          ...t.applyStyles('light', {
-            borderColor: alpha(CYAN_LIGHT, 0.5),
-            color: CYAN_LIGHT,
-            '&:hover': {
-              borderColor: CYAN_LIGHT,
-              backgroundColor: alpha(CYAN_LIGHT, 0.08),
-              boxShadow: `0 0 16px ${alpha(CYAN_LIGHT, 0.2)}`,
-            },
-          }),
-        }),
-      },
+        },
+      ],
     },
     MuiSlider: {
       styleOverrides: {

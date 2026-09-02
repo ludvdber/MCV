@@ -93,11 +93,37 @@ export function swatchGradient(opt) {
   return `linear-gradient(90deg, ${ordered.map(([p, c]) => `${c} ${(p * 100).toFixed(0)}%`).join(', ')})`;
 }
 
-/** Variables qui utilisent RdBu par défaut (divergentes — températures). */
-export const RDBU_VARIABLES = ['TT', 'MTSF'];
+/** Températures ABSOLUES (air et surface). Ce sont des magnitudes, pas des
+ *  écarts autour d'une référence : elles reçoivent une palette SÉQUENTIELLE
+ *  perceptuellement uniforme.
+ *
+ *  Elles utilisaient auparavant RdBu, une palette divergente, mais SANS point
+ *  neutre fixe : le blanc tombait au milieu de l'étendue de chaque jeu de
+ *  données, qui change d'une carte à l'autre. La même couleur ne désignait donc
+ *  pas la même température d'une figure à la suivante, ce qui est trompeur sur
+ *  une figure destinée à être republiée. Une divergente n'a de sens que
+ *  centrée sur une valeur qui en a un, ce qui est le cas des champs signés
+ *  ci-dessous et pas d'une température en kelvins. */
+export const SEQUENTIAL_VARIABLES = ['TT', 'MTSF'];
 
 /** Champs SIGNÉS (le zéro sépare deux régimes : est/ouest, nord/sud, montée/
  *  descente). En mode auto ils reçoivent une palette divergente CENTRÉE SUR 0
  *  (plage symétrique ±max) : sinon la couleur neutre tombe au milieu des
  *  données et masque la ligne de changement de signe. */
 export const DIVERGING_VARIABLES = ['UU', 'VV', 'WW'];
+
+/**
+ * Palette appliquée quand l'utilisateur laisse le sélecteur sur « Auto ».
+ *
+ * Source unique de cette décision : elle était auparavant recopiée dans chacun
+ * des sept afficheurs et des deux hooks, ce qui garantissait qu'un changement
+ * n'en atteindrait qu'une partie.
+ *
+ * @param {string} variableCode code scientifique (TT, UU, H2O…)
+ * @returns {string|Array} valeur de colorscale Plotly : un nom natif ou des
+ *          stops explicites.
+ */
+export function autoColorscaleFor(variableCode) {
+  if (SEQUENTIAL_VARIABLES.includes(variableCode)) return BATLOW;
+  return 'Viridis';
+}

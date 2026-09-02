@@ -71,6 +71,7 @@ function NotFoundPage() {
       {/* Sous-titre */}
       <Typography
         variant="h5"
+        component="h1"
         sx={{
           fontFamily: 'var(--font-display)',
           color: 'var(--cyan-accent)',

@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
-import { COLORSCALE_OPTIONS, RDBU_VARIABLES } from '../utils/colorscales';
+import { COLORSCALE_OPTIONS, autoColorscaleFor } from '../utils/colorscales';
 
 /**
  * Resout la palette de couleurs effective a partir du choix utilisateur.
- * En mode 'auto', utilise RdBu pour les variables de temperature, Viridis sinon.
+ * En mode 'auto', delegue le choix a autoColorscaleFor (source unique).
  * Remplace le useMemo identique dans SlicePage, AnimationPage et CrossSectionPage.
  *
  * Pour Plasma et Inferno (non enregistres nativement dans Plotly v3),
@@ -17,10 +17,7 @@ import { COLORSCALE_OPTIONS, RDBU_VARIABLES } from '../utils/colorscales';
 export function useResolvedColorscale(colorscale, displayedVar, selectedVar) {
   return useMemo(() => {
     if (colorscale === 'auto') {
-      const isTemp = RDBU_VARIABLES.includes(displayedVar ?? selectedVar);
-      // RdBu de Plotly va nativement du bleu (bas) au rouge (haut) : pas d'inversion,
-      // sinon on affiche froid=rouge / chaud=bleu.
-      return { name: isTemp ? 'RdBu' : 'Viridis', reverse: false };
+      return { name: autoColorscaleFor(displayedVar ?? selectedVar), reverse: false };
     }
     const opt = COLORSCALE_OPTIONS.find(o => o.value === colorscale);
     return { name: opt?.scale || colorscale, reverse: opt?.reverse || false };

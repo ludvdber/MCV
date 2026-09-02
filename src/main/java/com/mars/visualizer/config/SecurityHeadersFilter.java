@@ -41,7 +41,17 @@ public class SecurityHeadersFilter implements Filter {
                     + "font-src 'self'; "
                     + "img-src 'self' data: blob: https://images-assets.nasa.gov; "
                     + "connect-src 'self' blob: https://images-api.nasa.gov; "
-                    + "object-src 'none'");
+                    + "object-src 'none'; "
+                    // Durcissement : trois directives sans effet de bord ici,
+                    // car l'application n'a ni <base>, ni formulaire soumis, ni
+                    // usage legitime en iframe. frame-ancestors double
+                    // X-Frame-Options (le seul des deux que lisent les
+                    // navigateurs recents), base-uri empeche de detourner la
+                    // resolution des URL relatives, form-action empeche
+                    // d'exfiltrer un POST vers un autre domaine.
+                    + "frame-ancestors 'none'; "
+                    + "base-uri 'self'; "
+                    + "form-action 'self'");
         }
 
         chain.doFilter(request, response);

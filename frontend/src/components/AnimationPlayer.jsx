@@ -7,7 +7,7 @@ import { formatTime } from '../utils/formatTime';
 import { VARIABLES_MAP } from './VariableSelector';
 import { buildLocationTrace } from '../data/marsLocations';
 import { computeHeatmapCustomData } from '../utils/heatmapAnalysis';
-import { RDBU_VARIABLES } from '../utils/colorscales';
+import { autoColorscaleFor } from '../utils/colorscales';
 import { upsampleLatLonGrid, nativeStep } from '../utils/gridInterpolation';
 import { downloadAnimationCSV } from '../utils/exportUtils';
 import { exportAnimationWebM, webmSupported, downloadBlob } from '../utils/videoExport';
@@ -154,8 +154,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
     const latMin = Math.min(...latitudes);
     const latMax = Math.max(...latitudes);
 
-    const useRdBu = RDBU_VARIABLES.includes(variableCode);
-    const finalColorscale = colorscaleName || (useRdBu ? 'RdBu' : 'Viridis');
+    const finalColorscale = colorscaleName || autoColorscaleFor(variableCode);
     const finalReverse = reverseColorscale ?? false; // RdBu Plotly est deja bleu(bas)->rouge(haut)
     const dataIs0to360 = longitudes.some(l => l > 180);
 
@@ -282,8 +281,7 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
     const latMin = Math.min(...latitudes);
     const latMax = Math.max(...latitudes);
 
-    const useRdBu = RDBU_VARIABLES.includes(variableCode);
-    const finalColorscale = colorscaleName || (useRdBu ? 'RdBu' : 'Viridis');
+    const finalColorscale = colorscaleName || autoColorscaleFor(variableCode);
     const finalReverse = reverseColorscale ?? false; // RdBu Plotly est deja bleu(bas)->rouge(haut)
     const dataIs0to360 = longitudes.some(l => l > 180);
 

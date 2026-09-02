@@ -50,7 +50,7 @@ import { useSyncZoom } from './useSyncZoom.js';
 import MiniColorbar from './MiniColorbar.jsx';
 import { computeRegionStats, resultLabel, datasetContext } from './exploreUtils.js';
 import { triggerDownload } from '../../utils/exportUtils';
-import { exportGridMontage } from '../../utils/plotExport';
+import { exportGridMontage, FIGURE_CREDIT } from '../../utils/plotExport';
 import { exportAnimationWebM, webmSupported, downloadBlob } from '../../utils/videoExport';
 import { formatTime } from '../../utils/formatTime';
 import { useToast } from '../../context/ToastContext';
@@ -58,9 +58,9 @@ import { useToast } from '../../context/ToastContext';
 /** Types compatibles avec les statistiques de region (grille dans result.data). */
 const ROI_TYPES = ['slice', 'difference'];
 
-/** Mention de credit des figures de publication (donnees + modele + institut).
- *  Codes et noms propres non traduits, comme partout dans l'application. */
-const PUB_CREDIT = 'Mars Climate Viewer · GEM-Mars · BIRA-IASB';
+/** Mention de credit des figures : meme texte que les exports ordinaires,
+ *  importe depuis plotExport pour qu'il n'en existe qu'une version. */
+const PUB_CREDIT = FIGURE_CREDIT;
 
 /** Titres d'axes par type de vue, pour le mode publication : une vue compacte
  *  n'a pas de titres d'axes, une figure d'article ne peut pas s'en passer. */

@@ -87,14 +87,24 @@ public class RateLimitFilter implements Filter {
 	}
 
 	/**
-	 * Extracts the client IP from the request.
+	 * Extracts the client IP used as the rate-limit key.
 	 *
-	 * <p>Relies on {@code getRemoteAddr()} which is already resolved to the real
-	 * client IP by Spring's {@code ForwardedHeaderFilter} (enabled via
-	 * {@code server.forward-headers-strategy=framework}). We deliberately do NOT
-	 * parse {@code X-Forwarded-For} manually here: trusting its first value lets
-	 * any client spoof an arbitrary IP and bypass the per-IP rate limit. The
-	 * trusted reverse proxy (Caddy/Nginx) is responsible for setting the header.
+	 * <p>Reads {@code getRemoteAddr()} only, and never parses
+	 * {@code X-Forwarded-For} here: the whole value of a per-IP limit rests on
+	 * that key being something the caller cannot choose.
+	 *
+	 * <p>Whether {@code getRemoteAddr()} is the socket address or a forwarded
+	 * one is decided upstream by Tomcat's {@code RemoteIpValve}
+	 * ({@code server.forward-headers-strategy=native}), which rewrites it only
+	 * when the connection genuinely comes from a proxy listed in
+	 * {@code server.tomcat.remoteip.internal-proxies}, and walks the header
+	 * right to left so the proxy's own value wins over anything the client
+	 * prepended. A direct caller therefore cannot spoof its IP, and a caller
+	 * behind the trusted proxy is still counted individually.
+	 *
+	 * <p>Do not switch back to {@code framework}: that strategy trusts the
+	 * header from any peer and keeps its first, client-supplied value, which
+	 * makes this limiter bypassable with a single request header.
 	 */
 	private String getClientIp(HttpServletRequest request) {
 		return request.getRemoteAddr();

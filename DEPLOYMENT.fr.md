@@ -151,4 +151,64 @@ Le `WorkingDirectory` est important : c'est là que l'application cherche le dos
 
 ## Derrière un reverse proxy
 
-L'application honore les en-têtes `X-Forwarded-*` (réglage `server.forward-headers-strategy=framework` déjà actif). Derrière Nginx ou Caddy en HTTPS, aucun réglage supplémentaire n'est nécessaire côté MCV.
+L'application honore les en-têtes `X-Forwarded-*`, mais seulement quand ils viennent d'un proxy qu'elle a de bonnes raisons de croire. C'est le rôle du couple de réglages déjà actifs :
+
+```properties
+server.forward-headers-strategy=native
+server.tomcat.remoteip.internal-proxies=127.0.0.1/32,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.0.0/16,fc00::/7,fe80::/10
+```
+
+Cette liste par défaut couvre les cas ordinaires : un Nginx ou un Caddy sur la même machine, sur le même réseau local, ou dans le même réseau Docker. **Dans ces cas-là, il n'y a rien à configurer côté MCV.**
+
+Il faut y toucher dans deux situations.
+
+**Si le proxy n'est pas à une de ces adresses**, par exemple s'il est hébergé ailleurs ou joint par un réseau superposé comme Tailscale (`100.64.0.0/10`), MCV verra l'IP du proxy et non celle du visiteur : tout le monde partagera un seul quota de requêtes et se bloquera mutuellement. Ajoutez alors l'adresse du proxy :
+
+```bash
+TRUSTED_PROXIES=127.0.0.1/32,::1/128,203.0.113.10/32 java -jar mars-visualizer.jar
+```
+
+**Si l'application reste joignable en direct** en plus de l'être par le proxy, restreignez la liste à l'adresse exacte du proxy, et surtout n'écoutez que sur l'interface locale :
+
+```bash
+java -jar mars-visualizer.jar --server.address=127.0.0.1
+```
+
+### Pourquoi ce détail compte
+
+MCV limite le nombre de requêtes par minute et par IP, parce qu'une requête coûte une lecture sur le stockage des données. Cette limite ne vaut que si l'IP est une chose que l'appelant ne choisit pas lui-même. Avec l'ancien réglage `framework`, l'en-tête était cru quel qu'en soit l'expéditeur : il suffisait d'ajouter `X-Forwarded-For: 1.2.3.4` à la main pour repartir avec un quota neuf. La valve de Tomcat, elle, n'ouvre l'en-tête qu'aux adresses listées ci-dessus.
+
+Vous pouvez le vérifier une fois en place. Depuis une machine qui n'est pas le proxy, saturez la limite puis rejouez la même requête avec un en-tête inventé : les deux doivent répondre `429`.
+
+```bash
+for i in $(seq 1 130); do curl -s -o /dev/null -w "%{http_code} " https://mars.exemple.be/api/catalog; done
+curl -s -o /dev/null -w "%{http_code}
+" -H "X-Forwarded-For: 1.2.3.4" https://mars.exemple.be/api/catalog
+```
+
+### Nginx
+
+```nginx
+location / {
+    proxy_pass         http://127.0.0.1:8080;
+    proxy_set_header   Host              $host;
+    proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header   X-Forwarded-Proto $scheme;
+}
+```
+
+`$proxy_add_x_forwarded_for` **ajoute** la vraie IP à la suite de ce que le client avait envoyé, au lieu de le remplacer. C'est la forme la plus répandue, et elle convient : la valve lit la liste de droite à gauche et retient donc la valeur ajoutée par Nginx, pas celle du client. Si vous préférez une valeur propre, `$remote_addr` fait aussi bien.
+
+Caddy pose ces en-têtes tout seul avec une simple directive `reverse_proxy`, il n'y a rien à écrire.
+
+### Compression
+
+Les réponses sont déjà compressées par MCV (HTML, CSS, JavaScript, JSON, CSV). Si vous activez aussi la compression du proxy, vérifiez qu'il ne recompresse pas ce qui l'est déjà : Nginx et Caddy sautent d'eux-mêmes les réponses portant un `Content-Encoding`.
+
+### Cache des ressources
+
+MCV pose lui-même ses en-têtes `Cache-Control`, et la distinction qu'il fait compte : les fichiers dont le nom porte une empreinte de contenu (`/assets/`, `/fonts/`, `/workbox-*`) sont annoncés immuables pour un an, tandis que `index.html`, `sw.js`, `registerSW.js`, `theme-init.js` et toutes les routes de l'application restent en `no-cache`.
+
+Cette seconde moitié est celle qui compte le plus. Ce sont ces fichiers-là qui font découvrir au navigateur les nouveaux paquets après une mise en ligne : s'ils sont gardés en cache, une mise à jour n'atteint jamais quelqu'un qui a déjà visité le site. **Ne posez donc pas de règle de cache globale sur le proxy**, du genre « tout le statique pendant un mois » : elle écraserait la distinction et casserait les déploiements suivants. Laissez passer les en-têtes de MCV.
+
+Le gain, mesuré sur la page `/slice` : 815 Ko et 37 requêtes à la première visite, et plus rien à recharger aux suivantes.

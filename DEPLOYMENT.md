@@ -151,4 +151,64 @@ The `WorkingDirectory` matters: it is where the application looks for the `confi
 
 ## Behind a reverse proxy
 
-The application honours `X-Forwarded-*` headers (`server.forward-headers-strategy=framework` is already enabled). Behind Nginx or Caddy with HTTPS, no extra MCV-side setting is needed.
+The application honours `X-Forwarded-*` headers, but only when they come from a proxy it has good reason to believe. That is the job of the two settings already enabled:
+
+```properties
+server.forward-headers-strategy=native
+server.tomcat.remoteip.internal-proxies=127.0.0.1/32,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.0.0/16,fc00::/7,fe80::/10
+```
+
+That default list covers the ordinary cases: an Nginx or Caddy on the same machine, on the same LAN, or on the same Docker network. **In those cases there is nothing to configure on the MCV side.**
+
+Two situations call for a change.
+
+**If the proxy is not at one of those addresses**, for instance hosted elsewhere or reached over an overlay network such as Tailscale (`100.64.0.0/10`), MCV sees the proxy's IP instead of the visitor's: everyone then shares a single request quota and blocks one another. Add the proxy's address:
+
+```bash
+TRUSTED_PROXIES=127.0.0.1/32,::1/128,203.0.113.10/32 java -jar mars-visualizer.jar
+```
+
+**If the application stays reachable directly** as well as through the proxy, narrow the list to the proxy's exact address, and above all listen on the loopback interface only:
+
+```bash
+java -jar mars-visualizer.jar --server.address=127.0.0.1
+```
+
+### Why this detail matters
+
+MCV limits requests per minute per IP, because every request costs a read on the data storage. That limit is only worth something if the IP is not something the caller picks. Under the former `framework` setting the header was believed whoever sent it: adding `X-Forwarded-For: 1.2.3.4` by hand was enough to walk away with a fresh quota. Tomcat's valve only opens the header to the addresses listed above.
+
+You can check this once deployed. From a machine that is not the proxy, saturate the limit then replay the same request with a made-up header: both must answer `429`.
+
+```bash
+for i in $(seq 1 130); do curl -s -o /dev/null -w "%{http_code} " https://mars.example.org/api/catalog; done
+curl -s -o /dev/null -w "%{http_code}
+" -H "X-Forwarded-For: 1.2.3.4" https://mars.example.org/api/catalog
+```
+
+### Nginx
+
+```nginx
+location / {
+    proxy_pass         http://127.0.0.1:8080;
+    proxy_set_header   Host              $host;
+    proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header   X-Forwarded-Proto $scheme;
+}
+```
+
+`$proxy_add_x_forwarded_for` **appends** the real IP after whatever the client sent, rather than replacing it. That is the most widespread form and it is fine here: the valve reads the list right to left, so it keeps the value Nginx added, not the client's. If you prefer a clean value, `$remote_addr` does just as well.
+
+Caddy sets these headers on its own with a plain `reverse_proxy` directive, nothing to write.
+
+### Compression
+
+Responses are already compressed by MCV (HTML, CSS, JavaScript, JSON, CSV). If you also enable compression on the proxy, make sure it does not recompress what already is: Nginx and Caddy skip responses that carry a `Content-Encoding` of their own.
+
+### Resource caching
+
+MCV sets its own `Cache-Control` headers, and the distinction it makes matters: files whose name carries a content hash (`/assets/`, `/fonts/`, `/workbox-*`) are declared immutable for a year, while `index.html`, `sw.js`, `registerSW.js`, `theme-init.js` and every application route stay on `no-cache`.
+
+That second half is the one that matters most. Those files are how a browser discovers the new bundles after a deployment: cache them and an update never reaches anyone who has already visited the site. **So do not add a blanket caching rule on the proxy**, along the lines of "all static files for a month": it would flatten the distinction and break every later deployment. Let MCV's headers through.
+
+The gain, measured on the `/slice` page: 815 KB across 37 requests on a first visit, and nothing left to download on the next ones.

@@ -91,7 +91,7 @@ export default function ExploreTools({ onDeriveAmplitude, onDeriveWindSpeed }) {
 
   return (
     <>
-      <Typography className="mcv-ins-h" component="h3">{t('explore.panel.tools')}</Typography>
+      <Typography className="mcv-ins-h" component="h2">{t('explore.panel.tools')}</Typography>
       <Box className="mcv-tools" role="toolbar" aria-label={t('explore.rail.label')} data-tour="tools">
         {isLatLon && (
           <>

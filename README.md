@@ -43,13 +43,14 @@ The application needs two data folders. Set them **before the first start**, oth
 
 | Property | Environment variable | Default | Description |
 |---|---|---|---|
-| `netcdf.mean.path` | `NETCDF_MEAN_PATH` | `C:/Users/User/Desktop/mars-data/mean` | Folder with the averaged `.nc` files (48 local-time steps) |
-| `netcdf.individual.path` | `NETCDF_INDIVIDUAL_PATH` | `C:/Users/User/Desktop/mars-data/individual` | Folder with one subfolder per Martian year (`34/`, `35/`, …) |
+| `netcdf.mean.path` | `NETCDF_MEAN_PATH` | `/data/gem-mars/mean` | Folder with the averaged `.nc` files (48 local-time steps). The default is a neutral placeholder: startup fails with an explicit message until it is set |
+| `netcdf.individual.path` | `NETCDF_INDIVIDUAL_PATH` | `/data/gem-mars/individual` | Folder with one subfolder per Martian year (`34/`, `35/`, …) |
 | `netcdf.individual.my_base` | — | `34` | First Martian year present in that folder; later years are detected automatically |
 | `server.port` | `SERVER_PORT` | `8080` | HTTP port serving both the API and the interface |
 | `ratelimit.requests-per-minute` | — | `120` | Per-IP request limit |
 | `ratelimit.export-per-minute` | — | `20` | Per-IP export limit (CSV/NetCDF) |
 | `cors.allowed-origin` | — | `http://localhost:5173` | Only used when the frontend is served separately (dev mode) |
+| `server.tomcat.remoteip.internal-proxies` | `TRUSTED_PROXIES` | loopback + private ranges | Proxies whose `X-Forwarded-For` is believed. Leave as is for a proxy on the same host or LAN; see [DEPLOYMENT.md](DEPLOYMENT.md#behind-a-reverse-proxy) |
 
 **Network shares are supported.** In a `.properties` file `\` is an escape character, so either double every backslash or use forward slashes — both forms work for UNC paths:
 
@@ -79,6 +80,13 @@ cd frontend && npm run dev        # frontend on :5173, proxies /api to :8080
 ```
 
 Open http://localhost:5173.
+
+Your machine's data paths belong in `config/application-local.properties`, an unversioned file that `config/application.properties` imports automatically. It saves editing the shipped configuration template, which should only ever hold neutral example paths:
+
+```properties
+netcdf.mean.path=D:/mars-data/mean
+netcdf.individual.path=D:/mars-data/individual
+```
 
 ### Production (single JAR)
 
@@ -127,7 +135,7 @@ Server installation, systemd service and reverse-proxy setup: **[DEPLOYMENT.md](
 | `./gradlew build` | Full build: frontend, compilation, tests, JAR in `build/libs/` |
 | `./gradlew build -x test` | Same without the test suite |
 | `./gradlew bootJar` | JAR only, no tests |
-| `./gradlew test` | JUnit 5 suite (156 tests) + JaCoCo coverage report |
+| `./gradlew test` | JUnit 5 suite (164 tests) + JaCoCo coverage report |
 | `./gradlew buildFrontend` | Frontend production build only |
 
 Coverage report: `build/reports/jacoco/test/html/index.html`.
@@ -159,6 +167,7 @@ Coverage report: `build/reports/jacoco/test/html/index.html`.
 | Wind rose | `/windrose` | wind direction/speed distribution at a point |
 | Difference | `/difference` | anomaly map between two datasets |
 | Explore | `/explore` | console: up to 4 linked views, probe, region statistics, sessions |
+| Legal notice | `/legal` | publisher, code licence, data provenance and citation, browser storage |
 
 All views support permalinks, CSV export, PNG/SVG export, log₁₀ scale and colorscale selection. Interfaces are available in English, French, Dutch, German and Spanish.
 

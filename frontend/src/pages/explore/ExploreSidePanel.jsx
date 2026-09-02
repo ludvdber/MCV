@@ -135,7 +135,7 @@ export default function ExploreSidePanel({ onDeriveAmplitude, onDeriveWindSpeed 
       <ExploreTools onDeriveAmplitude={onDeriveAmplitude} onDeriveWindSpeed={onDeriveWindSpeed} />
 
       {/* ── Sonde liee ── */}
-      <Typography className="mcv-ins-h" component="h3">{t('explore.panel.probe')}</Typography>
+      <Typography className="mcv-ins-h" component="h2">{t('explore.panel.probe')}</Typography>
       <Box className="mcv-coord">
         {probeHeader || '—'}
         <small> {probe ? t('explore.panel.probeTag') : t('explore.panel.probeHint')}</small>
@@ -170,7 +170,7 @@ export default function ExploreSidePanel({ onDeriveAmplitude, onDeriveWindSpeed 
       )}
 
       {/* ── Region ── */}
-      <Typography className="mcv-ins-h" component="h3">{t('explore.panel.region')}</Typography>
+      <Typography className="mcv-ins-h" component="h2">{t('explore.panel.region')}</Typography>
       {!roiMode ? (
         <Typography className="mcv-empty">{t('explore.panel.regionEnable')}</Typography>
       ) : roiStats ? (
@@ -195,7 +195,7 @@ export default function ExploreSidePanel({ onDeriveAmplitude, onDeriveWindSpeed 
       )}
 
       {/* ── Exemples ── */}
-      <Typography className="mcv-ins-h" component="h3">{t('explore.panel.scenarios')}</Typography>
+      <Typography className="mcv-ins-h" component="h2">{t('explore.panel.scenarios')}</Typography>
       <Typography className="mcv-empty" sx={{ mb: 0.5 }}>{t('explore.panel.scenariosHint')}</Typography>
       {scenarios.length === 0 ? (
         <Typography className="mcv-empty">{t('explore.panel.examplesEmpty')}</Typography>
