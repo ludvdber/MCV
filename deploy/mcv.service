@@ -1,0 +1,105 @@
+# Mars Climate Viewer — unite systemd
+#
+#   sudo cp deploy/mcv.service /etc/systemd/system/mcv.service
+#   sudo nano /etc/systemd/system/mcv.service    # adapter les chemins, choisir la variante reseau
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now mcv
+#   journalctl -u mcv -f
+#
+# ATTENTION — les deux Environment= de la section « Donnees » ne sont PAS
+# facultatifs. Le JAR livre ne contient plus aucun chemin reel (il porte
+# /data/gem-mars/..., un exemple neutre) : sans ces variables le service refuse
+# de demarrer. L'echec est propre et le journal nomme le chemin manquant, mais
+# une mise a jour du JAR sans cette section ne redemarrera pas.
+
+[Unit]
+Description=Mars Climate Viewer
+Documentation=https://github.com/ludvdber/MCV
+# remote-fs.target : les donnees GEM-Mars vivent souvent sur un montage reseau.
+# Sans cette dependance, le service peut demarrer avant que le montage existe,
+# echouer a construire le catalogue, et s'arreter alors que tout est en ordre
+# quelques secondes plus tard.
+After=network.target remote-fs.target
+Wants=remote-fs.target
+
+[Service]
+User=mcv
+Group=mcv
+WorkingDirectory=/opt/mcv
+ExecStart=/usr/bin/java -jar /opt/mcv/mars-visualizer.jar
+Restart=on-failure
+RestartSec=10
+
+# La JVM prend par defaut un quart de la RAM de la machine comme tas maximum.
+# Sur un serveur partage, plafonner explicitement evite qu'elle voie trop grand.
+# Les fichiers NetCDF sont lus par tranches, jamais charges entierement, donc
+# l'empreinte reste modeste.
+# ExecStart=/usr/bin/java -Xmx512m -jar /opt/mcv/mars-visualizer.jar
+
+# ---------------------------------------------------------------------------
+# Donnees — OBLIGATOIRE
+# ---------------------------------------------------------------------------
+Environment=NETCDF_MEAN_PATH=/mnt/gem-mars/mean
+Environment=NETCDF_INDIVIDUAL_PATH=/mnt/gem-mars/individual
+
+# ---------------------------------------------------------------------------
+# Reseau et proxy — choisir UNE des trois variantes
+#
+# Ce choix decide si la limite de requetes par IP tient debout. MCV ne croit
+# l'en-tete X-Forwarded-For que s'il vient d'une adresse listee dans
+# TRUSTED_PROXIES, et il lit la liste de droite a gauche. Se tromper de variante
+# ne fait pas planter le service : ca degrade silencieusement, dans un sens ou
+# dans l'autre.
+# ---------------------------------------------------------------------------
+
+# --- Variante A — Nginx ou Caddy sur la MEME machine (le cas courant) --------
+# Rien a declarer : 127.0.0.1 est deja dans la liste de confiance par defaut.
+# On ferme en revanche l'acces direct, pour que personne ne puisse court-circuiter
+# le proxy et se presenter avec l'IP de son choix.
+Environment=SERVER_ADDRESS=127.0.0.1
+
+# --- Variante B — Cloudflare, ou un proxy sur une AUTRE machine --------------
+# Il faut nommer le proxy, sinon MCV voit une seule IP pour tout le monde et tes
+# visiteurs se bloquent mutuellement au bout de 120 requetes par minute. C'est
+# plus visible qu'un quota contournable.
+#
+# Proxy unique, adresse connue :
+# Environment=TRUSTED_PROXIES=127.0.0.1/32,::1/128,203.0.113.10/32
+#
+# Reseau superposes (Tailscale, 100.64.0.0/10) — volontairement absent du defaut :
+# Environment=TRUSTED_PROXIES=127.0.0.1/32,::1/128,100.64.0.0/10
+#
+# Cloudflare : ne recopie pas une liste figee ici, elle vieillit et une plage
+# oubliee reproduit exactement le probleme decrit plus haut. Genere-la :
+#   { curl -s https://www.cloudflare.com/ips-v4; curl -s https://www.cloudflare.com/ips-v6; } | paste -sd,
+# puis colle le resultat, precede de 127.0.0.1/32,::1/128, dans la ligne suivante.
+# Environment=TRUSTED_PROXIES=127.0.0.1/32,::1/128,<plages Cloudflare>
+#
+# Dans cette variante, laisse SERVER_ADDRESS commente si le proxy distant doit
+# joindre la machine, et protege le port autrement (pare-feu, VPN).
+
+# --- Variante C — le JAR est expose directement, sans proxy -----------------
+# Ne declare aucun proxy de confiance : l'en-tete X-Forwarded-For ne doit alors
+# etre cru de personne, et getRemoteAddr() donne deja la vraie IP du visiteur.
+# Environment=TRUSTED_PROXIES=127.0.0.1/32,::1/128
+# Environment=SERVER_PORT=8080
+#
+# Deux consequences a ne pas oublier dans ce cas :
+#  - il faut terminer TLS quelque part, sinon l'en-tete HSTS que l'application
+#    envoie deja (max-age d'un an) ne sert a rien : les navigateurs l'ignorent
+#    sur une connexion en clair ;
+#  - un processus non-root ne peut pas ouvrir le port 443. Passe par une
+#    redirection de port, ou accorde la capacite :
+#    AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+# ---------------------------------------------------------------------------
+# Durcissement — sans effet sur le fonctionnement, l'application ne fait que
+# lire ses donnees et journaliser sur la sortie standard.
+# ---------------------------------------------------------------------------
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

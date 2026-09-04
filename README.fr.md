@@ -215,6 +215,7 @@ curl "http://localhost:8080/api/data/slice?dataset=<id>&variable=TT&time=24&alti
 | [DEPLOYMENT.fr.md](DEPLOYMENT.fr.md) | Installation serveur, service systemd, reverse proxy |
 | [config/application.properties](config/application.properties) | Modèle de configuration commenté |
 | [CLAUDE.md](CLAUDE.md) | Architecture, conventions de code, patterns internes |
+| [deploy/](deploy/) | Unité systemd et bloc Nginx prêts à copier, avec les trois variantes réseau |
 
 ---
 

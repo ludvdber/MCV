@@ -149,6 +149,10 @@ WantedBy=multi-user.target
 
 Le `WorkingDirectory` est important : c'est là que l'application cherche le dossier `config/`.
 
+**Une unité complète et commentée est fournie dans [`deploy/mcv.service`](deploy/mcv.service)**, avec les trois variantes réseau (proxy local, proxy distant ou Cloudflare, exposition directe) et quelques options de durcissement. Le bloc Nginx correspondant est dans [`deploy/nginx-mcv.conf`](deploy/nginx-mcv.conf).
+
+> **À ne pas oublier lors d'une mise à jour.** Le JAR ne contient aucun chemin de données réel, seulement l'exemple neutre `/data/gem-mars/...`. Les deux lignes `Environment=NETCDF_*_PATH` ne sont donc pas facultatives : sans elles le service refuse de démarrer. L'échec est propre et le journal nomme le chemin manquant, mais un JAR déposé par-dessus l'ancien sans cette section ne redonnera pas un service en marche.
+
 ## Derrière un reverse proxy
 
 L'application honore les en-têtes `X-Forwarded-*`, mais seulement quand ils viennent d'un proxy qu'elle a de bonnes raisons de croire. C'est le rôle du couple de réglages déjà actifs :
