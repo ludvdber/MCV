@@ -317,7 +317,7 @@
   "explore.toggle.topo": "Reliëf: topografische contouren (barometrische hoogte uit P0)",
   "viz.topoCaption": "Reliëf: contouren van de barometrische hoogte z = −H·ln(P0/610 Pa), H ≈ 10,8 km. Eersteordeschatting uit de oppervlaktedruk.",
   "variable.WSP": "Windsnelheid",
-  "viz.windParticlesCaption": "Wind: deeltjes geadvecteerd langs het UU/VV-veld · max. snelheid ≈ {{speed}} m/s",
+  "viz.windParticlesCaption": "Wind: deeltjes geadvecteerd langs het UU/VV-veld · {{min}} tot {{max}} m/s, gemiddeld {{mean}} m/s",
   "home.learnMore": "Meer informatie",
   "home.solarLoading": "Zonnestelsel laden…",
   "home.featuresTag": "Verkenningstools",
@@ -586,5 +586,6 @@
   "legal.privacy.nasa": "Eén uitzondering op de regel « geen enkel domein van derden »: de fotogalerij op de startpagina haalt publieke beelden rechtstreeks van de servers van de NASA. Uw browser contacteert dus hen, en alleen hen, en alleen op die pagina.",
   "legal.contact.title": "Vragen en meldingen",
   "legal.contact.body": "Voor een vraag over de site zelf, een weergavefout of een suggestie is de bovenvermelde coderepository de beste plek, want de tickets daar zijn openbaar. Voor een wetenschappelijke vraag over het GEM-Mars-model of over hergebruik van de gegevens richt u zich tot het Koninklijk Belgisch Instituut voor Ruimte-Aeronomie.",
-  "legal.updated": "Laatst bijgewerkt: september 2026"
+  "legal.updated": "Laatst bijgewerkt: september 2026",
+  "viz.windSpeedRange": "{{min}}–{{max}} m/s · gem. {{mean}}"
 }

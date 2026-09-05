@@ -147,7 +147,7 @@ Coverage report: `build/reports/jacoco/test/html/index.html`.
 | `npm run dev` | Vite dev server on :5173 with hot reload |
 | `npm run build` | Production build into `frontend/dist/` |
 | `npm run preview` | Serves the production build locally |
-| `npm run test` | Vitest suite (150 tests) |
+| `npm run test` | Vitest suite (163 tests) |
 | `npm run lint` | ESLint check |
 
 ---
@@ -174,6 +174,10 @@ All views support permalinks, CSV export, PNG/SVG export, log₁₀ scale and co
 The Explore console holds up to four views side by side, tied together by a shared probe and a common region selection, so the same point can be read across several diagnostics at once:
 
 ![Explore console: three linked views laid out in a grid](docs/images/explorer.en.png)
+
+On any map, winds can be drawn as **particles advected** along the UU/VV field. Trail colour and thickness follow the local speed, and the legend gives the bounds of the scale along with the field average:
+
+![Animated wind particles over a water vapour map](docs/images/vent-anime.en.gif)
 
 ---
 

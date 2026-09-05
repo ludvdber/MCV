@@ -7,6 +7,12 @@
  * AUCUNE donnee inventee : les particules sont un rendu du champ mesure,
  * echantillonne par interpolation bilineaire.
  *
+ * Chaque trainee est coloree ET epaissie selon la vitesse locale (windStats.js).
+ * La rampe est sequentielle a teinte unique, pour ne pas entrer en concurrence
+ * avec la palette de la heatmap situee dessous, et l'echelle est lineaire entre
+ * le minimum et le maximum du champ affiche — bornes que la legende de
+ * SliceViewer annonce, sans quoi la couleur ne voudrait rien dire.
+ *
  * Implementation : un <canvas> en position absolue au-dessus du div Plotly
  * (pointer-events: none, le survol traverse). La conversion (lon, lat) → pixel
  * relit a chaque frame la taille et les ranges des axes dans el._fullLayout,
@@ -21,8 +27,14 @@
  */
 import { useEffect, useRef } from 'react';
 import { useThemeMode } from '../context/ThemeContext';
+import { windSpeedStats, windRamp, windBand, WIND_BANDS, WIND_WIDTHS } from '../utils/windStats';
 
 const N_PARTICLES = 700;
+/** Variante prefers-reduced-motion : lignes de courant figees. */
+const STATIC_LINES = 320;
+const STATIC_STEPS = 8;
+/** Capacite d'un tampon de bande : le pire des deux rendus, si tout y tombe. */
+const MAX_SEGMENTS = Math.max(N_PARTICLES, STATIC_LINES * STATIC_STEPS);
 /** deg / (m/s) / frame — vitesse visuelle de l'advection */
 const ADVECT_K = 0.011;
 const MAX_AGE = 110;
@@ -71,8 +83,19 @@ export default function WindParticlesLayer({ plotRef, windData, enabled = false 
     if (!enabled || !canvas || !plotEl || !windData?.lats?.length) return undefined;
 
     const grid = gridify(windData);
+    /* Bornes de l'echelle de couleur : celles du champ effectivement affiche,
+       recalculees a chaque changement de slice pour que la rampe couvre
+       toujours la dynamique reelle plutot qu'une plage figee. */
+    const stats = windSpeedStats(windData);
+    if (!stats) return undefined;
     const ctx = canvas.getContext('2d');
-    const strokeColor = mode === 'light' ? 'rgba(30, 41, 59, 0.55)' : 'rgba(220, 240, 255, 0.55)';
+    const ramp = windRamp(mode);
+    /* Les segments sont accumules par bande de vitesse puis traces en une passe
+       par bande : WIND_BANDS appels a stroke() par frame au lieu d'un par
+       particule, ce qui garde le cout de rendu identique a la version
+       monochrome malgre la coloration. */
+    const segs = Array.from({ length: WIND_BANDS }, () => new Float32Array(MAX_SEGMENTS * 4));
+    const segN = new Int32Array(WIND_BANDS);
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     /* Particules : [lon, lat, prevLon, prevLat, age] × N */
@@ -113,6 +136,23 @@ export default function WindParticlesLayer({ plotRef, windData, enabled = false 
     let stopped = false;
     let staticTimer = null;
 
+    /** Trace les segments accumules, une passe de stroke() par bande de vitesse. */
+    function strokeBands() {
+      for (let b = 0; b < WIND_BANDS; b++) {
+        const n = segN[b];
+        if (n === 0) continue;
+        const buf = segs[b];
+        ctx.strokeStyle = ramp[b];
+        ctx.lineWidth = WIND_WIDTHS[b];
+        ctx.beginPath();
+        for (let i = 0; i < n; i += 4) {
+          ctx.moveTo(buf[i], buf[i + 1]);
+          ctx.lineTo(buf[i + 2], buf[i + 3]);
+        }
+        ctx.stroke();
+      }
+    }
+
     function frame() {
       if (stopped) return;
       const g = plotGeometry();
@@ -130,9 +170,7 @@ export default function WindParticlesLayer({ plotRef, windData, enabled = false 
       ctx.fillStyle = 'rgba(0, 0, 0, 0.93)';
       ctx.fillRect(size.l, size.t, size.w, size.h);
       ctx.globalCompositeOperation = 'source-over';
-      ctx.strokeStyle = strokeColor;
-      ctx.lineWidth = 1.1;
-      ctx.beginPath();
+      segN.fill(0);
       for (let k = 0; k < N_PARTICLES * 5; k += 5) {
         const w = sampleWind(grid, P[k], P[k + 1]);
         P[k + 2] = P[k]; P[k + 3] = P[k + 1];
@@ -143,10 +181,16 @@ export default function WindParticlesLayer({ plotRef, windData, enabled = false 
         if (P[k + 4] <= 0 || P[k] < lonMin || P[k] > lonMax || P[k + 1] < latMin || P[k + 1] > latMax) {
           respawn(k); continue;
         }
-        ctx.moveTo(toX(P[k + 2]), toY(P[k + 3]));
-        ctx.lineTo(toX(P[k]), toY(P[k + 1]));
+        /* La couleur suit la vitesse au point ou la particule vient de passer,
+           pas la longueur du segment a l'ecran : celle-ci depend du zoom. */
+        const b = windBand(Math.hypot(w[0], w[1]), stats.min, stats.max);
+        const buf = segs[b];
+        const n = segN[b];
+        buf[n] = toX(P[k + 2]); buf[n + 1] = toY(P[k + 3]);
+        buf[n + 2] = toX(P[k]); buf[n + 3] = toY(P[k + 1]);
+        segN[b] = n + 4;
       }
-      ctx.stroke();
+      strokeBands();
       ctx.restore();
       raf = requestAnimationFrame(frame);
     }
@@ -164,22 +208,27 @@ export default function WindParticlesLayer({ plotRef, windData, enabled = false 
       ctx.rect(size.l, size.t, size.w, size.h);
       ctx.clip();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = strokeColor;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let n = 0; n < 320; n++) {
+      segN.fill(0);
+      for (let n = 0; n < STATIC_LINES; n++) {
         let lon = lonMin + Math.random() * (lonMax - lonMin);
         let lat = latMin + Math.random() * (latMax - latMin);
-        ctx.moveTo(toX(lon), toY(lat));
-        for (let s = 0; s < 8; s++) {
+        for (let s = 0; s < STATIC_STEPS; s++) {
           const w = sampleWind(grid, lon, lat);
           if (!w) break;
-          lon += w[0] * ADVECT_K * 3;
-          lat += w[1] * ADVECT_K * 3;
-          ctx.lineTo(toX(lon), toY(lat));
+          const lonNext = lon + w[0] * ADVECT_K * 3;
+          const latNext = lat + w[1] * ADVECT_K * 3;
+          /* Meme codage de la vitesse que l'animation : sans mouvement, la
+             couleur et l'epaisseur restent la seule lecture de l'intensite. */
+          const b = windBand(Math.hypot(w[0], w[1]), stats.min, stats.max);
+          const buf = segs[b];
+          const i = segN[b];
+          buf[i] = toX(lon); buf[i + 1] = toY(lat);
+          buf[i + 2] = toX(lonNext); buf[i + 3] = toY(latNext);
+          segN[b] = i + 4;
+          lon = lonNext; lat = latNext;
         }
       }
-      ctx.stroke();
+      strokeBands();
       ctx.restore();
     }
 

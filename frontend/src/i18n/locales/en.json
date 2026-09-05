@@ -421,7 +421,7 @@
   "explore.toggle.topo": "Terrain: topographic contours (barometric altitude from P0)",
   "viz.topoCaption": "Terrain: contours of the barometric altitude z = −H·ln(P0/610 Pa), H ≈ 10.8 km. First-order estimate from surface pressure.",
   "variable.WSP": "Wind speed",
-  "viz.windParticlesCaption": "Winds: particles advected along the UU/VV field · max speed ≈ {{speed}} m/s",
+  "viz.windParticlesCaption": "Winds: particles advected along the UU/VV field · {{min}} to {{max}} m/s, mean {{mean}} m/s",
   "explore.viz.hovmoller": "Hovmöller Diagram",
   "explore.viz.zonalmean": "Zonal Mean",
   "explore.viz.windrose": "Wind Rose",
@@ -586,5 +586,6 @@
   "legal.privacy.nasa": "One single exception to the « no third-party domain » rule: the photo gallery on the home page loads public-domain images straight from NASA's servers. Your browser therefore contacts them, and only them, and only on that page.",
   "legal.contact.title": "Questions and reports",
   "legal.contact.body": "For a question about the site itself, a display problem or a suggestion, the code repository above is the best place, as its issues are public. For a scientific question about the GEM-Mars model or about reusing the data, please contact the Royal Belgian Institute for Space Aeronomy.",
-  "legal.updated": "Last updated: September 2026"
+  "legal.updated": "Last updated: September 2026",
+  "viz.windSpeedRange": "{{min}}–{{max}} m/s · mean {{mean}}"
 }

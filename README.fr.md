@@ -147,7 +147,7 @@ Rapport de couverture : `build/reports/jacoco/test/html/index.html`.
 | `npm run dev` | Serveur de développement Vite sur :5173 avec rechargement à chaud |
 | `npm run build` | Build de production dans `frontend/dist/` |
 | `npm run preview` | Sert le build de production en local |
-| `npm run test` | Suite Vitest (150 tests) |
+| `npm run test` | Suite Vitest (163 tests) |
 | `npm run lint` | Vérification ESLint |
 
 ---
@@ -174,6 +174,10 @@ Toutes les vues offrent permaliens, export CSV, export PNG/SVG, échelle log₁�
 La console d'exploration réunit jusqu'à quatre vues côte à côte, reliées par une sonde partagée et une même sélection de région, ce qui permet de lire un même point sur plusieurs diagnostics à la fois :
 
 ![Console d'exploration : trois vues liées disposées en grille](docs/images/explorer.png)
+
+Sur n'importe quelle carte, les vents peuvent s'afficher en **particules advectées** le long du champ UU/VV. La couleur et l'épaisseur des traînées suivent la vitesse locale, et la légende donne les bornes de l'échelle ainsi que la moyenne du champ :
+
+![Particules de vent animées au-dessus d'une carte de vapeur d'eau](docs/images/vent-anime.gif)
 
 ---
 

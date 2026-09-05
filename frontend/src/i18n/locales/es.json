@@ -352,7 +352,7 @@
   "explore.toggle.topo": "Relieve: contornos topográficos (altitud barométrica desde P0)",
   "viz.topoCaption": "Relieve: contornos de la altitud barométrica z = −H·ln(P0/610 Pa), H ≈ 10,8 km. Estimación de primer orden desde la presión de superficie.",
   "variable.WSP": "Velocidad del viento",
-  "viz.windParticlesCaption": "Viento: partículas advectadas a lo largo del campo UU/VV · velocidad máx. ≈ {{speed}} m/s",
+  "viz.windParticlesCaption": "Viento: partículas advectadas a lo largo del campo UU/VV · de {{min}} a {{max}} m/s, media {{mean}} m/s",
   "home.learnMore": "Saber más",
   "home.solarLoading": "Cargando sistema solar…",
   "home.featuresTag": "Herramientas de exploración",
@@ -586,5 +586,6 @@
   "legal.privacy.nasa": "Una única excepción al principio de « ningún dominio de terceros »: la galería de fotos de la página de inicio carga imágenes de dominio público directamente desde los servidores de la NASA. Tu navegador los contacta a ellos, y solo a ellos, y solo en esa página.",
   "legal.contact.title": "Preguntas y avisos",
   "legal.contact.body": "Para una pregunta sobre el sitio, un error de visualización o una sugerencia, el repositorio de código indicado arriba es el mejor lugar, ya que sus tickets son públicos. Para una pregunta científica sobre el modelo GEM-Mars o sobre la reutilización de los datos, dirígete al Instituto Real Belga de Aeronomía Espacial.",
-  "legal.updated": "Última actualización: septiembre de 2026"
+  "legal.updated": "Última actualización: septiembre de 2026",
+  "viz.windSpeedRange": "{{min}}–{{max}} m/s · media {{mean}}"
 }

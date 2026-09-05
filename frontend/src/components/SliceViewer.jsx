@@ -10,9 +10,11 @@ import { autoColorscaleFor } from '../utils/colorscales';
 import { upsampleLatLonGrid, nativeStep } from '../utils/gridInterpolation';
 import { compactLayout } from '../utils/compactPlot';
 import { plotAreaSize, quiverScales, buildQuiverSegments } from '../utils/windQuiver';
+import { windSpeedStats } from '../utils/windStats';
 import ExportMenu from './ExportMenu';
 import StatsBar from './StatsBar';
 import WindParticlesLayer from './WindParticlesLayer';
+import WindSpeedLegend from './WindSpeedLegend';
 import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
 
 /**
@@ -361,14 +363,7 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
   // et echelle des vecteurs de vent (normalises sur la vitesse max de la slice).
   const stepNative = nativeStep(sliceData.latitudes);
   const interpApplied = !!(interpStep && stepNative && Math.round(stepNative / interpStep) > 1);
-  let windMaxSpeed = null;
-  if (windData?.u?.length) {
-    windMaxSpeed = 0;
-    for (let i = 0; i < windData.u.length; i++) {
-      const spd = Math.hypot(windData.u[i], windData.v[i]);
-      if (spd > windMaxSpeed) windMaxSpeed = spd;
-    }
-  }
+  const windStats = windSpeedStats(windData);
 
   return (
     <Box>
@@ -381,9 +376,9 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
         <div ref={plotRef} role="img" aria-label={t('viz.aria.slice')} style={{ width: '100%', height: compact ? 300 : 450 }} />
         <WindParticlesLayer plotRef={plotRef} windData={windData} enabled={windParticles && !!windData} />
       </Paper>
-      {!compact && (interpApplied || windMaxSpeed != null || topoData?.data) && (
-        <Box sx={{ mt: 0.5, px: 0.5, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-          {interpApplied && (
+      {((!compact && (interpApplied || topoData?.data)) || windStats) && (
+        <Box sx={{ mt: 0.5, px: 0.5, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          {!compact && interpApplied && (
             <Typography variant="caption" color="text.secondary">
               {t('viz.gridCaption', {
                 step: Number(stepNative.toFixed(1)),
@@ -393,17 +388,18 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
               })}
             </Typography>
           )}
-          {windMaxSpeed != null && !windParticles && (
-            <Typography variant="caption" color="text.secondary">
-              {t('viz.windScale', { speed: windMaxSpeed.toFixed(0) })}
+          {/* Les legendes de vent restent affichees en mode compact : elles sont
+              la seule lecture chiffree du champ, et elles disparaissaient
+              entierement des que la vue passait dans la grille d'Explorer. */}
+          {windStats && !windParticles && (
+            <Typography variant="caption" color="text.secondary" noWrap>
+              {t('viz.windScale', { speed: windStats.max.toFixed(0) })}
             </Typography>
           )}
-          {windParticles && windData && (
-            <Typography variant="caption" color="text.secondary">
-              {t('viz.windParticlesCaption', { speed: (windMaxSpeed ?? 0).toFixed(0) })}
-            </Typography>
+          {windStats && windParticles && (
+            <WindSpeedLegend stats={windStats} compact={compact} />
           )}
-          {topoData?.data && (
+          {!compact && topoData?.data && (
             <Typography variant="caption" color="text.secondary">
               {t('viz.topoCaption')}
             </Typography>

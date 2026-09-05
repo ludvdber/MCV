@@ -352,7 +352,7 @@
   "explore.toggle.topo": "Relief: topografische Konturen (barometrische Höhe aus P0)",
   "viz.topoCaption": "Relief: Konturen der barometrischen Höhe z = −H·ln(P0/610 Pa), H ≈ 10,8 km. Abschätzung erster Ordnung aus dem Oberflächendruck.",
   "variable.WSP": "Windgeschwindigkeit",
-  "viz.windParticlesCaption": "Wind: Partikel entlang des UU/VV-Felds advehiert · max. Geschwindigkeit ≈ {{speed}} m/s",
+  "viz.windParticlesCaption": "Wind: Partikel entlang des UU/VV-Felds advehiert · {{min}} bis {{max}} m/s, Mittel {{mean}} m/s",
   "home.learnMore": "Mehr erfahren",
   "home.solarLoading": "Sonnensystem wird geladen…",
   "home.featuresTag": "Erkundungstools",
@@ -586,5 +586,6 @@
   "legal.privacy.nasa": "Eine einzige Ausnahme von der Regel « keine Drittdomain »: Die Fotogalerie auf der Startseite lädt gemeinfreie Bilder direkt von den Servern der NASA. Dein Browser kontaktiert also sie, und nur sie, und nur auf dieser Seite.",
   "legal.contact.title": "Fragen und Meldungen",
   "legal.contact.body": "Für eine Frage zur Website selbst, einen Anzeigefehler oder einen Vorschlag ist das oben genannte Code-Repository der beste Ort, dort sind die Tickets öffentlich. Für eine wissenschaftliche Frage zum Modell GEM-Mars oder zur Weiterverwendung der Daten wende dich an das Königliche Belgische Institut für Weltraum-Aeronomie.",
-  "legal.updated": "Zuletzt aktualisiert: September 2026"
+  "legal.updated": "Zuletzt aktualisiert: September 2026",
+  "viz.windSpeedRange": "{{min}}–{{max}} m/s · Mittel {{mean}}"
 }
