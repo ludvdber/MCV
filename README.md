@@ -6,7 +6,7 @@ Web application for exploring GEM-Mars atmospheric simulations (Martian climate 
 
 Files are **read partially**: for every request the server reads only the requested slice/timestep/level from disk (`variable.read(origin, shape)`), never the whole file. Multi-terabyte datasets stay on the server.
 
-![2D visualization page](docs/images/vue2d.png)
+![2D Slice view: temperature map at 41 km altitude](docs/images/vue2d.en.png)
 
 | Component | Stack |
 |---|---|
@@ -171,6 +171,10 @@ Coverage report: `build/reports/jacoco/test/html/index.html`.
 
 All views support permalinks, CSV export, PNG/SVG export, log₁₀ scale and colorscale selection. Interfaces are available in English, French, Dutch, German and Spanish.
 
+The Explore console holds up to four views side by side, tied together by a shared probe and a common region selection, so the same point can be read across several diagnostics at once:
+
+![Explore console: three linked views laid out in a grid](docs/images/explorer.en.png)
+
 ---
 
 ## REST API
@@ -214,7 +218,6 @@ curl "http://localhost:8080/api/data/slice?dataset=<id>&variable=TT&time=24&alti
 |---|---|
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Server installation, systemd service, reverse proxy |
 | [config/application.properties](config/application.properties) | Commented configuration template |
-| [CLAUDE.md](CLAUDE.md) | Architecture, code conventions, internal patterns |
 | [deploy/](deploy/) | Ready-to-copy systemd unit and Nginx block, with the three network variants |
 
 ---

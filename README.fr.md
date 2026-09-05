@@ -6,7 +6,7 @@ Application web d'exploration des simulations atmosphériques GEM-Mars (modèle 
 
 Les fichiers sont **lus partiellement** : à chaque requête, le serveur ne lit sur disque que la tranche, le pas de temps ou le niveau demandé (`variable.read(origin, shape)`), jamais le fichier entier. Les jeux de données de plusieurs téraoctets restent sur le serveur.
 
-![Page de visualisation 2D](docs/images/vue2d.png)
+![Vue Slice 2D : carte de température à 41 km d'altitude](docs/images/vue2d.png)
 
 | Composant | Technologies |
 |---|---|
@@ -171,6 +171,10 @@ Rapport de couverture : `build/reports/jacoco/test/html/index.html`.
 
 Toutes les vues offrent permaliens, export CSV, export PNG/SVG, échelle log₁₀ et choix de palette. L'interface est disponible en anglais, français, néerlandais, allemand et espagnol.
 
+La console d'exploration réunit jusqu'à quatre vues côte à côte, reliées par une sonde partagée et une même sélection de région, ce qui permet de lire un même point sur plusieurs diagnostics à la fois :
+
+![Console d'exploration : trois vues liées disposées en grille](docs/images/explorer.png)
+
 ---
 
 ## API REST
@@ -214,7 +218,6 @@ curl "http://localhost:8080/api/data/slice?dataset=<id>&variable=TT&time=24&alti
 |---|---|
 | [DEPLOYMENT.fr.md](DEPLOYMENT.fr.md) | Installation serveur, service systemd, reverse proxy |
 | [config/application.properties](config/application.properties) | Modèle de configuration commenté |
-| [CLAUDE.md](CLAUDE.md) | Architecture, conventions de code, patterns internes |
 | [deploy/](deploy/) | Unité systemd et bloc Nginx prêts à copier, avec les trois variantes réseau |
 
 ---
