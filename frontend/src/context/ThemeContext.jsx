@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 import { ThemeProvider as MuiThemeProvider, createTheme, alpha, useColorScheme } from '@mui/material/styles';
+import { INK_DARK } from '../utils/contrast';
 import CssBaseline from '@mui/material/CssBaseline';
 
 const ThemeContext = createContext(null);
@@ -12,7 +13,15 @@ const MARS = '#e05a2b';
 const CYAN = '#38bdf8';
 /** Couleurs adaptees au clair */
 const MARS_LIGHT = '#c44b1f';
-const CYAN_LIGHT = '#0284c7';
+/* Item de navigation actif : le texte MARS_LIGHT etait pose sur un fond
+   MARS_LIGHT a 8 %, donc pas sur du blanc — 4,33:1 mesure au pixel, sous le
+   seuil. Meme piege que le degrade du bouton principal : un jeton valide sur
+   un fond ne l'est pas sur un autre. Teinte conservee, luminosite abaissee. */
+const NAV_ACTIVE_LIGHT = '#b8410f';
+/* #0284c7 ne donnait que 4,10:1 sur blanc : sous le seuil AA pour du texte
+   normal, alors que cette couleur sert aux liens et aux contours secondaires
+   de tout le theme clair. #0369a1 monte a 5,81:1 a teinte identique. */
+const CYAN_LIGHT = '#0369a1';
 
 /* Extremites du degrade du bouton d'action principal.
    Le texte y est blanc, et le contraste doit donc tenir sur TOUTE la surface du
@@ -26,6 +35,16 @@ const CTA_DARK_FROM = '#b8410f';   /* 5,52:1 */
 const CTA_DARK_TO = '#cc4b1e';     /* 4,57:1 */
 const CTA_LIGHT_FROM = '#a83a12';  /* 6,40:1 */
 const CTA_LIGHT_TO = '#c44b1f';    /* 4,80:1 */
+
+/* Puces pleines (« pastilles » de section).
+   La meme couleur de marque y devient un FOND portant du blanc a 13 px, et non
+   plus une encre : blanc sur MARS ne donne que 3,71:1, blanc sur CYAN 2,14:1.
+   On reprend donc l'extremite sombre de la rampe, comme pour le degrade du
+   bouton principal — teinte conservee, luminosite abaissee juste assez.
+   Les puces semantiques de MUI (ambre, vert) sont trop CLAIRES pour du blanc :
+   elles recoivent l'encre sombre, qui y depasse 6:1. */
+const CHIP_ORANGE = '#b8410f';   /* blanc dessus : 5,52:1 */
+const CHIP_CYAN = '#0369a1';     /* blanc dessus : 5,93:1 */
 
 /**
  * Thème unique piloté par CSS variables (`cssVariables`) et deux color schemes.
@@ -59,7 +78,12 @@ const theme = createTheme({
         primary: { main: MARS_LIGHT },
         secondary: { main: CYAN_LIGHT },
         background: { default: '#f0f2f5', paper: '#ffffff' },
-        text: { primary: '#1a1a2e', secondary: '#64748b' },
+        /* #64748b ne tenait AA que sur du blanc pur (4,72:1). Mesure au pixel,
+           il tombait a 4,24:1 sur le fond de page et 3,91:1 sur les panneaux :
+           un jeton valide sur une seule surface, utilise sur toutes. #556377
+           garde la teinte et donne 5,97:1 sur blanc, 4,93:1 sur la surface la
+           plus sombre ou ce texte apparait. */
+        text: { primary: '#1a1a2e', secondary: '#556377' },
       },
     },
   },
@@ -164,11 +188,29 @@ const theme = createTheme({
             '&.active': {
               backgroundColor: alpha(MARS_LIGHT, 0.08),
               borderLeftColor: MARS_LIGHT,
-              color: MARS_LIGHT,
+              color: NAV_ACTIVE_LIGHT,
             },
           }),
         }),
       },
+    },
+    MuiChip: {
+      /* Meme piege que le bouton : MUI 9 ne compose pas de classe
+         « MuiChip-filledPrimary » utilisable en styleOverrides, la regle passe
+         donc par `variants`. */
+      variants: [
+        {
+          props: { variant: 'filled', color: 'primary' },
+          style: { backgroundColor: CHIP_ORANGE, color: '#fff' },
+        },
+        {
+          props: { variant: 'filled', color: 'secondary' },
+          style: { backgroundColor: CHIP_CYAN, color: '#fff' },
+        },
+        { props: { variant: 'filled', color: 'warning' }, style: { color: INK_DARK } },
+        { props: { variant: 'filled', color: 'success' }, style: { color: INK_DARK } },
+        { props: { variant: 'filled', color: 'info' }, style: { color: INK_DARK } },
+      ],
     },
     MuiButton: {
       /* MUI 9 ne compose plus de classe « MuiButton-containedPrimary » : le

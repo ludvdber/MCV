@@ -179,6 +179,26 @@ function AppContent() {
 
   return (
     <>
+      {/* Premier element focalisable de la page : invisible jusqu'a ce qu'il
+          recoive le focus. Sans lui, atteindre le contenu au clavier imposait
+          de traverser toute la navigation laterale a chaque changement de page. */}
+      <a
+        className="mcv-skip-link"
+        href="#mcv-main"
+        onClick={(e) => {
+          // Le saut d'ancre du navigateur ne se produit pas ici : mesure faite,
+          // le hash reste vide et le focus ne bouge pas. On deplace donc le
+          // curseur clavier nous-memes, ce qui a deux avantages de toute facon
+          // dans une application a routage cote client : le resultat ne depend
+          // pas du routeur, et l'URL ne se charge pas d'un « #mcv-main » qui
+          // finirait recopie dans les permaliens.
+          e.preventDefault();
+          const cible = document.getElementById('mcv-main');
+          if (cible) { cible.focus(); cible.scrollIntoView({ block: 'start' }); }
+        }}
+      >
+        {t('common.skipToContent')}
+      </a>
       <KeyboardShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', minHeight: '100vh' }}>
         <Sidebar
@@ -188,6 +208,11 @@ function AppContent() {
         />
         <Box
           component="main"
+          id="mcv-main"
+          /* tabIndex -1 : la cible d'un lien d'evitement doit pouvoir RECEVOIR
+             le focus, sinon le navigateur deplace la vue sans deplacer le
+             curseur clavier et la tabulation repart du menu. */
+          tabIndex={-1}
           sx={{
             flex: 1,
             // minWidth 0 : sans lui, la min-content d'une page (ex. rangee

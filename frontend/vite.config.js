@@ -122,10 +122,18 @@ export default defineConfig(() => ({
         navigateFallback: 'index.html',
         runtimeCaching: [
           {
-            // JS chunks (Plotly, Three.js) : cache à la demande
-            urlPattern: /\.js$/i,
+            // Fragments JS a EMPREINTE uniquement (/assets/) : leur nom change a
+            // chaque contenu, donc CacheFirst est sur.
+            //
+            // Le motif etait /\.js$/i, qui attrapait aussi les scripts a nom
+            // STABLE servis a la racine : theme-init.js et registerSW.js. Le
+            // backend leur envoie deliberement no-cache (CacheControlFilter) pour
+            // qu'une mise en ligne atteigne un visiteur deja venu ; CacheFirst
+            // annulait cette regle une couche plus haut et les figeait 30 jours,
+            // sans jamais interroger le reseau.
+            urlPattern: ({ url }) => url.pathname.startsWith('/assets/') && url.pathname.endsWith('.js'),
             handler: 'CacheFirst',
-            options: { cacheName: 'js-cache', expiration: { maxEntries: 30, maxAgeSeconds: 30 * 24 * 60 * 60 } },
+            options: { cacheName: 'js-cache', expiration: { maxEntries: 80, maxAgeSeconds: 30 * 24 * 60 * 60 } },
           },
           {
             // Gros assets 3D/images : cache à la demande

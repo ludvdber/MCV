@@ -235,17 +235,22 @@ export default function MarsPhotoCarousel() {
         }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Box sx={{ display: 'flex', gap: 0.8, mb: 0.8, flexWrap: 'wrap' }}>
+              {/* Ces deux puces se posent sur la PHOTO : une teinte translucide de
+                  leur propre couleur laissait le contraste dependre de l'image
+                  (4,29 mesure, et pire sur un cliche clair). Voile sombre a 85 %,
+                  et encres calculees pour le cas le plus defavorable — une photo
+                  entierement blanche : 6,16 pour le cyan, 4,61 pour l'orange. */}
               <Chip label={t(photo.tagKey)} size="small" sx={{
                 height: 20, fontSize: '0.7rem',
                 fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, letterSpacing: '0.02em',
-                backgroundColor: 'rgba(56,189,248,0.18)', color: '#38bdf8',
-                border: '1px solid rgba(56,189,248,0.3)',
+                backgroundColor: 'rgba(6,12,26,0.85)', color: '#38bdf8',
+                border: '1px solid rgba(56,189,248,0.45)',
               }} />
               <Chip label={photo.center} size="small" sx={{
                 height: 20, fontSize: '0.7rem',
                 fontFamily: "'Rajdhani', sans-serif", fontWeight: 600,
-                backgroundColor: 'rgba(224,90,43,0.15)', color: '#e05a2b',
-                border: '1px solid rgba(224,90,43,0.3)',
+                backgroundColor: 'rgba(6,12,26,0.85)', color: '#e67b55',
+                border: '1px solid rgba(224,90,43,0.45)',
               }} />
             </Box>
             <Typography sx={{
@@ -349,10 +354,16 @@ export default function MarsPhotoCarousel() {
         </Box>
       )}
 
-      {/* Attribution NASA */}
+      {/* Attribution NASA. Ce credit doit se LIRE, c'est sa raison d'etre :
+          a 28 % d'opacite il tombait a 1,46:1 sur une photo sombre (mesure au
+          pixel). Le fond change a chaque image, donc aucune couleur de texte ne
+          peut tenir seule — un voile sombre fixe derriere le texte garantit le
+          contraste quelle que soit la photo. */}
       <Typography sx={{
         position: 'absolute', top: 12, right: 12,
-        fontSize: '0.62rem', color: 'rgba(255,255,255,0.28)',
+        fontSize: '0.62rem', color: 'rgba(255,255,255,0.92)',
+        backgroundColor: 'rgba(0,0,0,0.7)',   /* pire cas (photo blanche) : 8,7:1 */
+        px: 0.75, py: 0.25, borderRadius: 1,
         fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.04em',
         pointerEvents: 'none',
       }}>

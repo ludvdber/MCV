@@ -29,6 +29,18 @@ export const VIZ_TYPES = [
 /** Nombre maximum de vues ouvertes par session (= la grille pleine). */
 export const MAX_TABS = 4;
 
+/**
+ * Nombre maximum de champs de vent gardes en memoire.
+ *
+ * Quatre vues au plus s'affichent en meme temps : la marge sert d'historique,
+ * pour qu'un aller-retour entre deux altitudes ne retelecharge rien. Un champ
+ * est petit (grille sous-echantillonnee d'un facteur 3, deux composantes).
+ */
+export const MAX_WIND_FIELDS = 8;
+
+/** Types acceptant l'outil « statistiques de region » (rectangle sur la carte). */
+export const ROI_TYPES = ['slice', 'difference'];
+
 /** Types qui affichent un heatmap lat/lon (POI, surface, tooltip) */
 export const LATLON_HEATMAP_TYPES = ['slice', 'animation'];
 

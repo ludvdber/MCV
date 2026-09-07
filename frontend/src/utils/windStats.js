@@ -21,6 +21,16 @@
  * jets sont rares), et c'est precisement ce contraste qu'on veut voir.
  */
 
+/**
+ * Delai d'anti-rebond avant d'aller chercher le champ de vent, en ms.
+ *
+ * Le champ depend de l'altitude : sans ce delai, un balayage du curseur emet
+ * une requete par cran (26 mesurees sur un seul glissement). L'AbortController
+ * annule bien les precedentes cote client, mais elles atteignent le serveur et
+ * comptent dans la limite de debit par IP.
+ */
+export const WIND_FETCH_DEBOUNCE_MS = 250;
+
 /** Nombre de bandes de vitesse : compromis entre finesse et cout de rendu. */
 export const WIND_BANDS = 7;
 

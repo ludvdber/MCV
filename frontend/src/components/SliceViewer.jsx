@@ -374,7 +374,7 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
       )}
       <Paper elevation={compact ? 0 : 2} sx={{ borderRadius: 2, overflow: 'hidden', position: 'relative', ...(compact ? { bgcolor: 'transparent', backgroundImage: 'none' } : {}) }}>
         <div ref={plotRef} role="img" aria-label={t('viz.aria.slice')} style={{ width: '100%', height: compact ? 300 : 450 }} />
-        <WindParticlesLayer plotRef={plotRef} windData={windData} enabled={windParticles && !!windData} />
+        <WindParticlesLayer plotRef={plotRef} windData={windData} enabled={windParticles && !!windData} compact={compact} />
       </Paper>
       {((!compact && (interpApplied || topoData?.data)) || windStats) && (
         <Box sx={{ mt: 0.5, px: 0.5, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>

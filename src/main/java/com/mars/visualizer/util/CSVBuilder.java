@@ -1,6 +1,7 @@
 package com.mars.visualizer.util;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Utilitaire pour la construction de fichiers CSV.
@@ -97,7 +98,12 @@ public final class CSVBuilder {
 		StringBuilder sb = new StringBuilder(data.length * nTime * 12);
 		sb.append("altitude_km");
 		for (int t = 0; t < nTime; t++) {
-			sb.append(',').append(String.format("t%.1fh", (t * 24.0) / nTime));
+			// Locale.ROOT obligatoire : sur une JVM fr_BE (celle du poste de
+			// developpement comme celle d'un serveur belge), "%.1f" ecrit une
+			// VIRGULE decimale. L'en-tete "t0,5h" comptait alors pour deux
+			// colonnes CSV : 97 colonnes d'en-tete pour 49 de donnees, et tout
+			// tableur ouvrait le fichier decale.
+			sb.append(',').append(String.format(Locale.ROOT, "t%.1fh", (t * 24.0) / nTime));
 		}
 		sb.append('\n');
 		for (int a = 0; a < altitudes.length; a++) {

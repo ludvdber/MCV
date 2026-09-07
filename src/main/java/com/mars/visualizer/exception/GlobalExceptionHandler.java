@@ -8,6 +8,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -85,6 +86,33 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(buildErrorBody(error, message));
+    }
+
+    /**
+     * Methode HTTP non supportee : 405, et non 500.
+     *
+     * <p>Sans ce gestionnaire, {@code handleGenericException} attrapait
+     * l'exception et repondait 500 en journalisant une trace complete au
+     * niveau ERROR. Un simple POST sur un endpoint de lecture suffisait donc
+     * a faire mentir le code de retour et a remplir le journal : les robots
+     * qui balaient un site public font exactement cela.
+     *
+     * <p>L'en-tete {@code Allow} est obligatoire pour un 405 (RFC 9110).
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
+        Locale locale = LocaleContextHolder.getLocale();
+        String error   = messageSource.getMessage("error.category.method", null, locale);
+        String message = messageSource.getMessage("error.method.notsupported",
+                new Object[]{ex.getMethod()}, locale);
+        log.warn("Method not allowed: {}", sanitizeLog(ex.getMethod()));
+
+        ResponseEntity.BodyBuilder reponse = ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED);
+        var autorisees = ex.getSupportedHttpMethods();
+        if (autorisees != null && !autorisees.isEmpty()) {
+            reponse.allow(autorisees.toArray(new org.springframework.http.HttpMethod[0]));
+        }
+        return reponse.body(buildErrorBody(error, message));
     }
 
     @ExceptionHandler(ClientAbortException.class)

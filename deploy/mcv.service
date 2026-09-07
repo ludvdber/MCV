@@ -22,6 +22,13 @@ Documentation=https://github.com/ludvdber/MCV
 After=network.target remote-fs.target
 Wants=remote-fs.target
 
+# Sans ces deux lignes, un chemin de donnees errone fait redemarrer le service
+# toutes les 10 secondes indefiniment : le journal se remplit et rien ne signale
+# que la cause est permanente. La, systemd abandonne apres 5 essais et passe en
+# etat « failed », ce qu'une supervision voit.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
 [Service]
 User=mcv
 Group=mcv
@@ -29,6 +36,11 @@ WorkingDirectory=/opt/mcv
 ExecStart=/usr/bin/java -jar /opt/mcv/mars-visualizer.jar
 Restart=on-failure
 RestartSec=10
+
+# L'application est en arret gracieux (server.shutdown=graceful, 30 s pour
+# terminer les requetes en cours). Le delai systemd doit lui laisser la place,
+# sinon un SIGKILL coupe un export en plein telechargement.
+TimeoutStopSec=45
 
 # La JVM prend par defaut un quart de la RAM de la machine comme tas maximum.
 # Sur un serveur partage, plafonner explicitement evite qu'elle voie trop grand.
@@ -100,6 +112,37 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ProtectHome=true
+
+# Options sans risque pour une JVM qui ne fait que lire des fichiers et ecrire
+# sur la sortie standard. Verifie-les apres coup avec : systemd-analyze security mcv
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+PrivateDevices=true
+
+# ATTENTION aux deux options suivantes, souvent recopiees sans essai :
+#
+#  - MemoryDenyWriteExecute=yes CASSE une JVM. Le compilateur a la volee ecrit
+#    du code machine puis l'execute ; c'est exactement ce que l'option interdit.
+#    Ne l'ajoute pas.
+#
+#  - SystemCallFilter=@system-service convient en general a une JVM, mais depend
+#    de la version de systemd et de celle de Java. A n'activer qu'apres un essai
+#    reel, en surveillant le journal au demarrage :
+# SystemCallFilter=@system-service
+# SystemCallErrorNumber=EPERM
+#
+#  - ProtectSystem=strict est plus severe que full (tout le systeme de fichiers
+#    en lecture seule, et non seulement /usr et /etc). L'application n'ecrit
+#    nulle part, donc cela devrait passer, mais PrivateTmp doit rester actif :
+#    la bibliotheque NetCDF utilise le repertoire temporaire.
+# ProtectSystem=strict
 
 [Install]
 WantedBy=multi-user.target

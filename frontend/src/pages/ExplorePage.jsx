@@ -21,7 +21,7 @@ import { useToast } from '../context/ToastContext';
 import { VARIABLES_MAP } from '../components/VariableSelector';
 import { triggerApiDownload, downloadAnimationCSV, downloadTextFile } from '../utils/exportUtils';
 import {
-  getSlice, getTimeSeries, getProfile, getCrossSection, getWind,
+  getSlice, getTimeSeries, getProfile, getCrossSection,
   getTemporalProfile, getTransect,
   exportSliceCSV, exportSliceNetCDF, exportTimeSeriesCSV, exportProfileCSV, exportCrossSectionCSV,
   exportHovmollerCSV, exportZonalMeanCSV, exportWindRoseCSV, exportDifferenceCSV, exportTemporalProfileCSV,
@@ -30,6 +30,7 @@ import { ExploreProvider, useExploreState, useExploreDispatch, A } from './explo
 import { largeDataStore } from './explore/largeDataStore.js';
 import { fetchVizData } from './explore/fetchVizData.js';
 import { useSessionPersistence } from './explore/useSessionPersistence.js';
+import { useWindFields } from './explore/useWindFields.js';
 import { SCENARIOS, useScenarioRunner, useResolvedScenarios } from './explore/scenarios.jsx';
 import { VIZ_TYPES, MAX_TABS, ALTITUDE_REQUIRED_TYPES, MEAN_ONLY_TYPES } from './explore/exploreConstants.jsx';
 import { INDIVIDUAL_PREFIX } from '../constants';
@@ -37,7 +38,7 @@ import ExploreParamsPanel from './explore/ExploreParamsPanel.jsx';
 import ExploreResultsPanel from './explore/ExploreResultsPanel.jsx';
 import ExploreSidePanel from './explore/ExploreSidePanel.jsx';
 import GuidedTour from '../components/GuidedTour';
-import { genLabel, weightedStats } from './explore/exploreUtils.js';
+import { genLabel, weightedStats, nextResultId } from './explore/exploreUtils.js';
 import { formatTime } from '../utils/formatTime';
 
 /* Etapes de la visite guidee de la console. Les cibles portent un attribut
@@ -188,7 +189,12 @@ function ExplorePageContent() {
 
     // Le plafond ne concerne QUE l'ajout : une mise a jour ne cree pas de vue.
     if (replaceId == null && resultOrder.length >= MAX_TABS) {
+      // Toast EN PLUS de l'erreur d'etat : cette derniere n'est rendue que dans
+      // le panneau de parametres, replie par defaut sur /explore. Sans le toast,
+      // un lancement refuse restait totalement silencieux a l'ecran — pire, le
+      // chemin des exemples affichait un succes vert juste avant.
       dispatch({ type: A.SET_ERROR, value: t('page.explore.tabLimit', { max: MAX_TABS }) });
+      showToast(t('page.explore.tabLimit', { max: MAX_TABS }), 'warning');
       return;
     }
     if (isIndividual && MEAN_ONLY_TYPES.includes(vizType)) {
@@ -235,7 +241,7 @@ function ExplorePageContent() {
           })()
         : datasetLabel;
 
-      const id = replaceId ?? Date.now().toString();
+      const id = replaceId ?? nextResultId();
 
       // R5 : les frames d'animation (~3M valeurs) sont stockees hors du state React.
       // Sur un remplacement on tient le store a jour pour le MEME id (nouvelle
@@ -303,39 +309,13 @@ function ExplorePageContent() {
     handleLancerRef.current();
   }, [pendingAutoLaunch, dataset, selectedDataset, loading, catalogLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** Fetch du champ de vent lors de l'activation du toggle sur une slice.
-   *  AbortController pour annuler la requete precedente si le toggle ou l'onglet actif change
-   *  avant la fin du chargement (evite les race conditions). */
-  useEffect(() => {
-    const windWanted = state.showWind || state.showWindParticles;
-    if (!windWanted || !activeResultObj || activeResultObj.type !== 'slice') {
-      dispatch({ type: A.SET_WIND_DATA, value: null });
-      return;
-    }
-    const varCode = activeResultObj.params.variable;
-    if (['UU', 'VV'].includes(varCode)) {
-      dispatch({ type: A.SET_WIND_DATA, value: null });
-      return;
-    }
-    const { dataset: ds, time, altitude } = activeResultObj.params;
-    const controller = new AbortController();
-    getWind(
-      { dataset: ds, time: ds?.startsWith(INDIVIDUAL_PREFIX) ? 0 : time, altitudeIndex: altitude },
-      controller.signal,
-    )
-      .then(res => dispatch({ type: A.SET_WIND_DATA, value: res.data }))
-      .catch(() => {
-        if (!controller.signal.aborted) dispatch({ type: A.SET_WIND_DATA, value: null });
-      });
-    return () => controller.abort();
-  }, [state.showWind, state.showWindParticles, activeResultObj]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  /** Réinitialise le vent quand on quitte une slice. */
-  useEffect(() => {
-    if (!activeResultObj || activeResultObj.type !== 'slice') {
-      dispatch({ type: A.SET_WIND_DATA, value: null });
-    }
-  }, [activeResultObj, dispatch]);
+  /* Champs de vent des vues AFFICHEES : un par (dataset, pas de temps,
+     altitude), telecharges et mis en cache par useWindFields. La regle « qui
+     voit le vent » y vit une seule fois et sert aussi au rendu du panneau, si
+     bien qu'une cellule ne peut pas etre dessinee sans que son champ ait ete
+     demande. Remplace le champ unique de la vue active, qui laissait les autres
+     cartes de la grille sans vent et sans explication. */
+  useWindFields(state, dispatch);
 
   /** Relief : pression de surface P0 du dataset de la slice active, convertie
    *  en altitude barometrique cote client (z = −H·ln(P0/610), H ≈ 10,8 km).
@@ -383,7 +363,7 @@ function ExplorePageContent() {
       })).data;
       const params = { ...activeObj.params, lat1: data.lat1, lon1: data.lon1, lat2: data.lat2, lon2: data.lon2 };
       const result = {
-        id: Date.now().toString(),
+        id: nextResultId(),
         type: 'transect',
         label: genLabel('transect', params, t),
         params,
@@ -462,7 +442,7 @@ function ExplorePageContent() {
     const altText = anim.altitudeValue != null ? `~${Number(anim.altitudeValue).toFixed(1)} km` : `alt${activeObj.params.altitude}`;
 
     const result = {
-      id: Date.now().toString(),
+      id: nextResultId(),
       type: 'slice',
       derived: 'amplitude',
       label: `Δ24h ${varLabel} alt${activeObj.params.altitude}`,
@@ -516,7 +496,7 @@ function ExplorePageContent() {
       if (!stats) return;
 
       const result = {
-        id: Date.now().toString(),
+        id: nextResultId(),
         type: 'slice',
         derived: 'wsp',
         label: `|V| ${formatTime(time)} alt${altitude}`,
@@ -732,7 +712,7 @@ function ExplorePageContent() {
         default: return;
       }
 
-      const id = Date.now().toString();
+      const id = nextResultId();
       // Libelles i18n (reutilise les cles du selecteur de visualisation)
       const vizLabel = t(`explore.viz.${type}`);
       const result = {

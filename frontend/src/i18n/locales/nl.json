@@ -587,5 +587,7 @@
   "legal.contact.title": "Vragen en meldingen",
   "legal.contact.body": "Voor een vraag over de site zelf, een weergavefout of een suggestie is de bovenvermelde coderepository de beste plek, want de tickets daar zijn openbaar. Voor een wetenschappelijke vraag over het GEM-Mars-model of over hergebruik van de gegevens richt u zich tot het Koninklijk Belgisch Instituut voor Ruimte-Aeronomie.",
   "legal.updated": "Laatst bijgewerkt: september 2026",
-  "viz.windSpeedRange": "{{min}}–{{max}} m/s · gem. {{mean}}"
+  "viz.windSpeedRange": "{{min}}–{{max}} m/s · gem. {{mean}}",
+  "explore.toggle.windAllViews": "Wind in alle weergaven",
+  "common.skipToContent": "Naar de hoofdinhoud"
 }

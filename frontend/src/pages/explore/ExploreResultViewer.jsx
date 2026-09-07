@@ -13,7 +13,9 @@
  *   isActive         — ce resultat est l'onglet actif
  *   onActivePlotNode — callback (node|null) : publie le div Plotly du resultat
  *                      actif vers la ref d'export du panneau (PNG/SVG)
- *   windData         — champ de vent (fourni uniquement pour la slice active)
+ *   windData         — champ de vent de CETTE vue (null si elle n'en affiche
+ *                      pas) : chaque carte de la grille a le sien, a son
+ *                      altitude et a son instant — voir useWindFields.js
  */
 import { useMemo, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';

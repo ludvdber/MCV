@@ -1,10 +1,15 @@
 import { useRef, useEffect, useState } from 'react';
 import { Paper, Box, Typography, Chip } from '@mui/material';
 import { useCountUp } from '../../hooks/useCountUp';
+import { useInk } from '../../hooks/useInk';
 
 /* ═══ StatCard avec countUp + barre Terre ═══ */
 export default function StatCard({ stat, delay = 0 }) {
   const { ref, value } = useCountUp(stat.numeric, stat.decimals, delay);
+  /* Le cyan « Terre » est une couleur de fond sombre : en texte sur la carte
+     blanche du theme clair elle tombait a 1,90. (L'orange « Mars » passe par
+     --mars-orange, qui a deja sa valeur par theme.) */
+  const encreTerre = useInk('#38bdf8', 0.1);
   const [visible, setVisible] = useState(false);
   const containerRef = useRef(null);
 
@@ -75,7 +80,7 @@ export default function StatCard({ stat, delay = 0 }) {
             </Box>
             <Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.4 }}>
-                <Typography sx={{ fontSize: '0.68rem', color: '#38bdf8', fontWeight: 600 }}>Terre</Typography>
+                <Typography sx={{ fontSize: '0.68rem', color: encreTerre, fontWeight: 600 }}>Terre</Typography>
                 <Typography sx={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>{stat.earthLabel}</Typography>
               </Box>
               <Box sx={{ height: 5, borderRadius: 3, background: 'var(--glass-border)', overflow: 'hidden' }}>
@@ -93,7 +98,7 @@ export default function StatCard({ stat, delay = 0 }) {
         {/* Température : pas de barre (échelles incompatibles) — juste un label Terre */}
         {marsRatio == null && stat.earthLabel && (
           <Box sx={{ mt: 'auto', pt: 1.5, borderTop: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'center' }}>
-            <Chip label={stat.earthLabel} size="small" sx={{ height: 20, fontSize: '0.68rem', backgroundColor: 'rgba(56,189,248,0.1)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.25)' }} />
+            <Chip label={stat.earthLabel} size="small" sx={{ height: 20, fontSize: '0.68rem', backgroundColor: 'rgba(56,189,248,0.1)', color: encreTerre, border: '1px solid rgba(56,189,248,0.25)' }} />
           </Box>
         )}
       </Paper>

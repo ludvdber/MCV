@@ -29,7 +29,7 @@ import {
   GridView as GridViewIcon,
 } from '@mui/icons-material';
 import { LOCATION_COLORS, LOCATION_TYPE_KEYS } from '../../data/marsLocations';
-import { LATLON_HEATMAP_TYPES, COLORSCALE_TYPES, INTERP_TYPES, LAYOUTS, MAX_TABS, MEAN_ONLY_TYPES, PROBE_TYPES } from './exploreConstants.jsx';
+import { LATLON_HEATMAP_TYPES, COLORSCALE_TYPES, INTERP_TYPES, LAYOUTS, MAX_TABS, MEAN_ONLY_TYPES, PROBE_TYPES, ROI_TYPES } from './exploreConstants.jsx';
 import { useExploreState, useExploreDispatch, A } from './ExploreContext.jsx';
 import { useResultColorscale } from './useResultColorscale.js';
 import { largeDataStore } from './largeDataStore.js';
@@ -48,15 +48,13 @@ import TransectLayer from './TransectLayer.jsx';
 import SessionChips from './SessionChips.jsx';
 import { useSyncZoom } from './useSyncZoom.js';
 import MiniColorbar from './MiniColorbar.jsx';
-import { computeRegionStats, resultLabel, datasetContext } from './exploreUtils.js';
+import { computeRegionStats, resultLabel, datasetContext, nextResultId, visibleResultIds } from './exploreUtils.js';
+import { windFieldFor } from './useWindFields.js';
 import { triggerDownload } from '../../utils/exportUtils';
 import { exportGridMontage, FIGURE_CREDIT } from '../../utils/plotExport';
 import { exportAnimationWebM, webmSupported, downloadBlob } from '../../utils/videoExport';
 import { formatTime } from '../../utils/formatTime';
 import { useToast } from '../../context/ToastContext';
-
-/** Types compatibles avec les statistiques de region (grille dans result.data). */
-const ROI_TYPES = ['slice', 'difference'];
 
 /** Mention de credit des figures : meme texte que les exports ordinaires,
  *  importe depuis plotExport pour qu'il n'en existe qu'une version. */
@@ -194,9 +192,9 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExp
 
   const {
     resultsById, resultOrder, activeResult,
-    showLocations, showAnomaly, showWind, showWindParticles, showLog,
+    showLocations, showAnomaly, showLog,
     interpStep,
-    windData, layout, gridIds, curtainOn, curtainBId, roiMode, transectMode, syncZoom,
+    layout, gridIds, curtainOn, curtainBId, roiMode, transectMode, syncZoom,
   } = state;
 
   /* Ref d'export : pointe le div Plotly du resultat actif (PNG/SVG, drill-down).
@@ -260,9 +258,7 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExp
 
   /** Vues affichees : contenu EXPLICITE du reducer (gridIds), jamais recalcule
    *  au rendu — voir normalizeGrid dans ExploreContext. */
-  const visibleIds = layout === 1
-    ? (activeResult ? [activeResult] : [])
-    : gridIds;
+  const visibleIds = visibleResultIds(state);
 
   /* Plotly fige la largeur de chaque graphe en pixels et ne se recale que sur
    * l'evenement resize de la fenetre (config responsive: true). Chaque
@@ -586,7 +582,7 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExp
             const mid = flat.length >> 1;
             const median = flat.length % 2 ? flat[mid] : (flat[mid - 1] + flat[mid]) / 2;
             const diffResult = {
-              id: Date.now().toString(),
+              id: nextResultId(),
               type: 'difference',
               label: `Δ ${activeResultObj.label} − ${resultsById[otherId].label}`,
               params: activeResultObj.params,
@@ -684,7 +680,7 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExp
                     result={activeResultObj}
                     isActive
                     onActivePlotNode={setActivePlotNode}
-                    windData={activeResultObj.type === 'slice' && (showWind || showWindParticles) ? windData : null}
+                    windData={windFieldFor(state, activeResultObj, true)}
                   />
                 </CellErrorBoundary>
                 {/* La sonde liee publie AUSSI depuis la vue simple : sans cette
@@ -764,7 +760,7 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExp
                       isActive={isCellActive}
                       compact
                       onActivePlotNode={setActivePlotNode}
-                      windData={isCellActive && r.type === 'slice' && (showWind || showWindParticles) ? windData : null}
+                      windData={windFieldFor(state, r, isCellActive)}
                     />
                   </CellErrorBoundary>
                 </GridCell>

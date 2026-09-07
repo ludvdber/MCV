@@ -6,8 +6,9 @@ import { VARIABLES_MAP } from './VariableSelector';
 import ExportMenu from './ExportMenu';
 import StatsBar from './StatsBar';
 import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
+import { SERIES_COLORS } from '../utils/seriesColors';
 
-const COLORS = ['#38bdf8', '#e05a2b', '#a855f7', '#4ade80'];
+const COLORS = SERIES_COLORS;
 
 /**
  * Unified vertical profile viewer — renders 1 to N profiles on a single Plotly chart.

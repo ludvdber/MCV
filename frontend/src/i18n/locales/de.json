@@ -587,5 +587,7 @@
   "legal.contact.title": "Fragen und Meldungen",
   "legal.contact.body": "Für eine Frage zur Website selbst, einen Anzeigefehler oder einen Vorschlag ist das oben genannte Code-Repository der beste Ort, dort sind die Tickets öffentlich. Für eine wissenschaftliche Frage zum Modell GEM-Mars oder zur Weiterverwendung der Daten wende dich an das Königliche Belgische Institut für Weltraum-Aeronomie.",
   "legal.updated": "Zuletzt aktualisiert: September 2026",
-  "viz.windSpeedRange": "{{min}}–{{max}} m/s · Mittel {{mean}}"
+  "viz.windSpeedRange": "{{min}}–{{max}} m/s · Mittel {{mean}}",
+  "explore.toggle.windAllViews": "Wind in allen Ansichten",
+  "common.skipToContent": "Zum Hauptinhalt springen"
 }

@@ -147,7 +147,7 @@ Coverage report: `build/reports/jacoco/test/html/index.html`.
 | `npm run dev` | Vite dev server on :5173 with hot reload |
 | `npm run build` | Production build into `frontend/dist/` |
 | `npm run preview` | Serves the production build locally |
-| `npm run test` | Vitest suite (163 tests) |
+| `npm run test` | Vitest suite (192 tests) |
 | `npm run lint` | ESLint check |
 
 ---
@@ -173,11 +173,13 @@ All views support permalinks, CSV export, PNG/SVG export, log₁₀ scale and co
 
 The Explore console holds up to four views side by side, tied together by a shared probe and a common region selection, so the same point can be read across several diagnostics at once:
 
-![Explore console: three linked views laid out in a grid](docs/images/explorer.en.png)
+![Explore console: four views in a grid, each animating its own wind field](docs/images/explorer.en.png)
 
 On any map, winds can be drawn as **particles advected** along the UU/VV field. Trail colour and thickness follow the local speed, and the legend gives the bounds of the scale along with the field average:
 
 ![Animated wind particles over a water vapour map](docs/images/vent-anime.en.gif)
+
+In a grid, every view animates **its own** field, at its own altitude and time step: four maps side by side show four different winds, each stating its bounds under the map. A toolbar button brings the animation back to the active view only, which is the default on a phone, where four animated canvases cost a lot for thumbnail-sized maps.
 
 ---
 

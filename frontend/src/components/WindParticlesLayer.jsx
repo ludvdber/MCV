@@ -24,12 +24,19 @@
  * @param {React.RefObject} plotRef  — ref du div Plotly (externalPlotRef du viewer)
  * @param {Object|null}     windData — WindResponse { lats[], lons[], u[], v[] } (points aplatis)
  * @param {boolean}         enabled
+ * @param {boolean}         compact  — cellule de grille : moins de particules
  */
 import { useEffect, useRef } from 'react';
 import { useThemeMode } from '../context/ThemeContext';
 import { windSpeedStats, windRamp, windBand, WIND_BANDS, WIND_WIDTHS } from '../utils/windStats';
 
 const N_PARTICLES = 700;
+/**
+ * Cellule de grille : la carte fait le quart de la surface, et jusqu'a quatre
+ * canvas animent leur vent en meme temps. Moins de particules y gardent la
+ * meme DENSITE apparente pour un cout total voisin de deux vues pleines.
+ */
+const COMPACT_PARTICLES = 380;
 /** Variante prefers-reduced-motion : lignes de courant figees. */
 const STATIC_LINES = 320;
 const STATIC_STEPS = 8;
@@ -73,7 +80,7 @@ function sampleWind(grid, lon, lat) {
   ];
 }
 
-export default function WindParticlesLayer({ plotRef, windData, enabled = false }) {
+export default function WindParticlesLayer({ plotRef, windData, enabled = false, compact = false }) {
   const canvasRef = useRef(null);
   const { mode } = useThemeMode();
 
@@ -99,7 +106,8 @@ export default function WindParticlesLayer({ plotRef, windData, enabled = false 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     /* Particules : [lon, lat, prevLon, prevLat, age] × N */
-    const P = new Float32Array(N_PARTICLES * 5);
+    const nParticules = compact ? COMPACT_PARTICLES : N_PARTICLES;
+    const P = new Float32Array(nParticules * 5);
     const lonMin = grid.lons[0], lonMax = grid.lons[grid.lons.length - 1];
     const latMin = grid.lats[0], latMax = grid.lats[grid.lats.length - 1];
     function respawn(k) {
@@ -108,7 +116,7 @@ export default function WindParticlesLayer({ plotRef, windData, enabled = false 
       P[k + 2] = P[k]; P[k + 3] = P[k + 1];
       P[k + 4] = 15 + Math.random() * MAX_AGE;
     }
-    for (let i = 0; i < N_PARTICLES; i++) respawn(i * 5);
+    for (let i = 0; i < nParticules; i++) respawn(i * 5);
 
     /** Geometrie courante du plot : zone de trace + ranges des axes. */
     function plotGeometry() {
@@ -171,7 +179,7 @@ export default function WindParticlesLayer({ plotRef, windData, enabled = false 
       ctx.fillRect(size.l, size.t, size.w, size.h);
       ctx.globalCompositeOperation = 'source-over';
       segN.fill(0);
-      for (let k = 0; k < N_PARTICLES * 5; k += 5) {
+      for (let k = 0; k < nParticules * 5; k += 5) {
         const w = sampleWind(grid, P[k], P[k + 1]);
         P[k + 2] = P[k]; P[k + 3] = P[k + 1];
         if (!w) { respawn(k); continue; }
@@ -242,7 +250,7 @@ export default function WindParticlesLayer({ plotRef, windData, enabled = false 
       ro.disconnect();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     };
-  }, [enabled, windData, plotRef, mode]);
+  }, [enabled, windData, plotRef, mode, compact]);
 
   if (!enabled) return null;
   return (

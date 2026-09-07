@@ -137,7 +137,10 @@ class ExportControllerTest {
                             .param("time", "0")
                             .param("altitude", "0"))
                     .andExpect(status().isOk())
-                    .andExpect(header().string("Content-Type", "text/csv"))
+                    // Le jeu de caracteres fait partie du contrat : sans lui, Spring
+                    // ecrit la chaine en ISO-8859-1. On verifie le type ET la
+                    // presence du charset, sans figer la chaine exacte.
+                    .andExpect(header().string("Content-Type", "text/csv;charset=UTF-8"))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("latitude,longitude,value_A,value_B,difference")));
         }
 
@@ -179,7 +182,10 @@ class ExportControllerTest {
                             .param("time", "0")
                             .param("altitude", "0"))
                     .andExpect(status().isOk())
-                    .andExpect(header().string("Content-Type", "text/csv"))
+                    // Le jeu de caracteres fait partie du contrat : sans lui, Spring
+                    // ecrit la chaine en ISO-8859-1. On verifie le type ET la
+                    // presence du charset, sans figer la chaine exacte.
+                    .andExpect(header().string("Content-Type", "text/csv;charset=UTF-8"))
                     .andExpect(header().string("Content-Disposition",
                             org.hamcrest.Matchers.containsString("attachment")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("latitude,longitude,value")));

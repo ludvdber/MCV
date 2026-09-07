@@ -587,5 +587,7 @@
   "legal.contact.title": "Questions and reports",
   "legal.contact.body": "For a question about the site itself, a display problem or a suggestion, the code repository above is the best place, as its issues are public. For a scientific question about the GEM-Mars model or about reusing the data, please contact the Royal Belgian Institute for Space Aeronomy.",
   "legal.updated": "Last updated: September 2026",
-  "viz.windSpeedRange": "{{min}}–{{max}} m/s · mean {{mean}}"
+  "viz.windSpeedRange": "{{min}}–{{max}} m/s · mean {{mean}}",
+  "explore.toggle.windAllViews": "Wind in every view",
+  "common.skipToContent": "Skip to main content"
 }

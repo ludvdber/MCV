@@ -165,7 +165,10 @@ export const getProfile = (params, signal) => cachedGet('/data/profile', params,
 
 /**
  * GET /api/data/wind — champ de vent UU/VV subsample pour superposition sur slice
- * @param {Object}       params   - { dataset, time, altitudeIndex }
+ * @param {Object}       params   - { dataset, time, altitude }
+ *   `altitude` est l'indice de niveau du modele. Le nom compte : le
+ *   controleur le lit sous ce nom exact et retombe silencieusement sur son
+ *   defaut (49) si on le lui envoie autrement.
  * @param {AbortSignal}  [signal] - signal d'annulation optionnel
  * @returns {Promise} { lats[], lons[], u[], v[] }
  */

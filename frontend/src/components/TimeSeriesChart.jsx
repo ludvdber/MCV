@@ -6,9 +6,10 @@ import { VARIABLES_MAP } from './VariableSelector';
 import ExportMenu from './ExportMenu';
 import StatsBar from './StatsBar';
 import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
+import { SERIES_COLORS } from '../utils/seriesColors';
 import { MAX_TIMESTEPS } from '../constants';
 
-const COLORS = ['#38bdf8', '#e05a2b', '#a855f7', '#4ade80'];
+const COLORS = SERIES_COLORS;
 
 /** Axe X : heure locale solaire martienne en hh:mm (00:00 a 23:30, 48 valeurs).
  *  Convention des fichiers : pas k = k*0,5 h (coordonnee `time`, k=0 = minuit). */

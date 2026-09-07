@@ -165,7 +165,10 @@ public class CatalogService {
                         || name.equalsIgnoreCase(DIM_LAT)
                         || name.equalsIgnoreCase(DIM_LON)
                         || name.equalsIgnoreCase(DIM_ALTITUDE)) {
-                    dimensions.put(name.toLowerCase(), dim.getLength());
+                    // Locale.ROOT : sur une JVM turque, "TIME".toLowerCase() donne "tıme"
+                    // (i sans point) et la dimension devient introuvable. Les noms de
+                    // dimension NetCDF ne sont pas du texte humain.
+                    dimensions.put(name.toLowerCase(java.util.Locale.ROOT), dim.getLength());
                 }
             }
         }

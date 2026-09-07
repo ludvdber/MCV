@@ -21,7 +21,7 @@ import { useExploreState, useExploreDispatch, A } from './ExploreContext.jsx';
 import { MAX_TABS } from './exploreConstants.jsx';
 import { largeDataStore } from './largeDataStore.js';
 import { fetchVizData } from './fetchVizData.js';
-import { genLabel } from './exploreUtils.js';
+import { genLabel, nextResultId } from './exploreUtils.js';
 import {
   buildSessionRecipe, encodeRecipe, decodeRecipe,
   loadStoredSessions, saveStoredSessions,
@@ -88,7 +88,7 @@ export function useSessionPersistence() {
           // Bascule de session pendant le fetch : on abandonne le reste plutot
           // que d'injecter la vue dans la session desormais active.
           if (activeSessionRef.current !== targetSession) { aborted = true; break; }
-          const id = `${Date.now()}-${i}`;
+          const id = nextResultId();
           if (type === 'animation') largeDataStore.set(id, data);
           dispatch({
             type: A.ADD_RESULT,

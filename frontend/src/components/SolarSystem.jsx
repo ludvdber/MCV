@@ -1193,7 +1193,10 @@ export default function SolarSystem() {
             {t('solar.goToMars')}
           </Box>
           <Typography sx={{
-            fontSize: '0.68rem', color: 'rgba(255,255,255,0.3)',
+            /* 0,3 d'opacite donnait 2,05:1 sur le fond etoile (mesure au pixel) :
+               c'est la seule phrase qui explique qu'une planete se clique, elle
+               doit se lire. 0,55 la laisse discrete a environ 6:1. */
+            fontSize: '0.68rem', color: 'rgba(255,255,255,0.55)',
             fontFamily: "'Rajdhani',sans-serif", letterSpacing: '0.04em', pointerEvents: 'none',
           }}>
             {t('solar.clickHint')}

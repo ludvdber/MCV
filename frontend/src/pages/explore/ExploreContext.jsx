@@ -12,8 +12,8 @@
  *   const dispatch = useExploreDispatch();
  *   dispatch({ type: A.SET_VIZ_TYPE, value: 'slice' });
  */
-import { createContext, useContext, useReducer } from 'react';
-import { MAX_TABS } from './exploreConstants.jsx';
+import { createContext, useContext, useEffect, useReducer } from 'react';
+import { MAX_TABS, ROI_TYPES, MAX_WIND_FIELDS } from './exploreConstants.jsx';
 
 /* ─── Action types ─────────────────────────────────────────────────────────── */
 export const A = Object.freeze({
@@ -38,8 +38,10 @@ export const A = Object.freeze({
   TOGGLE_LOG:          'TOGGLE_LOG',
   TOGGLE_SMOOTH:       'TOGGLE_SMOOTH',
   SET_INTERP_STEP:     'SET_INTERP_STEP',
-  // Données de vent (fetch async)
-  SET_WIND_DATA:       'SET_WIND_DATA',
+  // Champs de vent (fetch async) : un par (dataset, pas de temps, altitude)
+  SET_WIND_FIELD:      'SET_WIND_FIELD',
+  // Vent dans toutes les vues de la grille, ou seulement dans la vue active
+  TOGGLE_WIND_ALL_VIEWS: 'TOGGLE_WIND_ALL_VIEWS',
   // Gestion des onglets de résultats
   ADD_RESULT:          'ADD_RESULT',
   REPLACE_RESULT:      'REPLACE_RESULT',
@@ -92,7 +94,13 @@ const initialState = {
   // Defauts : lissage actif sur la grille native (interpolation en option).
   smoothHeatmap:       true,
   interpStep:          0,
-  windData:            null,
+  // Champs de vent telecharges, ranges par cle « dataset|temps|altitude »
+  // (voir useWindFields.js). Cache adresse par son contenu : une entree ne peut
+  // pas etre affichee pour une autre altitude que celle qu'elle decrit.
+  windFields:          {},
+  // Vent dans TOUTES les vues affichees (defaut sur grand ecran) ou dans la
+  // seule vue active. Defaut calcule au montage par makeInitialState.
+  windAllViews:        true,
   resultsById:         {},   // { [id]: result } — lookup O(1) sans parcourir tout le tableau
   resultOrder:         [],   // [id, id, ...] — ordre des onglets pour le rendu
   activeResult:        null,
@@ -163,8 +171,47 @@ function normalizeGrid(gridIds, order, active, layout) {
   return next;
 }
 
+/**
+ * Un mode d'outil ne doit pas survivre au passage sur une vue qui ne le propose
+ * pas : son bouton disparait avec la vue, si bien que le mode devenait
+ * impossible a desactiver, puis se rallumait tout seul au retour sur une carte
+ * compatible. Applique partout ou la vue active change.
+ */
+function sanitizeModes(resultsById, activeId, state) {
+  const r = activeId ? resultsById[activeId] : null;
+  const roiMode = state.roiMode && !!r && ROI_TYPES.includes(r.type);
+  const transectMode = state.transectMode && !!r && r.type === 'slice' && !r.derived;
+  return { roiMode, transectMode, roiEntry: roiMode ? state.roiEntry : null };
+}
+
+/** Cle de stockage du choix « vent dans toutes les vues », par appareil. */
+const WIND_ALL_VIEWS_KEY = 'mcv-wind-all-views';
+
+/**
+ * Etat initial, avec le defaut de `windAllViews` calcule au montage.
+ *
+ * Sur telephone le vent se limite a la vue active : quatre canvas de particules
+ * animees coutent cher sur un GPU mobile, pour un gain de lecture faible sur
+ * des cartes de la taille d'une vignette. Sur grand ecran, toutes les vues
+ * l'affichent. Un choix deja fait sur cet appareil l'emporte sur les deux.
+ */
+function makeInitialState() {
+  let windAllViews;
+  try {
+    const retenu = localStorage.getItem(WIND_ALL_VIEWS_KEY);
+    if (retenu === '1') windAllViews = true;
+    else if (retenu === '0') windAllViews = false;
+  } catch { /* stockage indisponible : on retombe sur la taille d'ecran */ }
+  if (windAllViews === undefined) {
+    windAllViews = window.matchMedia?.('(min-width: 900px)')?.matches ?? true;
+  }
+  return { ...initialState, windAllViews };
+}
+
 /* ─── Reducer ──────────────────────────────────────────────────────────────── */
-function exploreReducer(state, action) {
+// Exporte pour les tests : le plafond du cache de vent et l'assainissement
+// des modes se verifient sur le reducteur seul, sans monter la console.
+export function exploreReducer(state, action) {
   switch (action.type) {
     case A.SET_VIZ_TYPE:
       return { ...state, vizType: action.value };
@@ -211,8 +258,18 @@ function exploreReducer(state, action) {
     case A.SET_INTERP_STEP:
       return { ...state, interpStep: action.value };
 
-    case A.SET_WIND_DATA:
-      return { ...state, windData: action.value };
+    case A.SET_WIND_FIELD: {
+      const windFields = { ...state.windFields, [action.key]: action.value };
+      // Purge a l'insertion, la plus ancienne cle d'abord : les cles ne sont
+      // jamais numeriques, l'ordre d'insertion de l'objet est donc conserve.
+      const cles = Object.keys(windFields);
+      for (const k of cles.slice(0, Math.max(0, cles.length - MAX_WIND_FIELDS))) {
+        delete windFields[k];
+      }
+      return { ...state, windFields };
+    }
+    case A.TOGGLE_WIND_ALL_VIEWS:
+      return { ...state, windAllViews: !state.windAllViews };
 
     case A.ADD_RESULT: {
       // Garde-fou central : les appelants previennent (toast) avant d'appeler,
@@ -270,6 +327,7 @@ function exploreReducer(state, action) {
         ...state, resultsById: restById, resultOrder: nextOrder, activeResult,
         gridIds: normalizeGrid(state.gridIds, nextOrder, activeResult, state.layout),
         curtainOn, curtainBId: curtainOn ? state.curtainBId : null,
+        ...sanitizeModes(restById, activeResult, state),
       };
     }
     case A.SET_ACTIVE_RESULT:
@@ -277,6 +335,7 @@ function exploreReducer(state, action) {
         ...state,
         activeResult: action.value,
         gridIds: normalizeGrid(state.gridIds, state.resultOrder, action.value, state.layout),
+        ...sanitizeModes(state.resultsById, action.value, state),
       };
 
     case A.SET_LAYOUT:
@@ -317,7 +376,7 @@ function exploreReducer(state, action) {
         sessionCounter: num,
         activeSession: id,
         sessionStore: { ...state.sessionStore, [state.activeSession]: snapshotOf(state) },
-        windData: null, topoData: null,
+        windFields: {}, topoData: null,
       };
     }
     case A.SWITCH_SESSION: {
@@ -329,7 +388,8 @@ function exploreReducer(state, action) {
         ...state, ...restored,
         activeSession: action.id,
         sessionStore: { ...restStore, [state.activeSession]: snapshotOf(state) },
-        windData: null, topoData: null,
+        windFields: {}, topoData: null,
+        ...sanitizeModes(restored.resultsById ?? {}, restored.activeResult ?? null, state),
       };
     }
     case A.RENAME_SESSION:
@@ -360,7 +420,8 @@ function exploreReducer(state, action) {
       return {
         ...state, ...restored,
         sessions, activeSession: nextId, sessionStore,
-        windData: null, topoData: null,
+        windFields: {}, topoData: null,
+        ...sanitizeModes(restored.resultsById ?? {}, restored.activeResult ?? null, state),
       };
     }
 
@@ -388,7 +449,14 @@ const ExploreDispatchContext = createContext(null);
 
 /* ─── Provider ─────────────────────────────────────────────────────────────── */
 export function ExploreProvider({ children }) {
-  const [state, dispatch] = useReducer(exploreReducer, initialState);
+  const [state, dispatch] = useReducer(exploreReducer, undefined, makeInitialState);
+  /* Le choix « vent partout / vent sur la vue active » se retient par appareil :
+     sur telephone le defaut est restrictif, mais l'utilisateur qui le leve ne
+     doit pas avoir a recommencer a chaque visite. */
+  useEffect(() => {
+    try { localStorage.setItem(WIND_ALL_VIEWS_KEY, state.windAllViews ? '1' : '0'); }
+    catch { /* stockage plein ou navigation privee : le defaut reprendra */ }
+  }, [state.windAllViews]);
   return (
     <ExploreDispatchContext.Provider value={dispatch}>
       <ExploreStateContext.Provider value={state}>

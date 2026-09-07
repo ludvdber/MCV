@@ -2,6 +2,7 @@ import { Paper, Box, Typography, Chip } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { EmojiEvents as DiscoveryIcon } from '@mui/icons-material';
 import { useReveal } from '../../hooks/useReveal';
+import { useInk } from '../../hooks/useInk';
 
 const AGENCY_COLOR = { NASA: '#e05a2b', ESA: '#38bdf8' };
 
@@ -9,6 +10,10 @@ const AGENCY_COLOR = { NASA: '#e05a2b', ESA: '#38bdf8' };
 export default function TimelineItem({ item, index }) {
   const props = useReveal(index * 0.08);
   const agencyColor = AGENCY_COLOR[item.agency] || '#38bdf8';
+  /* La couleur d'agence reste la TEINTE (point, bordure, icone, fonds) ; en
+     ENCRE elle etait illisible sur la carte blanche du theme clair — 1,90
+     mesure pour le cyan de l'ESA, 3,49 pour l'orange de la NASA. */
+  const encre = useInk(agencyColor);
   const isRight = index % 2 === 0; /* desktop : carte à droite de la ligne */
 
   return (
@@ -21,14 +26,14 @@ export default function TimelineItem({ item, index }) {
           {!isRight && (
             <Paper sx={{ p: 2.5, maxWidth: 360, border: `1px solid ${alpha(agencyColor, 0.22)}`, boxShadow: `0 4px 24px ${alpha(agencyColor, 0.06)}` }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <Typography sx={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: agencyColor, fontSize: '1.3rem', lineHeight: 1 }}>{item.year}</Typography>
-                <Chip label={item.agency} size="small" sx={{ height: 20, fontSize: '0.7rem', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, backgroundColor: alpha(agencyColor, 0.15), color: agencyColor }} />
+                <Typography sx={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: encre, fontSize: '1.3rem', lineHeight: 1 }}>{item.year}</Typography>
+                <Chip label={item.agency} size="small" sx={{ height: 20, fontSize: '0.7rem', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, backgroundColor: alpha(agencyColor, 0.15), color: encre }} />
               </Box>
               <Typography sx={{ fontWeight: 700, fontSize: '1rem', mb: 0.8 }}>{item.name}</Typography>
               <Typography color="text.secondary" sx={{ fontSize: '0.88rem', lineHeight: 1.65, mb: 1.2 }}>{item.desc}</Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, p: '6px 10px', borderRadius: 2, backgroundColor: alpha(agencyColor, 0.08), border: `1px solid ${alpha(agencyColor, 0.2)}` }}>
                 <DiscoveryIcon sx={{ fontSize: 14, color: agencyColor, flexShrink: 0 }} />
-                <Typography sx={{ fontSize: '0.75rem', color: agencyColor, fontWeight: 600, fontFamily: "'Rajdhani',sans-serif" }}>{item.discovery}</Typography>
+                <Typography sx={{ fontSize: '0.75rem', color: encre, fontWeight: 600, fontFamily: "'Rajdhani',sans-serif" }}>{item.discovery}</Typography>
               </Box>
             </Paper>
           )}
@@ -44,14 +49,14 @@ export default function TimelineItem({ item, index }) {
           {isRight && (
             <Paper sx={{ p: 2.5, maxWidth: 360, border: `1px solid ${alpha(agencyColor, 0.22)}`, boxShadow: `0 4px 24px ${alpha(agencyColor, 0.06)}` }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <Typography sx={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: agencyColor, fontSize: '1.3rem', lineHeight: 1 }}>{item.year}</Typography>
-                <Chip label={item.agency} size="small" sx={{ height: 20, fontSize: '0.7rem', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, backgroundColor: alpha(agencyColor, 0.15), color: agencyColor }} />
+                <Typography sx={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: encre, fontSize: '1.3rem', lineHeight: 1 }}>{item.year}</Typography>
+                <Chip label={item.agency} size="small" sx={{ height: 20, fontSize: '0.7rem', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, backgroundColor: alpha(agencyColor, 0.15), color: encre }} />
               </Box>
               <Typography sx={{ fontWeight: 700, fontSize: '1rem', mb: 0.8 }}>{item.name}</Typography>
               <Typography color="text.secondary" sx={{ fontSize: '0.88rem', lineHeight: 1.65, mb: 1.2 }}>{item.desc}</Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, p: '6px 10px', borderRadius: 2, backgroundColor: alpha(agencyColor, 0.08), border: `1px solid ${alpha(agencyColor, 0.2)}` }}>
                 <DiscoveryIcon sx={{ fontSize: 14, color: agencyColor, flexShrink: 0 }} />
-                <Typography sx={{ fontSize: '0.75rem', color: agencyColor, fontWeight: 600, fontFamily: "'Rajdhani',sans-serif" }}>{item.discovery}</Typography>
+                <Typography sx={{ fontSize: '0.75rem', color: encre, fontWeight: 600, fontFamily: "'Rajdhani',sans-serif" }}>{item.discovery}</Typography>
               </Box>
             </Paper>
           )}
@@ -66,14 +71,14 @@ export default function TimelineItem({ item, index }) {
         </Box>
         <Paper sx={{ flex: 1, p: 2, mb: 2, border: `1px solid ${alpha(agencyColor, 0.22)}` }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.8 }}>
-            <Typography sx={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: agencyColor, fontSize: '1.1rem' }}>{item.year}</Typography>
-            <Chip label={item.agency} size="small" sx={{ height: 20, fontSize: '0.7rem', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, backgroundColor: alpha(agencyColor, 0.15), color: agencyColor }} />
+            <Typography sx={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: encre, fontSize: '1.1rem' }}>{item.year}</Typography>
+            <Chip label={item.agency} size="small" sx={{ height: 20, fontSize: '0.7rem', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, backgroundColor: alpha(agencyColor, 0.15), color: encre }} />
           </Box>
           <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', mb: 0.6 }}>{item.name}</Typography>
           <Typography color="text.secondary" sx={{ fontSize: '0.86rem', lineHeight: 1.6, mb: 1 }}>{item.desc}</Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, p: '5px 8px', borderRadius: 2, backgroundColor: alpha(agencyColor, 0.08), border: `1px solid ${alpha(agencyColor, 0.2)}` }}>
             <DiscoveryIcon sx={{ fontSize: 13, color: agencyColor, flexShrink: 0 }} />
-            <Typography sx={{ fontSize: '0.72rem', color: agencyColor, fontWeight: 600, fontFamily: "'Rajdhani',sans-serif" }}>{item.discovery}</Typography>
+            <Typography sx={{ fontSize: '0.72rem', color: encre, fontWeight: 600, fontFamily: "'Rajdhani',sans-serif" }}>{item.discovery}</Typography>
           </Box>
         </Paper>
       </Box>

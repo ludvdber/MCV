@@ -164,3 +164,32 @@ export function resultLabel(r, t) {
   }
   return genLabel(r.type, r.params, t, r.data?.altitudeValue);
 }
+
+/**
+ * Identifiant unique de vue.
+ *
+ * `Date.now().toString()` seul entrait en collision des que deux vues
+ * naissaient dans la meme milliseconde : ADD_RESULT retire alors l'entree
+ * existante puis empile l'identifiant en double dans resultOrder, ce qui donne
+ * deux onglets pour une seule vue, un compteur fausse, et une fermeture qui en
+ * supprime deux d'un coup. Le rejeu de session contournait deja le probleme en
+ * suffixant l'indice de boucle ; le compteur ci-dessous le supprime partout.
+ */
+let resultSeq = 0;
+export function nextResultId() {
+  resultSeq += 1;
+  return `${Date.now()}-${resultSeq}`;
+}
+
+/**
+ * Vues effectivement affichees : la vue active seule en disposition simple, le
+ * contenu explicite de la grille sinon.
+ *
+ * Le panneau de resultats ET le telechargement des champs de vent lisent cette
+ * meme definition. Dupliquee, elle laisserait rendre une cellule dont le champ
+ * n'a jamais ete demande.
+ */
+export function visibleResultIds({ layout, activeResult, gridIds }) {
+  if (layout === 1) return activeResult ? [activeResult] : [];
+  return gridIds;
+}

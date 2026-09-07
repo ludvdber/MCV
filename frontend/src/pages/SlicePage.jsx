@@ -29,6 +29,7 @@ import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
 import { useVisualizationPage } from '../hooks/useVisualizationPage';
 import { gridToTable } from '../utils/dataToTable';
 import { intParam } from '../utils/urlParams';
+import { WIND_FETCH_DEBOUNCE_MS } from '../utils/windStats';
 
 function SlicePage() {
   const {
@@ -98,10 +99,16 @@ function SlicePage() {
   useEffect(() => {
     if (!showWind || !sliceData || isWindVariable) return undefined;
     const controller = new AbortController();
-    getWind({ dataset: selectedDataset, time: selectedTime, altitudeIndex: selectedAltitude }, controller.signal)
-      .then(res => setWindData({ key: windKey, field: res.data }))
-      .catch(() => { /* champ precedent conserve : l'affichage est gate par la cle */ });
-    return () => controller.abort();
+    // Le parametre s'appelle `altitude` cote serveur. Envoye sous un autre nom,
+    // il etait ignore et le backend retombait sur son defaut (niveau 49) : les
+    // vecteurs montraient toujours le vent de ~41 km, quelle que soit la carte.
+    // Anti-rebond : sans lui, un balayage du curseur emet une requete par cran.
+    const timer = setTimeout(() => {
+      getWind({ dataset: selectedDataset, time: selectedTime, altitude: selectedAltitude }, controller.signal)
+        .then(res => setWindData({ key: windKey, field: res.data }))
+        .catch(() => { /* champ precedent conserve : l'affichage est gate par la cle */ });
+    }, WIND_FETCH_DEBOUNCE_MS);
+    return () => { clearTimeout(timer); controller.abort(); };
   }, [showWind, sliceData, selectedDataset, selectedTime, selectedAltitude, isWindVariable, windKey]);
   const activeWindField = showWind && !isWindVariable && windData?.key === windKey ? windData.field : null;
 

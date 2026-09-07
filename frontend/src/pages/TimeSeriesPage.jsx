@@ -34,6 +34,8 @@ import ViewExplainer from '../components/ViewExplainer';
 import { timeSeriesToTable } from '../utils/dataToTable';
 import { intParam, floatParam } from '../utils/urlParams';
 import { VARIABLES_MAP } from '../components/VariableSelector';
+import { SERIES_COLORS } from '../utils/seriesColors';
+import { inkOn } from '../utils/contrast';
 
 const MAX_POINTS = 4;
 
@@ -280,9 +282,11 @@ function TimeSeriesPage() {
                 sx={{
                   mt: 1,
                   flexShrink: 0,
-                  backgroundColor: ['var(--cyan-accent)', 'var(--mars-orange)', '#a855f7', '#22c55e'][idx],
-                  color: '#fff',
-                  textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                  /* Couleur de la courbe correspondante, et encre CALCULEE :
+                     du blanc sur ces quatre fonds clairs tombait entre 1,74 et
+                     3,96, l'ombre portee servant de cache-misere. */
+                  backgroundColor: SERIES_COLORS[idx],
+                  color: inkOn(SERIES_COLORS[idx]),
                   fontWeight: 600,
                   fontSize: '0.7rem',
                   height: 22,

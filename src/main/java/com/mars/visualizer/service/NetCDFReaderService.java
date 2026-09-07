@@ -21,6 +21,7 @@ import com.mars.visualizer.dto.internal.ProfileData;
 import com.mars.visualizer.dto.internal.SliceData;
 import com.mars.visualizer.dto.internal.TemporalProfileData;
 import com.mars.visualizer.dto.internal.TransectData;
+import com.mars.visualizer.dto.internal.VariableMetadata;
 import com.mars.visualizer.dto.internal.WindFieldData;
 import com.mars.visualizer.dto.internal.WindRoseData;
 import com.mars.visualizer.dto.internal.ZonalMeanData;
@@ -115,8 +116,11 @@ public class NetCDFReaderService {
 	 *
 	 * <p>Clé = {@code filename + '|' + coordName}. Aucune invalidation : les
 	 * fichiers NetCDF ne changent jamais en cours d'exécution (pipeline figée).
-	 * La taille est bornée par (nombre de fichiers × nombre de coordonnées),
-	 * soit quelques kilo-octets au total.
+	 * La taille est bornée par (nombre de fichiers × nombre de coordonnées) et
+	 * NON par le trafic : ce n'est donc pas une fuite, même sans éviction. Ordre
+	 * de grandeur réel pour le jeu complet (972 fichiers × lat 45 + lon 90 +
+	 * altitudeT 103 + altitudeM 103, soit 341 doubles par fichier) : environ
+	 * 3 Mo si toutes les années sont consultées. Pas quelques kilo-octets.
 	 */
 	private final Map<String, double[]> coordCache = new ConcurrentHashMap<>();
 
@@ -192,6 +196,28 @@ public class NetCDFReaderService {
 			log.error("Path traversal bloqué : {} hors de {}", normalizedFile, normalizedRoot);
 			throw new ValidationException("error.path.traversal", normalizedFile.getFileName().toString());
 		}
+	}
+
+	/**
+	 * Attributs CF d'une variable, lus dans le fichier source.
+	 *
+	 * <p>Sert a l'export NetCDF, qui se declare {@code Conventions = CF-1.8} et
+	 * doit donc porter une unite UDUNITS reelle. Les fichiers GEM-Mars portent
+	 * {@code units}, {@code standard_name} et {@code long_name} sur chaque
+	 * variable : il n'y a rien a deviner, seulement a recopier.
+	 *
+	 * @param filename     nom (MEAN) ou chemin absolu (INDIVIDUAL)
+	 * @param variableName code de la variable
+	 * @return les metadonnees presentes dans le fichier
+	 */
+	public VariableMetadata readVariableMetadata(String filename, String variableName) {
+		return readFile(filename, "error.netcdf.read", ncfile -> {
+			ucar.nc2.Variable v = requireVariable(ncfile, variableName);
+			return new VariableMetadata(
+					v.findAttributeString("units", null),
+					v.findAttributeString("standard_name", null),
+					v.findAttributeString("long_name", null));
+		});
 	}
 
 	/**

@@ -26,17 +26,18 @@ import {
   Compare as CurtainIcon,
   UnfoldMore as AmplitudeIcon,
   Speed as WindSpeedIcon,
+  SelectAll as WindAllViewsIcon,
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useExploreState, useExploreDispatch, A } from './ExploreContext.jsx';
-import { LATLON_HEATMAP_TYPES, COLORSCALE_TYPES, SMOOTH_TYPES } from './exploreConstants.jsx';
+import { LATLON_HEATMAP_TYPES, COLORSCALE_TYPES, SMOOTH_TYPES, ROI_TYPES } from './exploreConstants.jsx';
 
-/** Types compatibles avec les statistiques de region. */
-const ROI_TYPES = ['slice', 'difference'];
-
+/* disableInteractive : sans lui l'infobulle reste ouverte tant que le pointeur
+   la survole et recouvre les boutons voisins du rail, qui sont petits et
+   serres — les clics partaient alors dans le vide. */
 function ToolButton({ title, on = false, color = 'warning', onClick, children }) {
   return (
-    <Tooltip title={title} arrow placement="top">
+    <Tooltip title={title} arrow placement="top" disableInteractive>
       <IconButton
         size="small"
         onClick={onClick}
@@ -58,7 +59,7 @@ export default function ExploreTools({ onDeriveAmplitude, onDeriveWindSpeed }) {
   const {
     resultsById, resultOrder, activeResult,
     showLocations, showSurface, showDetailedTooltip, showAnomaly,
-    showWind, showWindParticles, showTopo, showLog, smoothHeatmap,
+    showWind, showWindParticles, windAllViews, showTopo, showLog, smoothHeatmap,
     roiMode, transectMode, syncZoom, curtainOn, curtainBId, layout,
   } = state;
 
@@ -119,6 +120,24 @@ export default function ExploreTools({ onDeriveAmplitude, onDeriveWindSpeed }) {
             <ToolButton title={t('explore.toggle.windParticles')} on={showWindParticles} color="info" onClick={() => dispatch({ type: A.TOGGLE_WIND_PARTICLES })}>
               <WindParticlesIcon fontSize="small" />
             </ToolButton>
+            {/* Portee du vent : toutes les vues de la grille, ou la seule vue
+                active. N'a de sens qu'en grille, et seulement si une couche de
+                vent est allumee — sinon le bouton ne changerait rien de
+                visible. Le defaut suit la taille de l'ecran (voir
+                makeInitialState dans ExploreContext) : partout sur grand ecran,
+                vue active seule sur telephone, ou quatre canvas de particules
+                animees coutent cher pour des cartes de la taille d'une
+                vignette. */}
+            {layout > 1 && (showWind || showWindParticles) && (
+              <ToolButton
+                title={t('explore.toggle.windAllViews')}
+                on={windAllViews}
+                color="info"
+                onClick={() => dispatch({ type: A.TOGGLE_WIND_ALL_VIEWS })}
+              >
+                <WindAllViewsIcon fontSize="small" />
+              </ToolButton>
+            )}
           </>
         )}
         {isSlice && (

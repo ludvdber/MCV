@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Paper, Box, Typography, Chip } from '@mui/material';
 import { alpha } from '@mui/material/styles';
+import { useInk } from '../../hooks/useInk';
 import {
   GridOn as SliceIcon,
   PlayCircleOutlined as AnimationIcon,
@@ -41,6 +42,14 @@ export default function FeatureCard({ feature, delay = 0, hero = false }) {
   const props = useReveal(delay);
   const { t } = useTranslation();
 
+  /* La couleur de la vue sert a la fois de TEINTE (fond, bordure, icone) et
+     d'ENCRE (titre, etiquette, « aller a »). En encre elle echouait a AA : ces
+     couleurs sont pensees pour ressortir sur un fond sombre, et l'etiquette de
+     la puce se posait meme sur une teinte de sa propre couleur — 3,20 mesure
+     pour l'orange, 1,95 pour le cyan. Les usages non textuels gardent la
+     couleur d'origine. */
+  const encre = useInk(feature.color, 0.12);
+
   if (hero) {
     return (
       <Box {...props} sx={{ height: '100%' }}>
@@ -73,17 +82,17 @@ export default function FeatureCard({ feature, delay = 0, hero = false }) {
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-              <Typography sx={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 700, color: feature.color }}>
+              <Typography sx={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 700, color: encre }}>
                 {feature.title}
               </Typography>
               <Chip label={feature.tag} size="small"
-                sx={{ height: 22, fontSize: '0.75rem', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, backgroundColor: alpha(feature.color, 0.12), color: feature.color, border: `1px solid ${alpha(feature.color, 0.3)}` }} />
+                sx={{ height: 22, fontSize: '0.75rem', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, backgroundColor: alpha(feature.color, 0.12), color: encre, border: `1px solid ${alpha(feature.color, 0.3)}` }} />
             </Box>
             <Typography color="text.secondary" sx={{ fontSize: '0.88rem', lineHeight: 1.65 }}>
               {feature.body}
             </Typography>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: feature.color, fontWeight: 700, fontSize: '0.85rem', flexShrink: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: encre, fontWeight: 700, fontSize: '0.85rem', flexShrink: 0 }}>
             {t('home.goTo')} <ArrowIcon sx={{ fontSize: 16 }} />
           </Box>
         </Paper>
@@ -120,16 +129,16 @@ export default function FeatureCard({ feature, delay = 0, hero = false }) {
             <Icon sx={{ color: feature.color, fontSize: 20 }} />
           </Box>
           <Chip label={feature.tag} size="small" variant="outlined"
-            sx={{ borderColor: alpha(feature.color, 0.4), color: feature.color, fontSize: '0.72rem', fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, height: 20 }} />
+            sx={{ borderColor: alpha(feature.color, 0.4), color: encre, fontSize: '0.72rem', fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, height: 20 }} />
         </Box>
         <Typography
-          sx={{ fontFamily: 'var(--font-display)', fontSize: '0.98rem', fontWeight: 600, mb: 0.8, color: feature.color }}>
+          sx={{ fontFamily: 'var(--font-display)', fontSize: '0.98rem', fontWeight: 600, mb: 0.8, color: encre }}>
           {feature.title}
         </Typography>
         <Typography color="text.secondary" sx={{ fontSize: '0.84rem', lineHeight: 1.65, flex: 1 }}>
           {feature.body}
         </Typography>
-        <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 0.5, color: feature.color, fontSize: '0.82rem', fontWeight: 600 }}>
+        <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 0.5, color: encre, fontSize: '0.82rem', fontWeight: 600 }}>
           {t('home.goTo')} <ArrowIcon sx={{ fontSize: 14 }} />
         </Box>
       </Paper>

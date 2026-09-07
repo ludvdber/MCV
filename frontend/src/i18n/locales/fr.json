@@ -587,5 +587,7 @@
   "legal.contact.title": "Questions et signalements",
   "legal.contact.body": "Pour une question sur le site lui-même, une erreur d'affichage ou une suggestion, le dépôt de code ci-dessus est le meilleur endroit, les tickets y sont publics. Pour une question scientifique sur le modèle GEM-Mars ou sur la réutilisation des données, adressez-vous à l'Institut royal d'Aéronomie Spatiale de Belgique.",
   "legal.updated": "Dernière mise à jour : septembre 2026",
-  "viz.windSpeedRange": "{{min}}–{{max}} m/s · moyenne {{mean}}"
+  "viz.windSpeedRange": "{{min}}–{{max}} m/s · moyenne {{mean}}",
+  "explore.toggle.windAllViews": "Vent dans toutes les vues",
+  "common.skipToContent": "Aller au contenu principal"
 }

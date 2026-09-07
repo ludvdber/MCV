@@ -10,7 +10,7 @@ import java.util.List;
  * discrète :
  *
  * <pre>
- *   f(t) ≈ moyenne + A₁·cos(2π(t − t₁)/24) + A₂·cos(4π(t − t₂)/12)
+ *   f(t) ≈ moyenne + A₁·cos(2π(t − t₁)/24) + A₂·cos(2π(t − t₂)/12)
  * </pre>
  *
  * - le mode 1 (diurne, période 24 h) suit le forçage solaire direct ;
@@ -105,11 +105,30 @@ public final class TidesCalculator {
 				// convertie en heures puis repliée sur la période du mode.
 				double t1 = Math.atan2(b1, a1) / (2.0 * Math.PI) * nT * hoursPerStep;
 				double t2 = Math.atan2(b2, a2) / (2.0 * Math.PI) * (nT / 2.0) * hoursPerStep;
-				pha1[i][j] = (float) ((t1 % 24 + 24) % 24);
-				pha2[i][j] = (float) ((t2 % 12 + 12) % 12);
+				pha1[i][j] = replie(t1, 24.0);
+				pha2[i][j] = replie(t2, 12.0);
 			}
 		}
 
 		return new TidesResult(mean, amp1, pha1, amp2, pha2);
+	}
+
+	/**
+	 * Replie une heure locale dans {@code [0, periode[}.
+	 *
+	 * <p>Le modulo seul ne suffit pas. Pour un maximum situe a minuit,
+	 * {@code atan2} rend un epsilon negatif, le repli donne
+	 * {@code periode - 1e-15}, et la conversion en {@code float} arrondit
+	 * exactement a la periode. La cellule affichait alors 24 h la ou sa voisine
+	 * affichait 0 h, pour le meme instant : une couture visible sur une carte de
+	 * phase a echelle lineaire.
+	 */
+	private static float replie(double heures, double periode) {
+		double h = heures % periode;
+		if (h < 0) {
+			h += periode;
+		}
+		float f = (float) h;
+		return f >= periode ? 0f : f;
 	}
 }

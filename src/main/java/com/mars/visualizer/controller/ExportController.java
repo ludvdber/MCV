@@ -1,6 +1,7 @@
 package com.mars.visualizer.controller;
 
 import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -29,7 +30,11 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ExportController extends AbstractDataController {
 
-	private static final MediaType TEXT_CSV = MediaType.parseMediaType("text/csv");
+	// Jeu de caracteres explicite : sans lui, Spring ecrit la chaine en
+	// ISO-8859-1 (defaut de StringHttpMessageConverter pour text/*). Le
+	// contenu actuel est purement ASCII, donc rien ne se voit, mais un
+	// libelle accentue ajoute un jour partirait silencieusement en charabia.
+	private static final MediaType TEXT_CSV = MediaType.parseMediaType("text/csv;charset=UTF-8");
 	private static final MediaType NETCDF = MediaType.parseMediaType("application/x-netcdf");
 
 	private final NetCDFReaderService netcdfService;
@@ -264,7 +269,11 @@ public class ExportController extends AbstractDataController {
 		validationService.validateTimestep(resolved.time());
 		validationService.validateAltitude(altitude);
 		SliceData slice = netcdfService.extractSlice2DWithCoords(resolved.filename(), variable, resolved.time(), altitude);
-		byte[] ncData = netcdfWriter.writeSliceNetCDF(variable, "see_source", slice.latitudes(), slice.longitudes(), slice.data());
+		// Les metadonnees viennent du fichier GEM-Mars, pas d'une table locale :
+		// l'export ecrivait "see_source" dans units alors qu'il se declare CF-1.8.
+		VariableMetadata meta = netcdfService.readVariableMetadata(resolved.filename(), variable);
+		byte[] ncData = netcdfWriter.writeSliceNetCDF(variable, meta,
+				slice.latitudes(), slice.longitudes(), slice.data());
 		return netcdfResponse(ncData, String.format("slice_%s_t%d_a%d.nc", variable, time, altitude));
 	}
 
@@ -275,7 +284,13 @@ public class ExportController extends AbstractDataController {
 	private ResponseEntity<String> csvResponse(String csvContent, String filename) {
 		HttpHeaders headers = new HttpHeaders();
 		headers.setContentType(TEXT_CSV);
-		headers.setContentDispositionFormData("attachment", filename);
+		// setContentDispositionFormData ecrit "form-data; name=\"attachment\"",
+		// qui est le type de disposition des PARTIES d'un envoi multipart, pas
+		// celui d'un telechargement. Les navigateurs retombent sur "attachment"
+		// pour un type inconnu (RFC 6266), donc rien ne cassait, mais l'en-tete
+		// annoncait autre chose que ce qu'il fait et le nom de fichier voyageait
+		// dans un parametre secondaire.
+		headers.setContentDisposition(ContentDisposition.attachment().filename(filename).build());
 		headers.setCacheControl(CacheControl.noStore().getHeaderValue());
 		return new ResponseEntity<>(csvContent, headers, HttpStatus.OK);
 	}
@@ -283,7 +298,13 @@ public class ExportController extends AbstractDataController {
 	private ResponseEntity<byte[]> netcdfResponse(byte[] data, String filename) {
 		HttpHeaders headers = new HttpHeaders();
 		headers.setContentType(NETCDF);
-		headers.setContentDispositionFormData("attachment", filename);
+		// setContentDispositionFormData ecrit "form-data; name=\"attachment\"",
+		// qui est le type de disposition des PARTIES d'un envoi multipart, pas
+		// celui d'un telechargement. Les navigateurs retombent sur "attachment"
+		// pour un type inconnu (RFC 6266), donc rien ne cassait, mais l'en-tete
+		// annoncait autre chose que ce qu'il fait et le nom de fichier voyageait
+		// dans un parametre secondaire.
+		headers.setContentDisposition(ContentDisposition.attachment().filename(filename).build());
 		headers.setCacheControl(CacheControl.noStore().getHeaderValue());
 		return new ResponseEntity<>(data, headers, HttpStatus.OK);
 	}

@@ -9,6 +9,7 @@ import {
   Explore as ExploreIcon,
 } from '@mui/icons-material';
 import { useReveal } from '../../hooks/useReveal';
+import { useInk } from '../../hooks/useInk';
 
 const BELGIUM_ICONS = {
   model: ModelIcon,
@@ -23,6 +24,8 @@ const BELGIUM_ICONS = {
 export default function BelgiumCard({ item, delay = 0 }) {
   const Icon = BELGIUM_ICONS[item.icon] || ModelIcon;
   const props = useReveal(delay);
+  /* Meme regle que la frise : couleur d'accent en teinte, encre derivee. */
+  const encre = useInk(item.color, 0.12);
   return (
     <Box {...props} sx={{ height: '100%' }}>
       <Paper sx={{
@@ -38,7 +41,7 @@ export default function BelgiumCard({ item, delay = 0 }) {
           </Box>
           <Box>
             <Typography sx={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '1.05rem', mb: 0.3 }}>{item.title}</Typography>
-            <Typography sx={{ fontSize: '0.72rem', color: item.color, fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{item.detail}</Typography>
+            <Typography sx={{ fontSize: '0.72rem', color: encre, fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{item.detail}</Typography>
           </Box>
         </Box>
         <Typography color="text.secondary" sx={{ fontSize: '0.9rem', lineHeight: 1.7 }}>{item.body}</Typography>

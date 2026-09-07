@@ -11,12 +11,14 @@ import { useTranslation } from 'react-i18next';
 import { useMars } from '../../context/MarsContext';
 import { useToast } from '../../context/ToastContext';
 import { getAltitudes } from '../../services/api';
-import { useExploreDispatch, A } from './ExploreContext.jsx';
+import { useExploreDispatch, useExploreState, A } from './ExploreContext.jsx';
+import { MAX_TABS } from './exploreConstants.jsx';
 
 export function useCommandRunner() {
   const { t } = useTranslation();
   const showToast = useToast();
   const dispatch = useExploreDispatch();
+  const { resultOrder } = useExploreState();
   const {
     selectedDataset, selectedVariable,
     setSelectedDataset, handleVariableChange, setSelectedTime,
@@ -26,6 +28,14 @@ export function useCommandRunner() {
 
   /** @returns {Promise<boolean>} true si la visualisation a été lancée */
   const runPlan = useCallback(async (plan) => {
+    // La limite d'onglets se teste ICI, avant toute annonce. Elle etait laissee
+    // au lancement en aval, qui refuse silencieusement : le clic sur un exemple
+    // affichait alors « visualisation lancee » en vert et rien n'apparaissait,
+    // la seule explication vivant dans le panneau de parametres replie.
+    if (resultOrder.length >= MAX_TABS) {
+      showToast(t('page.explore.tabLimit', { max: MAX_TABS }), 'warning');
+      return false;
+    }
     // Combinaison impossible (vue MEAN-only sur fichier individuel).
     if (plan.invalid) {
       showToast(t('explore.cmdk.meanOnly'), 'warning');
@@ -67,7 +77,7 @@ export function useCommandRunner() {
     dispatch({ type: A.SET_PENDING_AUTO, value: true });
     showToast(t('explore.cmdk.launched'), 'success');
     return true;
-  }, [t, showToast, dispatch, selectedDataset, selectedVariable,
+  }, [t, showToast, dispatch, resultOrder.length, selectedDataset, selectedVariable,
     setSelectedDataset, handleVariableChange, setSelectedTime, setSelectedAltitude,
     setSelectedLatitude, setSelectedLongitude, setSelectedIndividualMY, setSelectedIndividualLs]);
 
