@@ -135,10 +135,10 @@ Server installation, systemd service and reverse-proxy setup: **[DEPLOYMENT.md](
 | `./gradlew build` | Full build: frontend, compilation, tests, JAR in `build/libs/` |
 | `./gradlew build -x test` | Same without the test suite |
 | `./gradlew bootJar` | JAR only, no tests |
-| `./gradlew test` | JUnit 5 suite (164 tests) + JaCoCo coverage report |
+| `./gradlew test` | JUnit 5 suite (302 tests) + JaCoCo coverage report |
 | `./gradlew buildFrontend` | Frontend production build only |
 
-Coverage report: `build/reports/jacoco/test/html/index.html`.
+Coverage report: `build/reports/jacoco/test/html/index.html`. Currently 94.9% of instructions, 84.5% of branches.
 
 ### npm (`frontend/`)
 
@@ -147,8 +147,39 @@ Coverage report: `build/reports/jacoco/test/html/index.html`.
 | `npm run dev` | Vite dev server on :5173 with hot reload |
 | `npm run build` | Production build into `frontend/dist/` |
 | `npm run preview` | Serves the production build locally |
-| `npm run test` | Vitest suite (192 tests) |
+| `npm run test` | Vitest suite (1320 tests) |
+| `npx vitest run --coverage` | Same, with the coverage report in `frontend/coverage/` |
 | `npm run lint` | ESLint check |
+
+Frontend coverage is currently 90.2% of statements and 93.7% of lines. The
+Vitest configuration sets `coverage.all`, so a file no test imports still counts
+towards the denominator: removing that flag would inflate the figure without a
+single new test being written.
+
+---
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and every pull request, in two
+parallel jobs:
+
+| Job | Does |
+|---|---|
+| Backend | Java 21, `./gradlew build jacocoTestReport` (compiles the frontend, runs the JUnit suite, produces the JAR) |
+| Frontend | `npm ci`, ESLint, Vitest with coverage |
+
+Test reports, the coverage report and the produced JAR are kept as build
+artifacts for 14 days, so a failure can be read without reproducing the build
+locally.
+
+The workflow makes `gradlew` executable before calling it. The repository is
+developed on Windows, which has no execute bit, so the file is stored as `100644`
+in the index and `./gradlew` would fail with *Permission denied* on a Linux
+runner. To fix it permanently in the repository instead:
+
+```bash
+git update-index --chmod=+x gradlew
+```
 
 ---
 

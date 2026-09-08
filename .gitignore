@@ -54,6 +54,14 @@ lerna-debug.log*
 *.bak
 *.swp
 *~.nib
+# Restes de fusion et de correctifs.
+*.orig
+*.rej
+# Vidages memoire et fichiers d'attache de la JVM : produits par un diagnostic,
+# lourds, et parfois porteurs de donnees en clair.
+*.hprof
+.attach_pid*
+replay_pid*.log
 
 # ===== APPLICATION PROPERTIES (secrets) =====
 application-local.properties
@@ -72,6 +80,11 @@ temp/
 # ===== TESTS =====
 test-output/
 coverage/
+# Playwright est une dependance de developpement : ses rapports et ses captures
+# sont regeneres a chaque execution.
+playwright-report/
+test-results/
+.playwright/
 
 # ===== DOCUMENTATION GÉNÉRÉE =====
 HELP.md
@@ -83,6 +96,10 @@ node_modules/
 dist/
 dist-ssr/
 *.local
+# Caches et sondes de Vite, regeneres a chaque demarrage.
+.vite/
+vite.config.js.timestamp-*
+frontend/dev-dist/
 
 # ===== JAVA =====
 *.class
@@ -96,11 +113,13 @@ dist-ssr/
 *.ntvs*
 *.njsproj
 *.sln
-.claude/
-CLAUDE.md
 
-# ===== CLAUDE / IA =====
+# ===== OUTILLAGE IA (local, non livre) =====
+# Ces fichiers decrivent le depot a un assistant : ils sont utiles sur le poste
+# de travail et n'ont rien a faire dans une livraison a l'institut.
+.claude/
 .claudeignore
+CLAUDE.md
 CLAUDE.local.md
 
 # ===== TFE / MÉMOIRE (documents personnels) =====

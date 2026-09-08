@@ -135,10 +135,10 @@ Installation serveur, service systemd et reverse proxy : **[DEPLOYMENT.fr.md](DE
 | `./gradlew build` | Build complet : frontend, compilation, tests, JAR dans `build/libs/` |
 | `./gradlew build -x test` | Idem sans la suite de tests |
 | `./gradlew bootJar` | JAR uniquement, sans tests |
-| `./gradlew test` | Suite JUnit 5 (164 tests) + rapport de couverture JaCoCo |
+| `./gradlew test` | Suite JUnit 5 (302 tests) + rapport de couverture JaCoCo |
 | `./gradlew buildFrontend` | Build de production du frontend uniquement |
 
-Rapport de couverture : `build/reports/jacoco/test/html/index.html`.
+Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellement 94,9 % des instructions et 84,5 % des branches.
 
 ### npm (`frontend/`)
 
@@ -147,8 +147,39 @@ Rapport de couverture : `build/reports/jacoco/test/html/index.html`.
 | `npm run dev` | Serveur de développement Vite sur :5173 avec rechargement à chaud |
 | `npm run build` | Build de production dans `frontend/dist/` |
 | `npm run preview` | Sert le build de production en local |
-| `npm run test` | Suite Vitest (192 tests) |
+| `npm run test` | Suite Vitest (1320 tests) |
+| `npx vitest run --coverage` | Idem, avec le rapport de couverture dans `frontend/coverage/` |
 | `npm run lint` | Vérification ESLint |
+
+La couverture du frontend est actuellement de 90,2 % des instructions et 93,7 %
+des lignes. La configuration Vitest active `coverage.all` : un fichier qu'aucun
+test n'importe entre quand même au dénominateur. Retirer ce réglage gonflerait
+le chiffre sans qu'une seule ligne de test soit écrite.
+
+---
+
+## Intégration continue
+
+`.github/workflows/ci.yml` s'exécute à chaque push et à chaque pull request, en
+deux tâches parallèles :
+
+| Tâche | Fait |
+|---|---|
+| Backend | Java 21, `./gradlew build jacocoTestReport` (construit le frontend, joue la suite JUnit, produit le JAR) |
+| Frontend | `npm ci`, ESLint, Vitest avec couverture |
+
+Les rapports de test, le rapport de couverture et le JAR produit sont conservés
+comme artefacts pendant 14 jours : un échec se lit sans avoir à reproduire le
+build en local.
+
+Le workflow rend `gradlew` exécutable avant de l'appeler. Le dépôt est développé
+sous Windows, qui n'a pas de bit d'exécution : le fichier est enregistré en
+`100644` dans l'index et `./gradlew` échouerait en *Permission denied* sur un
+exécuteur Linux. Pour corriger cela durablement dans le dépôt :
+
+```bash
+git update-index --chmod=+x gradlew
+```
 
 ---
 
