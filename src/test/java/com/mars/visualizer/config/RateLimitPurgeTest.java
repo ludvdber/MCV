@@ -80,8 +80,27 @@ class RateLimitPurgeTest {
 		return f;
 	}
 
-	/** Cout moyen d'une requete d'une meme adresse, en nanosecondes. */
+	/**
+	 * Cout d'une requete d'une meme adresse, en nanosecondes : le MINIMUM de
+	 * trois tours.
+	 *
+	 * <p>Le minimum, et non la moyenne. Une machine partagee — un executeur
+	 * d'integration continue en particulier — ne rend jamais une requete plus
+	 * RAPIDE qu'elle ne l'est ; elle la ralentit, par preemption ou par
+	 * voisinage bruyant. La moyenne absorbe donc tout le bruit de la machine,
+	 * alors que le minimum estime ce que le code coute reellement. C'est ce qui
+	 * distingue un test de performance utilisable en CI d'un test qui clignote.
+	 */
 	private long coutParRequete(RateLimitFilter f, int repetitions) throws IOException, ServletException {
+		long meilleur = Long.MAX_VALUE;
+		for (int tour = 0; tour < 3; tour++) {
+			meilleur = Math.min(meilleur, unTour(f, repetitions));
+		}
+		return meilleur;
+	}
+
+	/** Un tour de mesure : chauffe, collecte, puis chronometre. */
+	private long unTour(RateLimitFilter f, int repetitions) throws IOException, ServletException {
 		for (int i = 0; i < 200; i++) {
 			appeler(f, "192.0.2.1");
 		}

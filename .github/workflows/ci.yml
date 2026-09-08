@@ -1,0 +1,154 @@
+name: CI
+
+# Chaque commit est verifie, sur toutes les branches, et chaque pull request
+# l'est aussi. Un commit pousse directement sur master passe donc par la meme
+# porte qu'une contribution : c'est le seul reglage qui rend la CI utile.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# Lecture seule : rien dans ce workflow n'ecrit dans le depot. Un jeton
+# restreint limite les degats si une action tierce est un jour compromise.
+permissions:
+  contents: read
+
+# Une nouvelle poussee sur la meme branche annule la precedente : inutile de
+# payer deux fois pour un etat qui n'existe deja plus.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Le projet declare une chaine d'outils Java 21 (build.gradle).
+  VERSION_JAVA: '21'
+  # Meme version majeure que le poste de developpement, ou la suite complete
+  # est verte. Vite 8 accepte aussi 20.19+ et 22.12+ : monter ou descendre ici
+  # est un choix deliberé, pas un detail.
+  VERSION_NODE: '24'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Backend : compilation, tests JUnit et fabrication du JAR.
+  #
+  # `./gradlew build` construit AUSSI le frontend (taches npmInstall,
+  # buildFrontend, copyFrontend) puis l'embarque dans le JAR : Node est donc
+  # necessaire ici, meme si aucun test JavaScript n'y tourne.
+  # ---------------------------------------------------------------------------
+  backend:
+    name: Backend — Java 21, tests JUnit et JAR
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Recuperer le depot
+        uses: actions/checkout@v4
+
+      - name: Installer Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.VERSION_JAVA }}
+
+      - name: Installer Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.VERSION_NODE }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Preparer Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Le depot est developpe sous Windows, qui n'a pas de bit d'execution :
+      # `gradlew` est enregistre en 100644 dans l'index git, et `./gradlew`
+      # echoue donc en « Permission denied » sur un executeur Linux, avant meme
+      # la premiere ligne de compilation. Le remettre ici rend la CI
+      # independante du systeme de celui qui a fait le commit.
+      # Correction permanente possible cote depot :
+      #   git update-index --chmod=+x gradlew
+      - name: Rendre le wrapper Gradle executable
+        run: chmod +x ./gradlew
+
+      - name: Compiler, tester et empaqueter
+        run: ./gradlew build jacocoTestReport --no-daemon
+
+      # Sans cette etape, un echec ne laisse qu'une ligne « There were failing
+      # tests » et il faut rejouer le build en local pour savoir laquelle.
+      - name: Publier les rapports de test
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapports-backend
+          path: |
+            build/reports/tests/test/
+            build/reports/jacoco/test/
+            build/test-results/test/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Publier le JAR
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mars-visualizer-jar
+          path: build/libs/*.jar
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Frontend : lint et suite Vitest.
+  #
+  # Tache SEPAREE du backend, volontairement. Groupees, un echec de lint
+  # masquerait un echec de test (et l'inverse), et il faudrait deux allers-
+  # retours pour voir les deux. Separees, elles tournent en parallele et
+  # rapportent chacune son verdict.
+  # ---------------------------------------------------------------------------
+  frontend:
+    name: Frontend — lint et suite Vitest
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Recuperer le depot
+        uses: actions/checkout@v4
+
+      - name: Installer Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.VERSION_NODE }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # `npm ci` et non `npm install` : il installe EXACTEMENT le contenu du
+      # package-lock.json, sans jamais le modifier. Une CI qui laisse glisser
+      # une version teste autre chose que ce qui sera livre.
+      - name: Installer les dependances
+        working-directory: frontend
+        env:
+          # Playwright est une dependance de developpement du depot, mais aucun
+          # test de la suite ne l'utilise : son postinstall telechargerait des
+          # navigateurs (plusieurs centaines de mega-octets) que rien n'ouvre
+          # ici. Si un jour un test navigateur rejoint la suite, retirer cette
+          # variable et ajouter `npx playwright install --with-deps chromium`.
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+        run: npm ci
+
+      - name: Verifier le style
+        working-directory: frontend
+        run: npm run lint
+
+      # `--coverage` maintient honnete la mesure : la configuration porte
+      # `all: true`, donc un fichier qu'aucun test n'importe entre quand meme
+      # au denominateur.
+      - name: Lancer la suite de tests
+        working-directory: frontend
+        run: npx vitest run --coverage
+
+      - name: Publier le rapport de couverture
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: couverture-frontend
+          path: frontend/coverage/
+          retention-days: 14
+          if-no-files-found: ignore

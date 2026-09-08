@@ -329,11 +329,18 @@ class PerformanceLectureTest {
 			svc.extractSlice2DWithCoords(FICHIER, "TT", 0, 0);
 			long premier = System.nanoTime() - t0;
 
-			long t1 = System.nanoTime();
-			for (int i = 0; i < 5; i++) {
-				svc.extractSlice2DWithCoords(FICHIER, "TT", i, 0);
+			// Minimum de trois tours, et non moyenne : une machine partagee ne
+			// rend jamais un appel plus rapide qu'il ne l'est, elle le ralentit.
+			// Le minimum estime donc le cout du code, la moyenne celui de la
+			// machine — et c'est la seconde qui fait clignoter un test en CI.
+			long cinqSuivants = Long.MAX_VALUE;
+			for (int tour = 0; tour < 3; tour++) {
+				long t1 = System.nanoTime();
+				for (int i = 0; i < 5; i++) {
+					svc.extractSlice2DWithCoords(FICHIER, "TT", i, 0);
+				}
+				cinqSuivants = Math.min(cinqSuivants, System.nanoTime() - t1);
 			}
-			long cinqSuivants = System.nanoTime() - t1;
 
 			assertThat(cinqSuivants)
 					.as("cinq appels caches ne doivent pas couter dix fois le premier")
