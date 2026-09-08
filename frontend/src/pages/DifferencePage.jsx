@@ -23,7 +23,7 @@ import { Functions as LogIcon, Place as PlaceIcon, Map as MapIcon, BlurOn as Smo
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { triggerApiDownload } from '../utils/exportUtils';
-import { intParam } from '../utils/urlParams';
+import { timeParam, altitudeParam } from '../utils/urlParams';
 import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
 import { useVisualizationPage } from '../hooks/useVisualizationPage';
 import ChartOrTable from '../components/ChartOrTable';
@@ -78,8 +78,8 @@ function DifferencePage() {
       setSelectedDataset(dsA);
       const dsB = sp.get('dsB'); if (dsB) setDatasetB(dsB);
       const v = sp.get('var'); if (v) handleVariableChange(v);
-      const time = intParam(sp, 't'); if (time != null) setSelectedTime(time);
-      const alt = intParam(sp, 'alt'); if (alt != null) setSelectedAltitude(alt);
+      const time = timeParam(sp); if (time != null) setSelectedTime(time);
+      const alt = altitudeParam(sp); if (alt != null) setSelectedAltitude(alt);
       return true;
     },
     fetchData: useCallback((signal) =>

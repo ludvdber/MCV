@@ -7,6 +7,7 @@ import { VARIABLES_MAP } from './VariableSelector';
 import { buildLocationTrace } from '../data/marsLocations';
 import { computeHeatmapCustomData } from '../utils/heatmapAnalysis';
 import { autoColorscaleFor } from '../utils/colorscales';
+import { altitudeLabel } from '../utils/variableUtils';
 import { upsampleLatLonGrid, nativeStep } from '../utils/gridInterpolation';
 import { compactLayout } from '../utils/compactPlot';
 import { plotAreaSize, quiverScales, buildQuiverSegments } from '../utils/windQuiver';
@@ -60,9 +61,7 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
     const varInfo = VARIABLES_MAP.get(variableCode);
     const unit = varInfo?.unit || '';
     const variableLabel = varInfo ? t(`variable.${variableCode}`) : variableCode;
-    const altitudeText = altitudeValue != null
-      ? `~${Number(altitudeValue).toFixed(1)} km`
-      : `${t('selector.altitude.level')} ${altitudeIndex}`;
+    const altitudeText = altitudeLabel(variableCode, altitudeValue, altitudeIndex, t);
 
     // Sur-echantillonnage optionnel (les points crees sont marques via `text`).
     const grid = upsampleLatLonGrid(

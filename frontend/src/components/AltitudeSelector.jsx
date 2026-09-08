@@ -53,9 +53,19 @@ function AltitudeSelector({ value, onChange, variableCode, disabled = false, den
 
   const altKm = !isSurface && altData?.key === altKey ? altData.altitudes : null;
 
-  /** Valeur precise pour le tooltip du curseur et la lecture directe du titre. */
+  /**
+   * Valeur precise pour le tooltip du curseur et la lecture directe du titre.
+   *
+   * La borne BASSE est aussi necessaire que la haute : `-1 < altKm.length` est
+   * vrai, `altKm[-1]` vaut undefined, et `.toFixed()` levait alors PENDANT le
+   * rendu — donc hors de portee d'un try/catch, et l'ErrorBoundary remplacait
+   * la page entiere. Un permalien retouche a la main (`?alt=-1`) suffisait.
+   * `urlParams` borne desormais l'entree ; ce composant ne doit pas pour autant
+   * dependre de son appelant pour ne pas tomber.
+   */
   const formatKm = (idx) => {
-    if (altKm && idx < altKm.length) return `${altKm[idx].toFixed(1)} km`;
+    const dansLaTable = altKm && Number.isInteger(idx) && idx >= 0 && idx < altKm.length;
+    if (dansLaTable) return `${altKm[idx].toFixed(1)} km`;
     return `${t('selector.altitude.level')} ${idx}`;
   };
 
@@ -69,7 +79,7 @@ function AltitudeSelector({ value, onChange, variableCode, disabled = false, den
 
   const marks = useMemo(() => markIdx.map(v => ({
     value: v,
-    label: altKm && v < altKm.length
+    label: altKm && v >= 0 && v < altKm.length
       ? `${Math.round(altKm[v])} km`
       : v === 0
         ? t('selector.altitude.top')

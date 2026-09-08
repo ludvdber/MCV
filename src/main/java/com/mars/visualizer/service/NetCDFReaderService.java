@@ -19,6 +19,7 @@ import com.mars.visualizer.dto.internal.CrossSectionData;
 import com.mars.visualizer.dto.internal.HovmollerData;
 import com.mars.visualizer.dto.internal.ProfileData;
 import com.mars.visualizer.dto.internal.SliceData;
+import com.mars.visualizer.dto.internal.TimeSeriesData;
 import com.mars.visualizer.dto.internal.TemporalProfileData;
 import com.mars.visualizer.dto.internal.TransectData;
 import com.mars.visualizer.dto.internal.VariableMetadata;
@@ -285,9 +286,9 @@ public class NetCDFReaderService {
 	 * @param latitude      latitude du point (-90 à 90)
 	 * @param longitude     longitude du point (-180 à 180)
 	 * @param altitudeIndex index d'altitude (0-102)
-	 * @return liste de 48 valeurs
+	 * @return les valeurs ET le noeud de grille reellement lu
 	 */
-	public List<Float> extractTimeSeries(String filename, String variableName,
+	public TimeSeriesData extractTimeSeries(String filename, String variableName,
 			double latitude, double longitude, int altitudeIndex) {
 
 		log.info("Extraction série temporelle : fichier={}, variable={}, lat={}, lon={}, altitude={}",
@@ -318,7 +319,7 @@ public class NetCDFReaderService {
 			}
 
 			log.debug("Série temporelle extraite : {} valeurs (surface={})", series.size(), isSurface);
-			return series;
+			return new TimeSeriesData(series, latitudes[latIdx], longitudes[lonIdx]);
 		});
 	}
 

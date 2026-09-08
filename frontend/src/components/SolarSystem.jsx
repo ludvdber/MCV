@@ -1072,10 +1072,14 @@ export default function SolarSystem() {
   };
 
   const handleFullscreen = () => {
+    // Les deux API rendent une promesse qui REJETTE quand le navigateur
+    // refuse (hors geste utilisateur, iframe sans allow="fullscreen", Safari
+    // sur iPhone) : sans le `.catch`, le refus part en unhandled rejection
+    // dans la console du visiteur. FullscreenButton le fait deja.
     if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen?.();
+      containerRef.current?.requestFullscreen?.().catch(() => {});
     } else {
-      document.exitFullscreen?.();
+      document.exitFullscreen?.().catch(() => {});
     }
   };
 

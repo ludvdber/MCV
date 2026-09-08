@@ -96,6 +96,11 @@ export default function WindParticlesLayer({ plotRef, windData, enabled = false,
     const stats = windSpeedStats(windData);
     if (!stats) return undefined;
     const ctx = canvas.getContext('2d');
+    // `getContext('2d')` rend null quand le navigateur refuse un contexte de
+    // plus (limite par onglet, contexte perdu non restaure). Sans cette
+    // garde, le nettoyage de cet effet levait au demontage — pendant la
+    // destruction de l'arbre React, donc hors de portee d'un ErrorBoundary.
+    if (!ctx) return undefined;
     const ramp = windRamp(mode);
     /* Les segments sont accumules par bande de vitesse puis traces en une passe
        par bande : WIND_BANDS appels a stroke() par frame au lieu d'un par

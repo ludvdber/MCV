@@ -166,12 +166,17 @@ class NetCDFReaderServiceTest {
     @Test
     @DisplayName("extractTimeSeries retourne 2 valeurs pour time=2")
     void extractTimeSeries_retourne2Valeurs() {
-        List<Float> series = service.extractTimeSeries(testFileName, "TT", -45.0, -90.0, 0);
+        var serie = service.extractTimeSeries(testFileName, "TT", -45.0, -90.0, 0);
+        List<Float> series = serie.values();
         assertEquals(2, series.size());
         // t=0, alt=0, lat=0, lon=0 → 1.0
         assertEquals(1.0f, series.get(0), 0.001f);
         // t=1, alt=0, lat=0, lon=0 → 13.0 (12 valeurs par timestep + 1)
         assertEquals(13.0f, series.get(1), 0.001f);
+        // Le noeud reellement lu accompagne desormais les valeurs : sans lui,
+        // le controleur ne pouvait annoncer que la coordonnee DEMANDEE.
+        assertEquals(-45.0, serie.actualLat(), 1e-9);
+        assertEquals(-90.0, serie.actualLon(), 1e-9);
     }
 
     @Test

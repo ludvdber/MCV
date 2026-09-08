@@ -195,7 +195,7 @@ const WIND_ALL_VIEWS_KEY = 'mcv-wind-all-views';
  * des cartes de la taille d'une vignette. Sur grand ecran, toutes les vues
  * l'affichent. Un choix deja fait sur cet appareil l'emporte sur les deux.
  */
-function makeInitialState() {
+export function makeInitialState() {
   let windAllViews;
   try {
     const retenu = localStorage.getItem(WIND_ALL_VIEWS_KEY);
@@ -209,8 +209,11 @@ function makeInitialState() {
 }
 
 /* ─── Reducer ──────────────────────────────────────────────────────────────── */
-// Exporte pour les tests : le plafond du cache de vent et l'assainissement
-// des modes se verifient sur le reducteur seul, sans monter la console.
+// `exploreReducer` ET `makeInitialState` sont exportes pour les tests : le
+// plafond du cache de vent, la normalisation de la grille et l'assainissement
+// des modes se verifient sur le reducteur seul, sans monter la console. Le
+// reducteur ne fabrique PAS son etat par defaut (useReducer le lui passe en
+// troisieme argument), un test doit donc pouvoir demander le meme.
 export function exploreReducer(state, action) {
   switch (action.type) {
     case A.SET_VIZ_TYPE:

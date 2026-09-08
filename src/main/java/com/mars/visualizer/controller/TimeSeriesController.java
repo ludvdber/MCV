@@ -52,14 +52,17 @@ public class TimeSeriesController extends AbstractDataController {
         validationService.validateLongitude(longitude);
         validationService.validateAltitude(altitude);
 
-        List<Float> values = netcdfService.extractTimeSeries(
+        var serie = netcdfService.extractTimeSeries(
                 filename, variable, latitude, longitude, altitude);
+        List<Float> values = serie.values();
 
         StatsResult stats    = StatsCalculator.calculateStats(values);
         Double altitudeValue = netcdfService.extractAltitudeValue(filename, variable, altitude);
 
         var response = new TimeSeriesResponse(
-                dataset, variable, latitude, longitude, altitude, altitudeValue, values, stats);
+                dataset, variable, latitude, longitude,
+                serie.actualLat(), serie.actualLon(),
+                altitude, altitudeValue, values, stats);
 
         return cachedOk(response);
     }

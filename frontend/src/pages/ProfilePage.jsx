@@ -32,7 +32,7 @@ import { isSurfaceVariable as checkIsSurface } from '../utils/variableUtils';
 import ChartOrTable from '../components/ChartOrTable';
 import ViewExplainer from '../components/ViewExplainer';
 import { profileToTable } from '../utils/dataToTable';
-import { intParam, floatParam } from '../utils/urlParams';
+import { floatParam, timeParam } from '../utils/urlParams';
 import { VARIABLES_MAP } from '../components/VariableSelector';
 import { SERIES_COLORS } from '../utils/seriesColors';
 import { inkOn } from '../utils/contrast';
@@ -93,7 +93,7 @@ function ProfilePage() {
     setSelectedDataset(ds);
     const v = searchParams.get('var');
     if (v) handleVariableChange(v);
-    const time = intParam(searchParams, 't');
+    const time = timeParam(searchParams);
     if (time != null) setSelectedTime(time);
     const pts = searchParams.get('pts');
     if (pts) {

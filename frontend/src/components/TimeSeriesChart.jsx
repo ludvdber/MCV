@@ -3,6 +3,7 @@ import Plotly, { renderPlot } from '../plotlyBundle';
 import { Paper, Typography, Box } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { VARIABLES_MAP } from './VariableSelector';
+import { altitudeLabel } from '../utils/variableUtils';
 import ExportMenu from './ExportMenu';
 import StatsBar from './StatsBar';
 import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
@@ -53,9 +54,14 @@ function TimeSeriesChart({ series, timeSeriesData, variableCode, datasetLabel, o
 
     const single = seriesArray.length === 1;
     const first = seriesArray[0];
-    const altitudeText = first.altitudeValue != null
-      ? `~${Number(first.altitudeValue).toFixed(1)} km`
-      : `${t('selector.altitude.level')} ${first.altitudeIndex}`;
+    const altitudeText = altitudeLabel(
+      variableCode, first.altitudeValue, first.altitudeIndex, t);
+
+    // Le point AFFICHE est celui d'ou vient la mesure, pas celui demande. La
+    // grille fait 4 degres : une demande a 38 S est servie par le noeud a 40 S,
+    // et l'etiquette annoncait le point demande. `actualLat` peut manquer sur
+    // une reponse mise en cache avant que l'API ne la porte, d'ou le repli.
+    const pointLu = (s) => `(${s.actualLat ?? s.latitude}°, ${s.actualLon ?? s.longitude}°)`;
 
     const traces = seriesArray.map((s, i) => ({
       x: HOURS,
@@ -63,10 +69,10 @@ function TimeSeriesChart({ series, timeSeriesData, variableCode, datasetLabel, o
       mode: 'lines+markers',
       line: { color: single ? accentColor : COLORS[i % COLORS.length], width: 2.5 },
       marker: { color: single ? accentColor : COLORS[i % COLORS.length], size: 4 },
-      name: `(${s.latitude}°, ${s.longitude}°)`,
+      name: pointLu(s),
       showlegend: !single,
       hovertemplate: '%{x} : %{y:.6g} ' + unit +
-        '<extra>' + (single ? '' : `(${s.latitude}°, ${s.longitude}°)`) + '</extra>',
+        '<extra>' + (single ? '' : pointLu(s)) + '</extra>',
     }));
 
     // 48 étiquettes hh:mm en axe 'category' se chevauchent (Plotly les pivote et
@@ -75,7 +81,7 @@ function TimeSeriesChart({ series, timeSeriesData, variableCode, datasetLabel, o
     const tickVals = HOURS.filter((_, i) => (i + 1) % tickEvery === 0);
 
     const titleText = single
-      ? `${datasetLabel || ''} — ${variableLabel} — Lat ${first.latitude}°, Lon ${first.longitude}° — ${altitudeText}`
+      ? `${datasetLabel || ''} — ${variableLabel} — Lat ${first.actualLat ?? first.latitude}°, Lon ${first.actualLon ?? first.longitude}° — ${altitudeText}`
       : `${datasetLabel || ''} — ${variableLabel} — ${altitudeText}`;
 
     renderPlot(el, traces, {

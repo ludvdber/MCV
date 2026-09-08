@@ -49,6 +49,13 @@ function TidesViewer({ tidesData, variableCode, datasetLabel, externalPlotRef = 
     const amp = isDiurnal ? tidesData.amplitudeDiurnal : tidesData.amplitudeSemidiurnal;
     const phase = isDiurnal ? tidesData.phaseDiurnal : tidesData.phaseSemidiurnal;
     const period = isDiurnal ? 24 : 12;
+    // Garde defensive : si la reponse arrive partielle (course montage/donnees,
+    // reponse tronquee par un proxy, entree de cache anterieure a un champ),
+    // on n'entre pas dans le rendu Plotly. Les neuf autres afficheurs la
+    // portent deja ; sans elle, l'erreur est levee DANS un useEffect et
+    // remonte a l'ErrorBoundary, qui remplace la vue entiere.
+    if (!Array.isArray(latitudes) || !Array.isArray(longitudes)
+        || !Array.isArray(amp) || !Array.isArray(phase)) return;
 
     const varInfo = VARIABLES_MAP.get(variableCode);
     const unit = varInfo?.unit || '';

@@ -53,22 +53,68 @@ api.interceptors.response.use(
 
 // ==================== CACHE ====================
 
-/** Cache en memoire pour les endpoints de donnees (TTL 5 min, max 50 entrees). */
+/** Cache en memoire pour les endpoints de donnees (TTL 5 min). */
 const _cache = new Map();
 const CACHE_TTL = 5 * 60 * 1000;
 const CACHE_MAX = 50;
 
-/** Purge les entrees expirees et ejecte les plus anciennes si > CACHE_MAX. */
+/**
+ * Second plafond, en VALEURS numeriques retenues.
+ *
+ * Compter les entrees ne borne pas la memoire : le plafond reel est alors fixe
+ * par la plus grosse reponse possible. Mesure sur la grille GEM-Mars reelle
+ * (46 latitudes x 90 longitudes) : une animation porte 48 images, soit 198 720
+ * valeurs, et cinquante d'entre elles pesent <b>81 Mo</b> dans le tas du
+ * navigateur. Une coupe, elle, n'en porte que 4 140.
+ *
+ * Trois millions de valeurs representent environ 24 Mo : de quoi garder une
+ * quinzaine d'animations ou sept cents coupes, ce qui couvre largement une
+ * session d'exploration, sans exposer un telephone au cas ou l'utilisateur
+ * enchaine les animations.
+ */
+const CACHE_MAX_VALEURS = 3_000_000;
+
+/**
+ * Poids approximatif d'une reponse, en nombre de valeurs.
+ *
+ * On ne parcourt PAS les donnees : les grilles sont rectangulaires, donc
+ * descendre le long du premier element suffit a en deduire la forme. Le cout
+ * est en O(profondeur), pas en O(taille) — un cache ne doit pas couter le prix
+ * de ce qu'il range.
+ */
+function poidsApproximatif(valeur, profondeurMax = 6) {
+  if (profondeurMax <= 0) return 1;
+  if (Array.isArray(valeur)) {
+    return valeur.length === 0 ? 0 : valeur.length * poidsApproximatif(valeur[0], profondeurMax - 1);
+  }
+  if (valeur && typeof valeur === 'object') {
+    let total = 0;
+    for (const v of Object.values(valeur)) total += poidsApproximatif(v, profondeurMax - 1);
+    return total;
+  }
+  return 1;
+}
+
+/** Somme des poids actuellement retenus. */
+function valeursEnCache() {
+  let total = 0;
+  for (const v of _cache.values()) total += v.poids;
+  return total;
+}
+
+/** Purge les entrees expirees, puis les plus anciennes tant qu'un plafond est depasse. */
 function purgeCache() {
   const now = Date.now();
   for (const [k, v] of _cache) {
     if (now - v.ts > CACHE_TTL) _cache.delete(k);
   }
-  // If still over limit, remove oldest entries
-  if (_cache.size > CACHE_MAX) {
-    const sorted = [..._cache.entries()].sort((a, b) => a[1].ts - b[1].ts);
-    const toRemove = sorted.slice(0, _cache.size - CACHE_MAX);
-    for (const [k] of toRemove) _cache.delete(k);
+  // Une Map conserve l'ordre d'insertion, et une entree relue n'est pas
+  // reinseree : les cles les plus anciennes sont donc simplement les premieres.
+  let poids = valeursEnCache();
+  for (const [k, v] of _cache) {
+    if (_cache.size <= CACHE_MAX && poids <= CACHE_MAX_VALEURS) break;
+    _cache.delete(k);
+    poids -= v.poids;
   }
 }
 
@@ -104,7 +150,13 @@ function cachedGet(endpoint, params, signal) {
     return Promise.resolve(entry.res);
   }
   return api.get(endpoint, { params, signal }).then(res => {
-    if (!signal?.aborted) _cache.set(key, { ts: Date.now(), res });
+    if (!signal?.aborted) {
+      _cache.set(key, { ts: Date.now(), res, poids: poidsApproximatif(res?.data) });
+      // Purger a l'INSERTION, pas seulement toutes les soixante secondes : une
+      // rafale d'animations pouvait sinon franchir le plafond entre deux
+      // passages du minuteur, ce qui est justement le moment ou il sert.
+      purgeCache();
+    }
     return res;
   });
 }

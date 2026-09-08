@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 
-const STORAGE_KEY = 'mcv-recent-history';
+// Exportee : un test qui redevine la cle de stockage ecrit a cote et passe
+// sans rien verifier (constate sur les sessions de la console).
+export const STORAGE_KEY = 'mcv-recent-history';
 const MAX_ENTRIES = 20;
 
 // Shared listeners so all hook instances stay in sync within the same tab

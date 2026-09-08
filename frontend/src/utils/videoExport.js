@@ -22,6 +22,13 @@ export function webmSupported() {
 }
 
 function pickMimeType() {
+  // `typeof`, comme dans webmSupported : sans lui, un navigateur sans
+  // MediaRecorder (Safari iOS ancien, navigateurs embarques) leve un
+  // ReferenceError brut au lieu du « WebM not supported » que cette fonction
+  // promet, et que exportAnimationWebM releve juste apres. Les deux appelants
+  // verifient webmSupported() avant, mais le contrat de CETTE fonction est de
+  // rendre null, pas de lever.
+  if (typeof MediaRecorder === 'undefined') return null;
   for (const m of ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']) {
     if (MediaRecorder.isTypeSupported?.(m)) return m;
   }

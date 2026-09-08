@@ -28,6 +28,11 @@ export default function RoiLayer({ hostRef, enabled, onSelect, onClear }) {
     if (!enabled || !host || !canvas) return undefined;
 
     const ctx = canvas.getContext('2d');
+    // `getContext('2d')` rend null quand le navigateur refuse un contexte de
+    // plus (limite par onglet, contexte perdu non restaure). Sans cette
+    // garde, le nettoyage de cet effet levait au demontage — pendant la
+    // destruction de l'arbre React, donc hors de portee d'un ErrorBoundary.
+    if (!ctx) return undefined;
     let plotEl = null;
     let disposed = false;
     let attachTimer = null;

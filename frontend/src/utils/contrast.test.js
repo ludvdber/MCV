@@ -70,4 +70,27 @@ describe('derivation d une encre lisible', () => {
       expect(contrastRatio(inkOn(c), c)).toBeGreaterThanOrEqual(4.5);
     }
   });
+
+  it('rend la meilleure des deux extremites quand la cible est hors de portee', () => {
+    // Sur un fond de luminance intermediaire, ni le noir ni le blanc n'atteint
+    // 7:1. Ce repli n'etait exerce par aucun test : la fonction doit alors
+    // rendre l'extremite la PLUS contrastee, jamais une couleur pire que
+    // l'originale. Sur un gris moyen, c'est le noir.
+    const fond = '#808080';
+    const obtenu = readableOn('#7a7a7a', fond, 7);
+
+    expect(contrastRatio(obtenu, fond)).toBeGreaterThan(contrastRatio('#7a7a7a', fond));
+    expect(contrastRatio(obtenu, fond))
+      .toBeGreaterThanOrEqual(Math.max(contrastRatio('#000000', fond), contrastRatio('#ffffff', fond)));
+    expect(obtenu).toBe('#000000');
+  });
+
+  it('choisit le blanc quand c est lui le plus contraste sur un fond sombre', () => {
+    // Meme repli, direction opposee : le fond est sombre, la marche part vers
+    // le blanc, et aucune etape n'atteint 21:1.
+    const fond = '#3a3a3a';
+    const obtenu = readableOn('#404040', fond, 21);
+    expect(obtenu).toBe('#ffffff');
+    expect(contrastRatio(obtenu, fond)).toBeGreaterThan(contrastRatio('#000000', fond));
+  });
 });

@@ -5,7 +5,10 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // « coverage » comme « dist » : du code GENERE. Sans lui, le nombre
+  // d'avertissements de `npm run lint` depend de si quelqu'un a lance la
+  // couverture juste avant (2 de plus, sur des fichiers de rapport).
+  globalIgnores(['dist', 'coverage']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -34,6 +37,14 @@ export default defineConfig([
         caughtErrors: 'none',
       }],
     },
+  },
+  {
+    // Les fichiers de TEST et leurs doublures ne sont jamais rechargés à chaud :
+    // la règle react-refresh (qui exige qu'un module n'exporte que des
+    // composants) n'y décrit aucun risque. Un harnais exporte par nature des
+    // composants d'enveloppe ET des utilitaires.
+    files: ['src/**/*.test.{js,jsx}', 'src/test/**/*.{js,jsx}'],
+    rules: { 'react-refresh/only-export-components': 'off' },
   },
   {
     // Les contextes co-localisent volontairement Provider + hook (useMars,

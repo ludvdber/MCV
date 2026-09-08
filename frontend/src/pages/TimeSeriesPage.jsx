@@ -32,7 +32,7 @@ import { isSurfaceVariable as checkIsSurface } from '../utils/variableUtils';
 import ChartOrTable from '../components/ChartOrTable';
 import ViewExplainer from '../components/ViewExplainer';
 import { timeSeriesToTable } from '../utils/dataToTable';
-import { intParam, floatParam } from '../utils/urlParams';
+import { floatParam, altitudeParam } from '../utils/urlParams';
 import { VARIABLES_MAP } from '../components/VariableSelector';
 import { SERIES_COLORS } from '../utils/seriesColors';
 import { inkOn } from '../utils/contrast';
@@ -94,7 +94,7 @@ function TimeSeriesPage() {
     setSelectedDataset(ds);
     const v = searchParams.get('var');
     if (v) handleVariableChange(v);
-    const alt = intParam(searchParams, 'alt');
+    const alt = altitudeParam(searchParams);
     if (alt != null) setSelectedAltitude(alt);
     const pts = searchParams.get('pts');
     if (pts) {

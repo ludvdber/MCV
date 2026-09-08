@@ -27,6 +27,9 @@ export default function RegionHistogram({ values }) {
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(HEIGHT * dpr);
     const ctx = canvas.getContext('2d');
+    // Meme raison que les autres couches : un contexte refuse ne doit pas
+    // faire tomber le panneau lateral entier dans l'ErrorBoundary.
+    if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, HEIGHT);
 

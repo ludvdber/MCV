@@ -1,5 +1,7 @@
 package com.mars.visualizer.controller;
 
+import java.util.Locale;
+
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -64,7 +66,7 @@ public class ExportController extends AbstractDataController {
 		String csv = CSVBuilder.grid2D(slice.data(), slice.latitudes(), slice.longitudes(),
 				"latitude", "longitude", "value");
 
-		return csvResponse(csv, String.format("slice_%s_%s_t%d_alt%d.csv", dataset, variable, resolved.time(), altitude));
+		return csvResponse(csv, String.format(Locale.ROOT, "slice_%s_%s_t%d_alt%d.csv", dataset, variable, resolved.time(), altitude));
 	}
 
 	@GetMapping("/csv/timeseries")
@@ -81,10 +83,10 @@ public class ExportController extends AbstractDataController {
 		validationService.validateLongitude(longitude);
 		validationService.validateAltitude(altitude);
 
-		var values = netcdfService.extractTimeSeries(ncFile, variable, latitude, longitude, altitude);
+		var values = netcdfService.extractTimeSeries(ncFile, variable, latitude, longitude, altitude).values();
 		String csv = CSVBuilder.series(values, "timestep", "value");
 
-		return csvResponse(csv, String.format("timeseries_%s_%s_lat%s_lon%s_alt%d.csv",
+		return csvResponse(csv, String.format(Locale.ROOT, "timeseries_%s_%s_lat%s_lon%s_alt%d.csv",
 				dataset, variable, datasetResolver.formatCoord(latitude),
 				datasetResolver.formatCoord(longitude), altitude));
 	}
@@ -105,7 +107,7 @@ public class ExportController extends AbstractDataController {
 		ProfileData profile = netcdfService.extractVerticalProfile(resolved.filename(), variable, resolved.time(), latitude, longitude);
 		String csv = CSVBuilder.profile(profile.values(), profile.altitudes());
 
-		return csvResponse(csv, String.format("profile_%s_%s_t%d_lat%s_lon%s.csv",
+		return csvResponse(csv, String.format(Locale.ROOT, "profile_%s_%s_t%d_lat%s_lon%s.csv",
 				dataset, variable, resolved.time(),
 				datasetResolver.formatCoord(latitude), datasetResolver.formatCoord(longitude)));
 	}
@@ -127,7 +129,7 @@ public class ExportController extends AbstractDataController {
 		String csv = CSVBuilder.grid2D(cs.data(), cs.altitudes(), cs.horizontalCoords(),
 				"altitude_km", horizLabel, "value");
 
-		return csvResponse(csv, String.format("crosssection_%s_%s_%s_t%d_fixed%s.csv",
+		return csvResponse(csv, String.format(Locale.ROOT, "crosssection_%s_%s_%s_t%d_fixed%s.csv",
 				dataset, variable, type, resolved.time(), datasetResolver.formatCoord(fixedCoordinate)));
 	}
 
@@ -148,7 +150,7 @@ public class ExportController extends AbstractDataController {
 		String csv = CSVBuilder.grid2D(hov.data(), hov.times(), hov.spatialCoords(),
 				"time_h", spatialLabel, "value");
 
-		return csvResponse(csv, String.format("hovmoller_%s_%s_%s_alt%d.csv", dataset, variable, type, altitude));
+		return csvResponse(csv, String.format(Locale.ROOT, "hovmoller_%s_%s_%s_alt%d.csv", dataset, variable, type, altitude));
 	}
 
 	@GetMapping("/csv/zonalmean")
@@ -164,7 +166,7 @@ public class ExportController extends AbstractDataController {
 		String csv = CSVBuilder.grid2D(zm.data(), zm.altitudes(), zm.latitudes(),
 				"altitude_km", "latitude", "value");
 
-		return csvResponse(csv, String.format("zonalmean_%s_%s_t%d.csv", dataset, variable, resolved.time()));
+		return csvResponse(csv, String.format(Locale.ROOT, "zonalmean_%s_%s_t%d.csv", dataset, variable, resolved.time()));
 	}
 
 	@GetMapping("/csv/windrose")
@@ -183,7 +185,7 @@ public class ExportController extends AbstractDataController {
 		WindRoseData wr = netcdfService.extractWindRose(filename, latitude, longitude, altitude);
 		String csv = CSVBuilder.pairedSeries(wr.uu(), wr.vv(), "timestep", "uu_m_s", "vv_m_s");
 
-		return csvResponse(csv, String.format("windrose_%s_lat%s_lon%s_alt%d.csv",
+		return csvResponse(csv, String.format(Locale.ROOT, "windrose_%s_lat%s_lon%s_alt%d.csv",
 				dataset, datasetResolver.formatCoord(latitude), datasetResolver.formatCoord(longitude), altitude));
 	}
 
@@ -206,7 +208,7 @@ public class ExportController extends AbstractDataController {
 		SliceData sliceB = netcdfService.extractSlice2DWithCoords(resolvedB.filename(), variable, resolvedB.time(), altitude);
 		String csv = CSVBuilder.differenceGrid(sliceA.data(), sliceB.data(), sliceA.latitudes(), sliceA.longitudes());
 
-		return csvResponse(csv, String.format("difference_%s_vs_%s_%s_t%d_alt%d.csv",
+		return csvResponse(csv, String.format(Locale.ROOT, "difference_%s_vs_%s_%s_t%d_alt%d.csv",
 				datasetA, datasetB, variable, time, altitude));
 	}
 
@@ -225,7 +227,7 @@ public class ExportController extends AbstractDataController {
 		int nTime = tp.data()[0].length;
 		String csv = CSVBuilder.temporalProfile(tp.data(), tp.altitudes(), nTime);
 
-		return csvResponse(csv, String.format("temporal_profile_%s_lat%s_lon%s.csv",
+		return csvResponse(csv, String.format(Locale.ROOT, "temporal_profile_%s_lat%s_lon%s.csv",
 				variable, datasetResolver.formatCoord(latitude), datasetResolver.formatCoord(longitude)));
 	}
 
@@ -274,7 +276,7 @@ public class ExportController extends AbstractDataController {
 		VariableMetadata meta = netcdfService.readVariableMetadata(resolved.filename(), variable);
 		byte[] ncData = netcdfWriter.writeSliceNetCDF(variable, meta,
 				slice.latitudes(), slice.longitudes(), slice.data());
-		return netcdfResponse(ncData, String.format("slice_%s_t%d_a%d.nc", variable, time, altitude));
+		return netcdfResponse(ncData, String.format(Locale.ROOT, "slice_%s_t%d_a%d.nc", variable, time, altitude));
 	}
 
 	// =========================================================================

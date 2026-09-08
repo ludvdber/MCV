@@ -33,6 +33,12 @@ function ProfileViewer({ profiles, variableCode, datasetLabel, onExportCSV = nul
   useEffect(() => {
     const el = plotRef.current;
     if (!el || !profiles || profiles.length === 0) return;
+    // Garde defensive : si la reponse arrive partielle (course montage/donnees,
+    // reponse tronquee par un proxy, entree de cache anterieure a un champ),
+    // on n'entre pas dans le rendu Plotly. Les neuf autres afficheurs la
+    // portent deja ; sans elle, l'erreur est levee DANS un useEffect et
+    // remonte a l'ErrorBoundary, qui remplace la vue entiere.
+    if (!profiles.every(p => Array.isArray(p?.values) && Array.isArray(p?.altitudes))) return;
 
     const varInfo = VARIABLES_MAP.get(variableCode);
     const variableLabel = varInfo ? t(`variable.${variableCode}`) : variableCode;

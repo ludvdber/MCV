@@ -5,6 +5,7 @@ import { PlayArrow, Pause } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { formatTime } from '../utils/formatTime';
 import { VARIABLES_MAP } from './VariableSelector';
+import { altitudeLabel } from '../utils/variableUtils';
 import { buildLocationTrace } from '../data/marsLocations';
 import { computeHeatmapCustomData } from '../utils/heatmapAnalysis';
 import { autoColorscaleFor } from '../utils/colorscales';
@@ -92,9 +93,8 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
   const variableLabel = VARIABLES_MAP.get(variableCode) ? t(`variable.${variableCode}`) : variableCode;
 
   /** Formate l'altitude : valeur réelle en km si disponible, sinon index */
-  const altitudeText = animationData?.altitudeValue != null
-    ? `~${Number(animationData.altitudeValue).toFixed(1)} km`
-    : animationData?.altitudeIndex != null ? `${t('selector.altitude.level')} ${animationData.altitudeIndex}` : '';
+  const altitudeText = altitudeLabel(
+    variableCode, animationData?.altitudeValue, animationData?.altitudeIndex, t);
 
   /** Titre Plotly statique (sans l'heure qui change) */
   const plotTitle = {

@@ -22,6 +22,9 @@ public class ValidationException extends RuntimeException {
     public ValidationException(String messageKey, Object... messageArgs) {
         super(messageKey);
         this.messageKey = messageKey;
-        this.messageArgs = messageArgs;
+        // Les arguments partent dans le corps de la reponse HTTP : un chemin
+        // y est reduit a son nom de fichier, une valeur du client est bornee.
+        // Voir MessageArgs pour le detail des deux fuites que cela ferme.
+        this.messageArgs = MessageArgs.assainir(messageArgs);
     }
 }

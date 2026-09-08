@@ -104,10 +104,14 @@ public class IndividualCatalogService {
 
 				if (signature.equals(cached.signature())) {
 					this.yearInfos = Collections.unmodifiableList(cached.yearInfos());
+					// Le chemin est RECONSTRUIT sous la racine configuree, jamais
+					// relu du cache : celui-ci voyage avec les donnees et un
+					// chemin absolu fige y survivrait a un deplacement sans que
+					// l'empreinte s'en apercoive.
 					this.dirInfos  = Collections.unmodifiableList(
 						cached.dirInfos().stream()
 							.map(c -> new DirInfo(
-								c.dirName(), Path.of(c.dirPath()),
+								c.dirName(), individualRoot.resolve(c.dirName()),
 								c.lsMin(), c.lsMax(), c.marsYear()))
 							.toList()
 					);
@@ -410,7 +414,6 @@ public class IndividualCatalogService {
 			List<CatalogCache.CachedDirInfo> cachedDirs = dirInfos.stream()
 				.map(d -> new CatalogCache.CachedDirInfo(
 					d.dirName(),
-					d.dirPath().toAbsolutePath().toString(),
 					d.lsMin(),
 					d.lsMax(),
 					d.marsYear()))

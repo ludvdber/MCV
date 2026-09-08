@@ -28,7 +28,7 @@ import { triggerApiDownload } from '../utils/exportUtils';
 import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
 import { useVisualizationPage } from '../hooks/useVisualizationPage';
 import { gridToTable } from '../utils/dataToTable';
-import { intParam } from '../utils/urlParams';
+import { timeParam, altitudeParam } from '../utils/urlParams';
 import { WIND_FETCH_DEBOUNCE_MS } from '../utils/windStats';
 
 function SlicePage() {
@@ -63,8 +63,8 @@ function SlicePage() {
       if (!ds) return false;
       setSelectedDataset(ds);
       const v = sp.get('var'); if (v) handleVariableChange(v);
-      const ti = intParam(sp, 't'); if (ti != null) setSelectedTime(ti);
-      const alt = intParam(sp, 'alt'); if (alt != null) setSelectedAltitude(alt);
+      const ti = timeParam(sp); if (ti != null) setSelectedTime(ti);
+      const alt = altitudeParam(sp); if (alt != null) setSelectedAltitude(alt);
       const cs = sp.get('cs'); if (cs) setColorscale(cs);
       return true;
     },

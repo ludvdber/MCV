@@ -20,7 +20,7 @@ import PageLoader from '../components/PageLoader';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { triggerApiDownload } from '../utils/exportUtils';
-import { intParam } from '../utils/urlParams';
+import { altitudeParam } from '../utils/urlParams';
 import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
 import { useVisualizationPage } from '../hooks/useVisualizationPage';
 import ChartOrTable from '../components/ChartOrTable';
@@ -53,7 +53,7 @@ function HovmollerPage() {
       if (!ds) return false;
       setSelectedDataset(ds);
       const v = sp.get('var'); if (v) handleVariableChange(v);
-      const alt = intParam(sp, 'alt'); if (alt != null) setSelectedAltitude(alt);
+      const alt = altitudeParam(sp); if (alt != null) setSelectedAltitude(alt);
       const type = sp.get('type'); if (type) setHovType(type);
       const cs = sp.get('cs'); if (cs) setColorscale(cs);
       return true;

@@ -22,7 +22,10 @@ public class NetCDFException extends RuntimeException {
     public NetCDFException(String messageKey, Object... messageArgs) {
         super(messageKey);
         this.messageKey = messageKey;
-        this.messageArgs = messageArgs;
+        // Les arguments partent dans le corps de la reponse HTTP : un chemin
+        // y est reduit a son nom de fichier, une valeur du client est bornee.
+        // Voir MessageArgs pour le detail des deux fuites que cela ferme.
+        this.messageArgs = MessageArgs.assainir(messageArgs);
     }
 
     /**
@@ -35,6 +38,6 @@ public class NetCDFException extends RuntimeException {
     public NetCDFException(Throwable cause, String messageKey, Object... messageArgs) {
         super(messageKey, cause);
         this.messageKey = messageKey;
-        this.messageArgs = messageArgs;
+        this.messageArgs = MessageArgs.assainir(messageArgs);
     }
 }

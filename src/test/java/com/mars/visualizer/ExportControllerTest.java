@@ -190,6 +190,42 @@ class ExportControllerTest {
                             org.hamcrest.Matchers.containsString("attachment")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("latitude,longitude,value")));
         }
+
+        @Test
+        @DisplayName("Le nom du fichier reste ASCII sur une JVM à chiffres non latins")
+        void nomDeFichierToujoursAscii() throws Exception {
+            // Le nom est bati avec String.format. Sans Locale explicite, « %d »
+            // n'utilise pas le chiffre ASCII mais celui de la locale par defaut :
+            // mesure sur ar-EG, hi-IN-u-nu-deva et bn-IN, « t12_alt49 » devient
+            // « t١٢_alt٤٩ ». Un nom de fichier est une sortie lue par une machine,
+            // il tombe donc sous la meme regle que l'en-tete du CSV temporel.
+            java.util.Locale initiale = java.util.Locale.getDefault();
+            try {
+                java.util.Locale.setDefault(java.util.Locale.forLanguageTag("ar-EG"));
+
+                when(datasetResolver.resolveFilename("mean_MY28_Ls0_30")).thenReturn("/fake/path.nc");
+                when(datasetResolver.isIndividualDataset("mean_MY28_Ls0_30")).thenReturn(false);
+                when(netcdfService.extractSlice2DWithCoords("/fake/path.nc", "TT", 12, 49))
+                        .thenReturn(new SliceData(new float[][]{{1f}}, new double[]{0}, new double[]{0}));
+
+                String disposition = mockMvc.perform(get("/api/export/csv/slice")
+                                .param("dataset", "mean_MY28_Ls0_30")
+                                .param("variable", "TT")
+                                .param("time", "12")
+                                .param("altitude", "49"))
+                        .andExpect(status().isOk())
+                        .andReturn().getResponse().getHeader("Content-Disposition");
+
+                org.assertj.core.api.Assertions.assertThat(disposition)
+                        .as("le nom doit porter les indices en chiffres ASCII")
+                        .contains("t12_alt49.csv");
+                org.assertj.core.api.Assertions.assertThat(disposition.chars().allMatch(c -> c < 128))
+                        .as("aucun caractere non ASCII dans %s", disposition)
+                        .isTrue();
+            } finally {
+                java.util.Locale.setDefault(initiale);
+            }
+        }
     }
 
     // =========================================================================

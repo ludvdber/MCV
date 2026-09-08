@@ -98,8 +98,13 @@ export function windTargetKeys(state) {
  * cles qui cessent d'etre demandees (changement d'altitude, vue fermee) sont
  * annulees, plus toutes celles encore en vol au demontage.
  *
- * Un echec ne laisse aucune trace : la cle reste absente du cache, et le
- * prochain changement de vues la redemandera.
+ * Un echec ne laisse aucune trace : la cle reste absente du cache. Il n'y a
+ * PAS de reprise automatique pour autant, et c'est deliberé : la signature de
+ * l'effet est faite des cles manquantes, donc un echec ne la change pas et
+ * n'en relance pas la demande. La couche de vent manque jusqu'au prochain
+ * changement de vue, d'altitude ou d'instant. Une reprise en boucle
+ * martelerait un serveur deja en difficulte, et la carte reste lisible sans
+ * le vent.
  */
 export function useWindFields(state, dispatch) {
   const manquantes = windTargetKeys(state).filter(key => !state.windFields[key]);

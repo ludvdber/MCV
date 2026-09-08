@@ -20,7 +20,7 @@ import PageLoader from '../components/PageLoader';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { triggerApiDownload } from '../utils/exportUtils';
-import { intParam, floatParam } from '../utils/urlParams';
+import { floatParam, timeParam } from '../utils/urlParams';
 import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
 import { useVisualizationPage } from '../hooks/useVisualizationPage';
 import { isSurfaceVariable as checkIsSurface } from '../utils/variableUtils';
@@ -64,7 +64,7 @@ function CrossSectionPage() {
       if (!ds) return false;
       setSelectedDataset(ds);
       const v = sp.get('var'); if (v) handleVariableChange(v);
-      const ti = intParam(sp, 't'); if (ti != null) setSelectedTime(ti);
+      const ti = timeParam(sp); if (ti != null) setSelectedTime(ti);
       const type = sp.get('type'); if (type) setCsType(type);
       const fixed = floatParam(sp, 'fixed');
       if (fixed != null) {

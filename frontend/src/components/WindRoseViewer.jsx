@@ -59,6 +59,12 @@ function WindRoseViewer({ windRoseData, datasetLabel, noExportMenu = false, comp
     if (!el || !windRoseData) return;
 
     const { uu, vv, actualLat, actualLon } = windRoseData;
+    // Garde defensive : si la reponse arrive partielle (course montage/donnees,
+    // reponse tronquee par un proxy, entree de cache anterieure a un champ),
+    // on n'entre pas dans le rendu Plotly. Les neuf autres afficheurs la
+    // portent deja ; sans elle, l'erreur est levee DANS un useEffect et
+    // remonte a l'ErrorBoundary, qui remplace la vue entiere.
+    if (!Array.isArray(uu) || !Array.isArray(vv) || uu.length === 0) return;
     const roseData = computeWindRose(uu, vv);
 
     const traces = SPEED_BINS.map((bin, sIdx) => ({
