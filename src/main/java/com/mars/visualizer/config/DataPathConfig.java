@@ -1,6 +1,7 @@
 package com.mars.visualizer.config;
 
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -46,14 +47,41 @@ public class DataPathConfig {
 	 *   ou la forme equivalente a slashes {@code //serveur/partage/mars}
 	 * - Linux : point de montage NFS/CIFS classique, ex. {@code /mnt/mars-data/mean}
 	 */
-	private static Path resolvePath(String pathString) {
+	private static Path resolvePath(String pathString, String label, String property,
+			String envVar) {
 		String cleaned = pathString == null ? "" : pathString.trim();
 		if (cleaned.length() >= 2
 				&& ((cleaned.startsWith("\"") && cleaned.endsWith("\""))
 						|| (cleaned.startsWith("'") && cleaned.endsWith("'")))) {
 			cleaned = cleaned.substring(1, cleaned.length() - 1).trim();
 		}
-		return Paths.get(cleaned);
+		// Un chemin colle depuis un explorateur peut porter un caractere que le
+		// systeme refuse (un guillemet depareille sous Windows). Paths.get leve
+		// alors une InvalidPathException, qui remonterait telle quelle et
+		// priverait l'exploitant du message d'aide ci-dessous. Sous Linux le
+		// meme chemin est legal et echoue plus loin, avec ce message : on aligne
+		// les deux systemes sur la reponse utile.
+		try {
+			return Paths.get(cleaned);
+		} catch (InvalidPathException e) {
+			String errorMsg = "Le chemin " + label + " n'est pas un chemin valide : "
+					+ cleaned + "." + aide(property, envVar);
+			log.error(errorMsg);
+			throw new IllegalStateException(errorMsg, e);
+		}
+	}
+
+	/**
+	 * Le texte qui suit chaque refus de demarrage. Il est le seul endroit ou
+	 * l'exploitant lira quoi corriger, donc il nomme la propriete, la variable
+	 * d'environnement equivalente et l'emplacement du fichier.
+	 */
+	private static String aide(String property, String envVar) {
+		return " Configurez « " + property + " » dans config/application.properties"
+				+ " (a cote du JAR) ou via la variable d'environnement " + envVar
+				+ ". Chemins reseau acceptes : \\\\serveur\\partage\\... (Windows, doubler les"
+				+ " backslashes dans un .properties, ou ecrire //serveur/partage/...),"
+				+ " /mnt/... (montage Linux).";
 	}
 
 	/**
@@ -66,11 +94,7 @@ public class DataPathConfig {
 	 * @throws IllegalStateException si le chemin est invalide
 	 */
 	private void validatePath(String label, Path path, String property, String envVar) {
-		String help = " Configurez « " + property + " » dans config/application.properties"
-				+ " (a cote du JAR) ou via la variable d'environnement " + envVar
-				+ ". Chemins reseau acceptes : \\\\serveur\\partage\\... (Windows, doubler les"
-				+ " backslashes dans un .properties, ou ecrire //serveur/partage/...),"
-				+ " /mnt/... (montage Linux).";
+		String help = aide(property, envVar);
 
 		if (!Files.exists(path)) {
 			String errorMsg = "Le répertoire " + label + " n'existe pas : " + path + "." + help;
@@ -95,12 +119,13 @@ public class DataPathConfig {
 		log.info("Initialisation des chemins NetCDF");
 
 		// Validation du répertoire MEAN
-		meanPath = resolvePath(meanPathString);
+		meanPath = resolvePath(meanPathString, "MEAN", "netcdf.mean.path", "NETCDF_MEAN_PATH");
 		validatePath("MEAN", meanPath, "netcdf.mean.path", "NETCDF_MEAN_PATH");
 		log.info("Répertoire MEAN validé : {}", meanPath.toAbsolutePath());
 
 		// Validation du répertoire individual
-		individualPath = resolvePath(individualPathString);
+		individualPath = resolvePath(individualPathString, "individual", "netcdf.individual.path",
+				"NETCDF_INDIVIDUAL_PATH");
 		validatePath("individual", individualPath, "netcdf.individual.path", "NETCDF_INDIVIDUAL_PATH");
 		log.info("Répertoire individual validé : {}", individualPath.toAbsolutePath());
 

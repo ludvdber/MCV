@@ -47,6 +47,7 @@ L'application a besoin de deux dossiers de données. Renseignez-les **avant le p
 | `netcdf.individual.path` | `NETCDF_INDIVIDUAL_PATH` | `/data/gem-mars/individual` | Dossier contenant un sous-dossier par année martienne (`34/`, `35/`, …) |
 | `netcdf.individual.my_base` | — | `34` | Première année martienne présente dans ce dossier ; les suivantes sont détectées automatiquement |
 | `server.port` | `SERVER_PORT` | `8080` | Port HTTP servant l'API et l'interface |
+| `site.public-url` | `SITE_PUBLIC_URL` | *(vide)* | Adresse publique du site, utilisée par `sitemap.xml`, `robots.txt` et les balises canonical / Open Graph. Laissée vide, elle est déduite de la requête, ce qui est déjà juste derrière un reverse proxy. Voir [DEPLOYMENT.fr.md](DEPLOYMENT.fr.md#ladresse-publique-du-site) |
 | `ratelimit.requests-per-minute` | — | `120` | Limite de requêtes par IP |
 | `ratelimit.export-per-minute` | — | `20` | Limite d'exports par IP (CSV/NetCDF) |
 | `cors.allowed-origin` | — | `http://localhost:5173` | Utilisé uniquement si le frontend est servi séparément (mode développement) |
@@ -135,7 +136,7 @@ Installation serveur, service systemd et reverse proxy : **[DEPLOYMENT.fr.md](DE
 | `./gradlew build` | Build complet : frontend, compilation, tests, JAR dans `build/libs/` |
 | `./gradlew build -x test` | Idem sans la suite de tests |
 | `./gradlew bootJar` | JAR uniquement, sans tests |
-| `./gradlew test` | Suite JUnit 5 (302 tests) + rapport de couverture JaCoCo |
+| `./gradlew test` | Suite JUnit 5 (386 tests) + rapport de couverture JaCoCo |
 | `./gradlew buildFrontend` | Build de production du frontend uniquement |
 
 Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellement 94,9 % des instructions et 84,5 % des branches.
@@ -147,7 +148,7 @@ Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellemen
 | `npm run dev` | Serveur de développement Vite sur :5173 avec rechargement à chaud |
 | `npm run build` | Build de production dans `frontend/dist/` |
 | `npm run preview` | Sert le build de production en local |
-| `npm run test` | Suite Vitest (1320 tests) |
+| `npm run test` | Suite Vitest (1342 tests) |
 | `npx vitest run --coverage` | Idem, avec le rapport de couverture dans `frontend/coverage/` |
 | `npm run lint` | Vérification ESLint |
 

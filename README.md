@@ -47,6 +47,7 @@ The application needs two data folders. Set them **before the first start**, oth
 | `netcdf.individual.path` | `NETCDF_INDIVIDUAL_PATH` | `/data/gem-mars/individual` | Folder with one subfolder per Martian year (`34/`, `35/`, …) |
 | `netcdf.individual.my_base` | — | `34` | First Martian year present in that folder; later years are detected automatically |
 | `server.port` | `SERVER_PORT` | `8080` | HTTP port serving both the API and the interface |
+| `site.public-url` | `SITE_PUBLIC_URL` | *(empty)* | Public address of the site, used by `sitemap.xml`, `robots.txt` and the canonical / Open Graph tags. Left empty, it is derived from the request, which is already correct behind a reverse proxy. See [DEPLOYMENT.md](DEPLOYMENT.md#the-public-address-of-the-site) |
 | `ratelimit.requests-per-minute` | — | `120` | Per-IP request limit |
 | `ratelimit.export-per-minute` | — | `20` | Per-IP export limit (CSV/NetCDF) |
 | `cors.allowed-origin` | — | `http://localhost:5173` | Only used when the frontend is served separately (dev mode) |
@@ -135,7 +136,7 @@ Server installation, systemd service and reverse-proxy setup: **[DEPLOYMENT.md](
 | `./gradlew build` | Full build: frontend, compilation, tests, JAR in `build/libs/` |
 | `./gradlew build -x test` | Same without the test suite |
 | `./gradlew bootJar` | JAR only, no tests |
-| `./gradlew test` | JUnit 5 suite (302 tests) + JaCoCo coverage report |
+| `./gradlew test` | JUnit 5 suite (386 tests) + JaCoCo coverage report |
 | `./gradlew buildFrontend` | Frontend production build only |
 
 Coverage report: `build/reports/jacoco/test/html/index.html`. Currently 94.9% of instructions, 84.5% of branches.
@@ -147,7 +148,7 @@ Coverage report: `build/reports/jacoco/test/html/index.html`. Currently 94.9% of
 | `npm run dev` | Vite dev server on :5173 with hot reload |
 | `npm run build` | Production build into `frontend/dist/` |
 | `npm run preview` | Serves the production build locally |
-| `npm run test` | Vitest suite (1320 tests) |
+| `npm run test` | Vitest suite (1342 tests) |
 | `npx vitest run --coverage` | Same, with the coverage report in `frontend/coverage/` |
 | `npm run lint` | ESLint check |
 

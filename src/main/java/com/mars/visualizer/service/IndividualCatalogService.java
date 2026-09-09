@@ -348,7 +348,11 @@ public class IndividualCatalogService {
 						String.format("%.2f", lastLs),
 						ncFiles.size());
 
-			} catch (IOException | NumberFormatException e) {
+			// ValidationException comprise : parseLsFromFilename la leve, et elle
+			// etendait RuntimeException, donc elle traversait cette capture et
+			// remontait jusqu'au contexte Spring. Le role de ce bloc est qu'un
+			// repertoire fautif soit ecarte, jamais qu'il empeche de demarrer.
+			} catch (IOException | NumberFormatException | ValidationException e) {
 				log.warn("Erreur traitement repertoire '{}' : {}", dirName, e.getMessage());
 			}
 		}
@@ -446,12 +450,28 @@ public class IndividualCatalogService {
 	 */
 	private List<String> listNcFilesSorted(Path dir) throws IOException {
 		List<String> files = new ArrayList<>();
+		int ignores = 0;
 		try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, "*.nc")) {
 			for (Path entry : stream) {
-				if (Files.isRegularFile(entry)) {
-					files.add(entry.getFileName().toString());
+				if (!Files.isRegularFile(entry)) {
+					continue;
+				}
+				String nom = entry.getFileName().toString();
+				// Un .nc dont le nom ne porte pas la Ls n'appartient pas a ce
+				// catalogue : export a l'ancien format, telechargement interrompu,
+				// fichier de notes. L'ecarter ICI, et non plus loin, est ce qui
+				// empeche un seul fichier inattendu de couter tout le repertoire —
+				// et, initCatalog etant un @PostConstruct, le demarrage entier.
+				if (LS_PATTERN.matcher(nom).find()) {
+					files.add(nom);
+				} else {
+					ignores++;
 				}
 			}
+		}
+		if (ignores > 0) {
+			log.warn("{} fichier(s) .nc ignore(s) dans {} : nom sans motif lsAAA_BBBB",
+					ignores, dir.getFileName());
 		}
 		Collections.sort(files);
 		return files;

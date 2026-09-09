@@ -144,4 +144,73 @@ class SecuriteChaineFiltresTest {
 		assertThat(h.firstValue("Server")).as("en-tete Server").isEmpty();
 		assertThat(h.firstValue("X-Powered-By")).as("en-tete X-Powered-By").isEmpty();
 	}
+
+	/**
+	 * Appel avec un en-tete Accept impose, pour observer la negociation de
+	 * contenu telle que Tomcat et Spring MVC la font reellement.
+	 */
+	private HttpResponse<String> appelerAvecAccept(String chemin, String accept) {
+		try {
+			return HttpClient.newHttpClient().send(
+					HttpRequest.newBuilder(URI.create("http://localhost:" + port + chemin))
+							.header("Accept", accept).build(),
+					HttpResponse.BodyHandlers.ofString());
+		} catch (Exception e) {
+			throw new IllegalStateException("Appel de " + chemin + " impossible", e);
+		}
+	}
+
+	/**
+	 * La coquille SPA et les deux documents SEO sont servis par des controleurs
+	 * depuis qu'ils portent l'adresse publique du site. Un controleur qui
+	 * declare {@code produces} fait dependre sa reponse de l'en-tete Accept :
+	 * un moniteur qui demande {@code application/json} obtient alors une
+	 * HttpMediaTypeNotAcceptableException, que le catch-all du
+	 * GlobalExceptionHandler transforme en <b>500</b>. L'application affirmerait
+	 * avoir plante alors qu'elle va bien, et une supervision se declencherait.
+	 *
+	 * <p>Le gestionnaire de ressources statiques, lui, servait ces pages quel
+	 * que soit l'Accept. C'est ce comportement qu'on exige de conserver.
+	 *
+	 * <p>Ce defaut ne se voit qu'ici : un test unitaire appelle la methode du
+	 * controleur directement et ne traverse jamais la negociation.
+	 */
+	@Test
+	@DisplayName("les pages servies ne dependent pas de l'en-tete Accept du client")
+	void acceptIndifferent() {
+		String[] accepts = {
+			"text/html,application/xhtml+xml",
+			"application/json",
+			"text/plain",
+			"*/*",
+		};
+		for (String chemin : new String[] { "/", "/index.html", "/slice", "/sitemap.xml", "/robots.txt" }) {
+			for (String accept : accepts) {
+				HttpResponse<String> r = appelerAvecAccept(chemin, accept);
+				assertThat(r.statusCode())
+						.as("GET %s avec Accept: %s", chemin, accept)
+						.isEqualTo(200);
+				assertThat(r.body())
+						.as("GET %s avec Accept: %s doit rendre un corps", chemin, accept)
+						.isNotEmpty();
+			}
+		}
+	}
+
+	/**
+	 * Le jeton d'adresse publique de index.html est substitue par le
+	 * controleur. S'il survit, la page s'affiche normalement et seules les
+	 * balises invisibles sont abimees : personne ne le remarque avant que
+	 * l'indexation ne parte de travers.
+	 */
+	@Test
+	@DisplayName("aucune page servie ne laisse passer le jeton d'adresse publique")
+	void jetonJamaisServi() {
+		for (String chemin : new String[] { "/", "/index.html", "/slice",
+				"/index.html?__WB_REVISION__=abc" }) {
+			assertThat(appeler(chemin).body())
+					.as("GET %s", chemin)
+					.doesNotContain("__SITE_URL__");
+		}
+	}
 }

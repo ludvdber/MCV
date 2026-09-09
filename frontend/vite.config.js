@@ -13,20 +13,23 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 /* ═══════════════════════════════════════════════════════════════════════════
- * URL PUBLIQUE DU SITE — LE SEUL ENDROIT A CHANGER AU DEPLOIEMENT.
+ * ADRESSE PUBLIQUE DU SITE — ELLE N'EST PLUS FIXEE ICI.
  *
- * Le sitemap, robots.txt et les balises SEO de index.html (canonical, Open
- * Graph, Twitter, schema.org) sont tous derives de cette valeur au moment du
- * `npm run build`. Un sitemap DOIT contenir des URL absolues (protocole), on ne
- * peut donc pas les rendre relatives : on centralise plutot le domaine ici.
+ * sitemap.xml, robots.txt et les balises SEO de index.html en dependent, mais
+ * l'adresse est desormais resolue par le BACKEND a chaque requete, depuis la
+ * propriete `site.public-url` du fichier config/application.properties pose a
+ * cote du JAR (a defaut, depuis l'origine de la requete elle-meme).
  *
- * Pour l'IASB : soit remplacer la valeur par defaut ci-dessous par l'URL finale,
- * soit definir la variable d'environnement VITE_SITE_URL au build
- * (ex : `VITE_SITE_URL=https://mars.aeronomie.be npm run build`). Sans slash
- * final : il est ajoute automatiquement la ou il faut.
+ * Ce fichier ne grave donc plus aucun domaine dans le livrable : le meme JAR
+ * sert correctement sous n'importe quelle adresse, et en changer ne demande
+ * qu'un redemarrage. Voir SiteUrlService, SeoController et IndexHtmlController
+ * cote Java.
+ *
+ * En production, le jeton __SITE_URL__ de index.html est laisse INTACT : c'est
+ * IndexHtmlController qui le remplace en servant la page. En developpement il
+ * n'y a pas de backend devant Vite, on le neutralise donc : un href relatif se
+ * resout de toute facon contre l'origine du serveur de dev.
  * ═══════════════════════════════════════════════════════════════════════════ */
-// eslint-disable-next-line no-undef
-const SITE_URL = (process.env.VITE_SITE_URL || 'https://mars.ludovdb.be').replace(/\/+$/, '')
 
 /* Routes publiques indexables (a garder en phase avec le routeur React). */
 const SITE_ROUTES = [
@@ -45,11 +48,14 @@ const SITE_ROUTES = [
   { path: '/legal', priority: '0.2' },
 ]
 
-function buildSitemap() {
+/** En developpement uniquement : Vite sert la page sans backend devant lui, il
+ *  faut donc bien que quelqu'un produise ces deux fichiers. En production ils
+ *  viennent de SeoController, qui connait l'adresse configuree. */
+function buildSitemap(base) {
   const today = new Date().toISOString().slice(0, 10)
   const urls = SITE_ROUTES.map(({ path, priority }) => (
     '  <url>\n'
-    + `    <loc>${SITE_URL}${path}</loc>\n`
+    + `    <loc>${base}${path}</loc>\n`
     + `    <lastmod>${today}</lastmod>\n`
     + '    <changefreq>monthly</changefreq>\n'
     + `    <priority>${priority}</priority>\n`
@@ -58,12 +64,12 @@ function buildSitemap() {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`
 }
 
-function buildRobots() {
+function buildRobots(base) {
   return [
     'User-agent: *',
     'Allow: /',
     '',
-    `Sitemap: ${SITE_URL}/sitemap.xml`,
+    `Sitemap: ${base}/sitemap.xml`,
     '',
     '# API endpoints should not be indexed',
     'Disallow: /api/',
@@ -73,25 +79,28 @@ function buildRobots() {
   ].join('\n')
 }
 
-/** Genere sitemap.xml + robots.txt depuis SITE_URL et injecte l'URL dans les
- *  balises SEO de index.html (placeholder __SITE_URL__). */
+/** Traite le jeton __SITE_URL__ de index.html et, en dev seulement, sert
+ *  sitemap.xml et robots.txt. Ne produit plus RIEN dans le bundle : ces deux
+ *  fichiers appartiennent au backend, qui seul connait l'adresse publique. */
 function seoPlugin() {
   return {
     name: 'mcv-seo',
-    transformIndexHtml(html) {
-      return html.replaceAll('__SITE_URL__', SITE_URL)
-    },
-    generateBundle() {
-      this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: buildSitemap() })
-      this.emitFile({ type: 'asset', fileName: 'robots.txt', source: buildRobots() })
+    transformIndexHtml(html, ctx) {
+      // ctx.server n'existe qu'en developpement. En build on laisse le jeton
+      // tel quel : IndexHtmlController le remplacera en servant la page. Le
+      // neutraliser ici graverait une valeur vide dans le JAR et le backend
+      // n'aurait plus rien a completer.
+      return ctx?.server ? html.replaceAll('__SITE_URL__', '') : html
     },
     configureServer(server) {
-      // Parite en dev : ces fichiers sont generes au build, on les sert aussi ici.
       server.middlewares.use((req, res, next) => {
         const url = (req.url || '').split('?')[0]
-        if (url === '/sitemap.xml') { res.setHeader('Content-Type', 'application/xml'); res.end(buildSitemap()); return }
-        if (url === '/robots.txt') { res.setHeader('Content-Type', 'text/plain'); res.end(buildRobots()); return }
-        next()
+        if (url !== '/sitemap.xml' && url !== '/robots.txt') { next(); return }
+        // L'origine du serveur de dev, lue sur la requete : la meme regle que
+        // celle appliquee cote Java quand la propriete n'est pas renseignee.
+        const base = `http://${req.headers.host || 'localhost:5173'}`
+        if (url === '/sitemap.xml') { res.setHeader('Content-Type', 'application/xml'); res.end(buildSitemap(base)); return }
+        res.setHeader('Content-Type', 'text/plain'); res.end(buildRobots(base))
       })
     },
   }
@@ -101,9 +110,6 @@ export default defineConfig(() => ({
   define: {
     // eslint-disable-next-line no-undef
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '0.0.0'),
-    // URL publique injectee au build (meme source que le sitemap / SEO ci-dessus) :
-    // le SEO runtime par route (App.jsx) l'utilise pour les liens canoniques.
-    __SITE_URL__: JSON.stringify(SITE_URL),
     // plotly.js (build source CJS, cf. src/plotlyBundle.js) reference `global`
     // qui n'existe pas dans le navigateur — on le mappe sur globalThis.
     global: 'globalThis',

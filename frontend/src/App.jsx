@@ -52,9 +52,29 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
    description, balises Open Graph / Twitter et lien canonique a chaque
    changement de route ET de langue (Google rend le JavaScript). */
 
-// Injecte par Vite (define) depuis SITE_URL de vite.config.js — l'IASB ne change
-// l'URL qu'a un seul endroit (voir le bloc SITE_URL de vite.config.js).
-const SITE_URL = __SITE_URL__;
+/** Adresse publique du site, origine seule (sans chemin).
+ *
+ *  Elle etait autrefois gravee au build par Vite. Elle est desormais injectee
+ *  par le backend dans le lien canonique du document servi (IndexHtmlController),
+ *  ce qui permet de changer de domaine sans reconstruire le JAR. On la relit
+ *  donc dans le DOM au lieu de la porter en dur.
+ *
+ *  `link.href` renvoie une valeur DEJA RESOLUE par le navigateur : un href
+ *  relatif rend l'origine courante, et un jeton non substitue aussi. Les trois
+ *  cas (adresse configuree, repli relatif, frontend servi sans backend) donnent
+ *  donc la bonne origine sans traitement particulier.
+ */
+function adressePublique() {
+  try {
+    const lien = document.head.querySelector('link[rel="canonical"]');
+    if (lien?.href) return new URL(lien.href).origin;
+  } catch {
+    // href illisible : l'origine du navigateur reste la reponse correcte.
+  }
+  return window.location.origin;
+}
+
+const SITE_URL = adressePublique();
 const BRAND = 'Mars Climate Viewer';
 
 /** route → [cle i18n du nom de page, cle i18n de la description].

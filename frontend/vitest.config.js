@@ -9,12 +9,14 @@ export default defineConfig({
   // Vite 8 transforme le JSX via oxc, dont le runtime automatique est le défaut
   // (pas besoin d'importer React dans chaque test de composant) — aucune option
   // à passer. L'ancien `esbuild: { jsx: 'automatic' }` était ignoré par oxc.
-  // Constantes injectees par Vite au build (bloc `define` de
-  // vite.config.js). Sans elles, App.jsx et le pied de page levent un
-  // ReferenceError des le rendu et aucun test de page n'est possible.
+  // Constante injectee par Vite au build (bloc `define` de vite.config.js).
+  // Sans elle, le pied de page leve un ReferenceError des le rendu et aucun
+  // test de page n'est possible.
+  //
+  // __SITE_URL__ n'y figure plus : l'adresse publique n'est plus gravee au
+  // build, App.jsx la relit dans le lien canonique du document.
   define: {
     __APP_VERSION__: JSON.stringify('0.0.0-test'),
-    __SITE_URL__: JSON.stringify('https://mars.exemple.test'),
   },
   resolve: {
     alias: [

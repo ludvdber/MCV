@@ -21,6 +21,24 @@ Pour construire depuis les sources (uniquement en cas de modification du code) :
 
 Le JAR complet (interface incluse) se trouve ensuite dans `build/libs/`. Le build compile aussi le frontend automatiquement (Node est requis pour cette étape de build uniquement, pas sur le serveur de production).
 
+## L'adresse publique du site
+
+Trois choses doivent nommer le site par son adresse complète : `sitemap.xml`, `robots.txt`, et les balises `canonical` / Open Graph / schema.org des pages. C'est le serveur qui fabrique les trois, donc l'adresse est un réglage ordinaire du fichier `config/application.properties` posé à côté du JAR, au même titre que les chemins de données :
+
+```properties
+site.public-url=https://<l-adresse-retenue>
+```
+
+Elle doit commencer par `http://` ou `https://` et ne pas porter de slash final. Une valeur sans protocole **empêche le démarrage**, avec un message qui nomme la propriété et la valeur fautive, plutôt que de publier des liens cassés que personne ne remarquerait avant des mois.
+
+Changer d'adresse plus tard revient à modifier cette ligne et à redémarrer. Il n'y a rien à reconstruire : le même JAR sert correctement sous n'importe quelle adresse.
+
+### Si vous la laissez vide
+
+C'est un choix prévu, pas un oubli. Le serveur déduit alors l'adresse de la requête elle-même, et derrière un reverse proxy c'est déjà la bonne réponse : `server.forward-headers-strategy=native` fait remonter jusqu'à l'application le schéma et l'hôte annoncés par nginx (`X-Forwarded-Proto`, `X-Forwarded-Host`). Un site joint sur `https://mars.exemple.be` annonce donc exactement cela dans son sitemap et ses liens canoniques.
+
+La renseigner reste préférable sur un déploiement public, pour deux raisons. La réponse ne dépend plus de l'en-tête `Host` envoyé par le client, donc personne ne peut demander un sitemap qui nomme le domaine de son choix. Et cela fixe un domaine canonique unique quand le même serveur répond aussi sur un nom interne, ce qui évite que les moteurs de recherche traitent les deux comme deux sites distincts.
+
 ## Installer
 
 Copiez le JAR dans un dossier, avec le fichier de configuration à côté :

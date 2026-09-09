@@ -21,6 +21,24 @@ To build from source (only if you modify the code):
 
 The full JAR (interface included) then appears in `build/libs/`. The build compiles the frontend automatically; Node.js is only needed for this build step, never on the production server.
 
+## The public address of the site
+
+Three things have to name the site by its full address: `sitemap.xml`, `robots.txt`, and the `canonical` / Open Graph / schema.org tags of the pages. The server builds all three, so the address is an ordinary setting in `config/application.properties` next to the JAR, like the data paths:
+
+```properties
+site.public-url=https://<the address you settled on>
+```
+
+It must start with `http://` or `https://` and carry no trailing slash. A value without a scheme **stops startup** with a message naming the property and the offending value, rather than publishing broken links nobody would notice for months.
+
+Changing the address later means editing that line and restarting. There is nothing to rebuild: the same JAR serves correctly under any address.
+
+### If you leave it empty
+
+That is a supported choice, not an oversight. The server then derives the address from the request itself, and behind a reverse proxy that is already the right answer: `server.forward-headers-strategy=native` makes the scheme and host announced by nginx (`X-Forwarded-Proto`, `X-Forwarded-Host`) visible to the application, so a site reached at `https://mars.example.be` announces exactly that in its sitemap and its canonical links.
+
+Setting the property is still better on a public deployment, for two reasons. It makes the answer independent of the `Host` header a client sends, so nobody can request a sitemap that names a domain of their choosing. And it pins one canonical domain when the same server also answers on an internal name, which is what stops search engines from treating the two as separate sites.
+
 ## Installing
 
 Copy the JAR into a folder, with the configuration file next to it:

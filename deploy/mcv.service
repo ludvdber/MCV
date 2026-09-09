@@ -6,6 +6,34 @@
 #   sudo systemctl enable --now mcv
 #   journalctl -u mcv -f
 #
+# Le JAR se depose a la main, et son nom change en chemin :
+#
+#   ./gradlew build                       # produit build/libs/mars-visualizer-0.0.1-SNAPSHOT.jar
+#   sudo install -D -m 644 build/libs/mars-visualizer-0.0.1-SNAPSHOT.jar \
+#        /opt/mcv/mars-visualizer.jar
+#
+# Le nom porte la version du projet (build.gradle), pas celui qu'attend
+# ExecStart plus bas. Copier le fichier sans le renommer donne un service qui
+# ne demarre pas, avec un journal qui dit seulement « Unable to access
+# jarfile ». Renommer plutot que modifier ExecStart garde l'unite valable pour
+# toutes les versions a venir.
+#
+# L'adresse publique du site (sitemap.xml, robots.txt, liens canoniques) est
+# un reglage d'execution comme les autres, PAS une valeur gravee au build : le
+# meme JAR sert correctement sous n'importe quelle adresse, et en changer ne
+# demande qu'un redemarrage. Deux facons equivalentes de la donner :
+#
+#   config/application.properties :  site.public-url=https://<adresse>
+#   ou ici, en variable           :  Environment=SITE_PUBLIC_URL=https://<adresse>
+#
+# Laissee vide, elle est deduite de la requete. Derriere le nginx decrit dans
+# deploy/nginx-mcv.conf, c'est deja la bonne reponse : les en-tetes
+# X-Forwarded-Proto et X-Forwarded-Host remontent jusqu'a l'application. La
+# renseigner reste preferable, pour que la reponse ne depende pas de l'en-tete
+# Host envoye par le client. Une valeur sans http:// ou https:// empeche le
+# demarrage, avec un message qui la nomme.
+#
+#
 # ATTENTION — les deux Environment= de la section « Donnees » ne sont PAS
 # facultatifs. Le JAR livre ne contient plus aucun chemin reel (il porte
 # /data/gem-mars/..., un exemple neutre) : sans ces variables le service refuse
@@ -53,6 +81,10 @@ TimeoutStopSec=45
 # ---------------------------------------------------------------------------
 Environment=NETCDF_MEAN_PATH=/mnt/gem-mars/mean
 Environment=NETCDF_INDIVIDUAL_PATH=/mnt/gem-mars/individual
+
+# Adresse publique annoncee aux moteurs de recherche (voir en-tete de ce
+# fichier). Laissee commentee, elle est deduite de la requete.
+#Environment=SITE_PUBLIC_URL=https://mars.exemple.be
 
 # ---------------------------------------------------------------------------
 # Reseau et proxy — choisir UNE des trois variantes

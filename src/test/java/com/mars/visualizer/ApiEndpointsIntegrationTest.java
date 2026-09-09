@@ -552,4 +552,102 @@ class ApiEndpointsIntegrationTest {
 					.andExpect(status().isBadRequest());
 		}
 	}
+
+	/**
+	 * {@code /api/data/altitudes} : le point d'API qui dit a l'interface quels
+	 * niveaux verticaux proposer, et s'il faut proposer un selecteur du tout.
+	 *
+	 * <p>Il n'etait exerce par rien : {@code CatalogController} affichait 0 % de
+	 * branches. Or c'est lui qui distingue une variable tridimensionnelle d'une
+	 * variable de SURFACE, et cette distinction commande l'affichage. Se
+	 * tromper de branche donne soit un selecteur d'altitude sur une variable qui
+	 * n'en a pas, soit un selecteur absent la ou il faudrait choisir.
+	 *
+	 * <p>Le jeu synthetique porte les deux cas : TT est en
+	 * {@code time x altitudeT x lat x lon}, MTSF en {@code time x lat x lon}.
+	 */
+	@Nested
+	@DisplayName("Niveaux d'altitude")
+	class Altitudes {
+
+		@Test
+		@DisplayName("Une variable 3D rend ses niveaux, dans l'ordre du fichier")
+		void variableTridimensionnelle() throws Exception {
+			mvc().perform(get("/api/data/altitudes")
+					.param("dataset", DATASET)
+					.param("variable", "TT"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.surface").value(false))
+				.andExpect(jsonPath("$.altitudes.length()").value(N_ALT))
+				.andExpect(jsonPath("$.altitudes[0]").value(ALTS[0]))
+				.andExpect(jsonPath("$.altitudes[1]").value(ALTS[1]))
+				.andExpect(jsonPath("$.altitudes[2]").value(ALTS[2]));
+		}
+
+		/**
+		 * MTSF n'a pas de dimension verticale. Le drapeau doit le dire, et le
+		 * tableau rester VIDE plutot que nul : un tableau nul obligerait chaque
+		 * appelant a s'en premunir, et un oubli casserait l'affichage.
+		 */
+		@Test
+		@DisplayName("Une variable de surface l'annonce et rend un tableau vide")
+		void variableDeSurface() throws Exception {
+			mvc().perform(get("/api/data/altitudes")
+					.param("dataset", DATASET)
+					.param("variable", "MTSF"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.surface").value(true))
+				.andExpect(jsonPath("$.altitudes").isArray())
+				.andExpect(jsonPath("$.altitudes.length()").value(0));
+		}
+
+		/**
+		 * La variable par defaut est TT : une requete qui ne la precise pas doit
+		 * repondre comme si elle l'avait fait, sans 400.
+		 */
+		@Test
+		@DisplayName("Sans variable precisee, la valeur par defaut s'applique")
+		void variableParDefaut() throws Exception {
+			mvc().perform(get("/api/data/altitudes").param("dataset", DATASET))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.surface").value(false))
+				.andExpect(jsonPath("$.altitudes.length()").value(N_ALT));
+		}
+
+		@Test
+		@DisplayName("Un jeu inexistant rend 404, pas une liste vide")
+		void jeuInexistant() throws Exception {
+			mvc().perform(get("/api/data/altitudes")
+					.param("dataset", "jeu_qui_n_existe_pas")
+					.param("variable", "TT"))
+				.andExpect(status().isNotFound());
+		}
+
+		/**
+		 * La liste des niveaux ne change pas d'une requete a l'autre pour un
+		 * fichier donne : elle merite l'en-tete de cache des metadonnees, sinon
+		 * chaque changement de variable la retelecharge.
+		 */
+		@Test
+		@DisplayName("La reponse porte l'en-tete de cache des donnees")
+		void enTeteDeCache() throws Exception {
+			mvc().perform(get("/api/data/altitudes")
+					.param("dataset", DATASET)
+					.param("variable", "TT"))
+				.andExpect(status().isOk())
+				.andExpect(header().string("Cache-Control",
+						org.hamcrest.Matchers.containsString("max-age")));
+		}
+
+		/**
+		 * Le parametre manquant est le seul obligatoire : son absence doit
+		 * produire un refus lisible, pas une resolution sur un nom vide.
+		 */
+		@Test
+		@DisplayName("Le jeu de donnees est obligatoire")
+		void datasetObligatoire() throws Exception {
+			mvc().perform(get("/api/data/altitudes").param("variable", "TT"))
+				.andExpect(status().isBadRequest());
+		}
+	}
 }
