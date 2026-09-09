@@ -52,6 +52,18 @@ mcv/
 
 The `config/application.properties` template provided at the root of the repository documents every setting: HTTP port, data paths, request limits. The application reads this file automatically at startup and it overrides the defaults embedded in the JAR. You only need to keep the lines you change.
 
+You do not need to find it to get started. **If no configuration exists on the first launch, the application writes one itself** to `config/application.properties`, prints its absolute path in plain text on the console, then stops and asks for the data paths. The file it drops is exactly the one in the repository, commented line by line.
+
+The file is also read **flat**, directly beside the JAR, with no `config/` folder. Downloading the JAR and the configuration file into a single folder is therefore a valid deployment:
+
+```
+mcv/
+├── mars-visualizer.jar
+└── application.properties
+```
+
+If both locations exist, `config/` wins. An existing configuration is never overwritten, in either location.
+
 Run it:
 
 ```bash
@@ -67,6 +79,8 @@ Two folders are expected:
 
 - `netcdf.mean.path`: the averaged `.nc` files (48 local-time steps)
 - `netcdf.individual.path`: one subfolder per Martian year (`34/`, `35/`, ...) containing single-timestep files
+
+Both must carry a value. **A line left empty is not a default, it is an omission**, and the application refuses to start, naming the key to fill in.
 
 Network paths work natively; the application only ever reads the files:
 

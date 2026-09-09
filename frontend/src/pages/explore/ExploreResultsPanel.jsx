@@ -23,7 +23,6 @@ import {
   GridOn as GridOnIcon,
   Close as CloseIcon,
   CompareArrows as AnomalyIcon,
-  Add as AddIcon,
   HelpOutlined as HelpIcon,
   CropSquare as SingleViewIcon,
   GridView as GridViewIcon,
@@ -184,7 +183,7 @@ function GridCell({
   );
 }
 
-export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExportNetCDF, onDrillDown, onTransectSelect, onRequestParams, onReplayTour }) {
+export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExportNetCDF, onDrillDown, onTransectSelect, onReplayTour }) {
   const { t } = useTranslation();
   const showToast = useToast();
   const state    = useExploreState();
@@ -201,7 +200,20 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExp
    * Alimentee par callback depuis ExploreResultViewer — la ref elle-meme
    * appartient au panneau et ne descend jamais en prop mutable. */
   const sharedPlotRef = useRef(null);
-  const setActivePlotNode = useCallback((node) => { sharedPlotRef.current = node; }, []);
+  /* Deux mecanismes ecrivent dans cette meme case : ExploreResultViewer la
+     publie par callback, et CurtainCompare y attache directement le div du
+     volet A (ref React). Or React attache les refs en phase de MUTATION, alors
+     que le nettoyage d'effet de la vue qui s'en va passe APRES : un `null`
+     tardif effacait donc le div que le rideau venait tout juste de publier.
+     SliceViewer lisant `plotRef.current` au moment de dessiner, le volet A
+     restait vide en permanence — mesure : conteneur present, innerHTML a 0,
+     et aucun redessin ne le rattrapait puisque la ref n'est reattachee que si
+     le noeud DOM change. On refuse donc d'effacer une case qu'occupe encore un
+     noeud VIVANT : celui qui part est deja detache du document. */
+  const setActivePlotNode = useCallback((node) => {
+    if (node === null && sharedPlotRef.current?.isConnected) return;
+    sharedPlotRef.current = node;
+  }, []);
   const dragIdRef = useRef(null);
 
   const handleDragStart = useCallback((id) => { dragIdRef.current = id; }, []);
@@ -389,21 +401,6 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExp
     </Tooltip>
   );
 
-  /* Bouton « + » : ouvre (epingle) le panneau de parametres pour composer une
-     nouvelle vue — rend l'ajout de vue decouvrable sans trouver la languette. */
-  const addViewButton = onRequestParams && resultOrder.length < MAX_TABS && (
-    <Tooltip title={t('page.explore.newView')} arrow>
-      <IconButton
-        size="small"
-        onClick={onRequestParams}
-        aria-label={t('page.explore.newView')}
-        sx={{ flexShrink: 0, color: 'var(--mars-orange)' }}
-      >
-        <AddIcon fontSize="small" />
-      </IconButton>
-    </Tooltip>
-  );
-
   /* ─── Empty state (les sessions restent accessibles) ──────────────────── */
   if (resultOrder.length === 0) {
     return (
@@ -525,7 +522,6 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExp
           }}
         />
 
-        {addViewButton}
 
         {/* Ls exact (individual datasets) */}
         {activeData?.actualLs != null && (

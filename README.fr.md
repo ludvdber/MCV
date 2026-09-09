@@ -136,7 +136,7 @@ Installation serveur, service systemd et reverse proxy : **[DEPLOYMENT.fr.md](DE
 | `./gradlew build` | Build complet : frontend, compilation, tests, JAR dans `build/libs/` |
 | `./gradlew build -x test` | Idem sans la suite de tests |
 | `./gradlew bootJar` | JAR uniquement, sans tests |
-| `./gradlew test` | Suite JUnit 5 (386 tests) + rapport de couverture JaCoCo |
+| `./gradlew test` | Suite JUnit 5 (395 tests) + rapport de couverture JaCoCo |
 | `./gradlew buildFrontend` | Build de production du frontend uniquement |
 
 Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellement 94,9 % des instructions et 84,5 % des branches.
@@ -148,9 +148,28 @@ Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellemen
 | `npm run dev` | Serveur de développement Vite sur :5173 avec rechargement à chaud |
 | `npm run build` | Build de production dans `frontend/dist/` |
 | `npm run preview` | Sert le build de production en local |
-| `npm run test` | Suite Vitest (1342 tests) |
+| `npm run test` | Suite Vitest (1348 tests, jsdom) |
+| `npm run test:e2e` | Suite de bout en bout (20 tests) dans un vrai Chromium |
 | `npx vitest run --coverage` | Idem, avec le rapport de couverture dans `frontend/coverage/` |
 | `npm run lint` | Vérification ESLint |
+
+Les deux suites ne prouvent pas la même chose. Celle de Vitest tourne dans
+jsdom, qui n'a pas de moteur de mise en page : aucune boîte n'a de position ni
+de taille, et `clip-path` n'existe pas. Elle prouve la logique, jamais
+l'affichage. La suite de bout en bout ouvre un vrai navigateur sur
+l'application servie et vérifie quatre invariants sur chaque page : aucun
+conteneur de graphe vide, aucun élément superposé à un autre, des statistiques
+lues à l'écran arithmétiquement possibles, aucun débordement horizontal. Trois
+défauts du rideau A/B ont vécu en production sous une suite jsdom verte parce
+qu'ils étaient tous les trois géométriques.
+
+```bash
+npm run test:e2e                                          # cible localhost:5173
+MCV_E2E_URL=https://mars.exemple.be npm run test:e2e      # cible un déploiement
+```
+
+`MCV_E2E_API` rebranche `/api` vers un autre serveur, ce qui permet d'éprouver
+une interface locale contre un backend qui, lui, possède les données.
 
 La couverture du frontend est actuellement de 90,2 % des instructions et 93,7 %
 des lignes. La configuration Vitest active `coverage.all` : un fichier qu'aucun

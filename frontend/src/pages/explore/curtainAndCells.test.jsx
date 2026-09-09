@@ -166,4 +166,61 @@ describe('rideau A/B', () => {
     // echelle commune fausse.
     expect(heatmaps.every((tr) => tr.zmin == null)).toBe(true);
   });
+
+  /**
+   * Les deux volets sont deux SliceViewers COMPLETS empiles : chacun dessinait
+   * donc son propre titre, centre, au meme endroit. Mesure dans Chromium, deux
+   * coupes TT : titre du volet A de x=494 a x=966, titre du volet B de x=479 a
+   * x=982, soit 472 px de recouvrement sur 503 — le texte se lisait double.
+   */
+  it('ne dessine qu UN seul titre : deux titres centres se superposaient', () => {
+    rendreRideau();
+    const titres = [...callsOf('newPlot'), ...callsOf('react')]
+      .map((c) => c.layout?.title?.text)
+      .filter((txt) => txt && txt.trim() !== '');
+    expect(titres.length,
+      'un second titre centre viendrait se poser sur le premier').toBe(1);
+    // Et ce titre unique surplombe les deux volets : il doit dire duquel il
+    // parle, sinon il donne le jeu de gauche pour celui de toute l'image.
+    expect(titres[0]).toMatch(/^A ·/u);
+    expect(titres[0]).toContain('MY35 Ls 0-30');
+  });
+
+  /**
+   * Meme cause, consequence plus grave : chaque SliceViewer rendait AUSSI sa
+   * barre de statistiques, au meme endroit. Le rideau tranchant la pile, la
+   * barre lue melangeait les deux jeux. Mesure sur le site en ligne, poignee a
+   * x=730 : min et max lus a gauche venaient du volet A (140,6 et 173,6),
+   * ecart-type et mediane lus a droite venaient du volet B (8,034 et 168,1).
+   * D'ou des moyennes SUPERIEURES au maximum affiche, sur cinq nombres qui se
+   * lisent comme un seul jeu.
+   *
+   * Le rideau rend desormais une barre par volet, chacune sous son etiquette.
+   */
+  it('donne a chaque volet SA barre de statistiques, etiquetee A puis B', () => {
+    const { container } = rendreRideau();
+    const barres = [...container.querySelectorAll('.stats-bar')];
+    expect(barres.length).toBe(2);
+
+    const etiquettes = barres.map((b) => b.previousElementSibling?.textContent?.trim() ?? '');
+    expect(etiquettes[0], 'la premiere barre doit annoncer le volet A').toMatch(/^A·|^A ·/u);
+    expect(etiquettes[1], 'la seconde barre doit annoncer le volet B').toMatch(/^B·|^B ·/u);
+    expect(etiquettes[0]).toContain('MY35 Ls 0-30');
+    expect(etiquettes[1]).toContain('MY35 Ls 30-60');
+  });
+
+  /**
+   * Et les nombres de chaque barre doivent rester ceux de SON volet : c'est la
+   * propriete que le melange precedent detruisait.
+   */
+  it('n emprunte aucun nombre a l autre volet', () => {
+    const { container } = rendreRideau();
+    const barres = [...container.querySelectorAll('.stats-bar')];
+    // \s couvre deja l'espace insecable et l'espace fine du formatage local.
+    const texte = (b) => b.textContent.replace(/\s/g, '');
+    expect(texte(barres[0]), 'volet A : min 180, max 250').toContain('180');
+    expect(texte(barres[0])).toContain('250');
+    expect(texte(barres[1]), 'volet B : min 200, max 300').toContain('200');
+    expect(texte(barres[1])).toContain('300');
+  });
 });

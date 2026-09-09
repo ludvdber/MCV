@@ -127,6 +127,94 @@ describe('rideau A/B', () => {
         .test(b.getAttribute('aria-label') || ''),
     )).toBe(true), { timeout: 8000 });
   });
+
+  /**
+   * Le volet A ne se dessinait PAS.
+   *
+   * Le panneau garde une seule case de ref vers le div Plotly actif, et deux
+   * mecanismes y ecrivent : ExploreResultViewer la publie par callback, le
+   * rideau y attache directement le div du volet A. React attache les refs en
+   * phase de mutation mais nettoie les effets de la vue qui part APRES : le
+   * `null` de la vue simple effacait donc le div que le rideau venait de
+   * publier, et SliceViewer, qui lit `plotRef.current` au moment de dessiner,
+   * ressortait sans rien tracer. Resultat mesure dans Chromium sur le site en
+   * ligne : conteneur du volet A present et vide (innerHTML a 0), volet B seul
+   * dessine — la comparaison affichait une seule moitie de carte, et aucun
+   * redessin ne la rattrapait puisqu'une ref n'est reattachee que si le noeud
+   * DOM change.
+   *
+   * Ce test ne pouvait pas vivre sur CurtainCompare isole : le defaut naît de
+   * la TRANSITION depuis la vue simple, pas du rideau lui-meme.
+   */
+  it('trace les DEUX volets, pas seulement celui du dessus', async () => {
+    await avecCoupes(2);
+    const rideau = screen.getAllByRole('button')
+      .find((b) => new RegExp(i18n.t('explore.curtain.enable'), 'i')
+        .test(b.getAttribute('aria-label') || ''));
+    fireEvent.click(rideau);
+
+    const volets = () => [...document.querySelectorAll('div[role="img"]')]
+      .filter((d) => d.getAttribute('aria-label') === i18n.t('viz.aria.slice'));
+
+    await waitFor(() => expect(volets().length).toBe(2), { timeout: 8000 });
+    await waitFor(() => {
+      const dessines = volets().filter((d) => d.classList.contains('js-plotly-plot'));
+      expect(dessines.length,
+        'les deux volets doivent etre traces : un conteneur vide donne une demi-carte')
+        .toBe(2);
+    }, { timeout: 8000 });
+  });
+
+  /**
+   * La meme case de ref sert dans les deux sens. Entrer dans le rideau la
+   * remplissait puis se la faisait effacer ; rien ne garantissait le chemin du
+   * retour, ou c'est la vue simple qui doit recuperer son div. Un aller sans
+   * retour laisserait la console vide apres un simple aller-retour de bouton.
+   */
+  it('rend une vue simple tracee quand on SORT du rideau', async () => {
+    await avecCoupes(2);
+    const bouton = (cle) => screen.getAllByRole('button')
+      .find((b) => new RegExp(i18n.t(cle), 'i').test(b.getAttribute('aria-label') || ''));
+
+    fireEvent.click(bouton('explore.curtain.enable'));
+    await waitFor(() => expect(bouton('explore.curtain.exit')).toBeTruthy(), { timeout: 8000 });
+
+    fireEvent.click(bouton('explore.curtain.exit'));
+    await waitFor(() => {
+      const traces = [...document.querySelectorAll('div[role="img"]')]
+        .filter((d) => d.getAttribute('aria-label') === i18n.t('viz.aria.slice')
+          && d.classList.contains('js-plotly-plot'));
+      expect(traces.length,
+        'la vue simple doit retrouver un graphe trace apres la sortie du rideau')
+        .toBeGreaterThan(0);
+    }, { timeout: 8000 });
+  });
+
+  /**
+   * Basculer d'onglet pendant le rideau REMONTE le composant, puisque sa cle
+   * porte les deux identifiants. C'est le chemin par lequel les deux volets se
+   * tracaient tous les deux, et donc celui qui revelait la superposition des
+   * titres et des barres. Les deux volets doivent rester traces des deux cotes
+   * de la bascule.
+   */
+  it('garde les deux volets traces apres une bascule d onglet', async () => {
+    await avecCoupes(2);
+    const rideau = screen.getAllByRole('button')
+      .find((b) => new RegExp(i18n.t('explore.curtain.enable'), 'i')
+        .test(b.getAttribute('aria-label') || ''));
+    fireEvent.click(rideau);
+
+    const dessines = () => [...document.querySelectorAll('div[role="img"]')]
+      .filter((d) => d.getAttribute('aria-label') === i18n.t('viz.aria.slice')
+        && d.classList.contains('js-plotly-plot')).length;
+
+    await waitFor(() => expect(dessines()).toBe(2), { timeout: 8000 });
+
+    fireEvent.click(screen.getAllByRole('tab')[1]);
+    await waitFor(() => expect(dessines(),
+      'la bascule ne doit pas laisser un volet vide derriere elle').toBe(2),
+    { timeout: 8000 });
+  });
 });
 
 describe('reordonnancement des onglets', () => {

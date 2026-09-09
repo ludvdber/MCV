@@ -761,7 +761,6 @@ function ExplorePageContent() {
   }, []);
   const persistPinned = (v) => { try { localStorage.setItem('mcv-params-pinned', v ? '1' : '0'); } catch { /* quota/prive */ } };
   const togglePinned = useCallback(() => setParamsPinned(p => { persistPinned(!p); return !p; }), []);
-  const pinParamsOpen = useCallback(() => { setParamsPinned(true); persistPinned(true); }, []);
   useEffect(() => () => clearTimeout(paramsCloseTimer.current), []);
 
   /* Visite guidee : ouverte automatiquement a la premiere venue (drapeau
@@ -958,7 +957,6 @@ function ExplorePageContent() {
             onExportNetCDF={handleExportNetCDF}
             onDrillDown={handleDrillDown}
             onTransectSelect={handleTransectSelect}
-            onRequestParams={isDesktop ? pinParamsOpen : undefined}
             onReplayTour={isDesktop ? replayTour : undefined}
           />
         </Box>

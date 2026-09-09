@@ -47,6 +47,15 @@ export default defineConfig([
     rules: { 'react-refresh/only-export-components': 'off' },
   },
   {
+    // La suite de bout en bout tourne dans Node, pas dans un navigateur : elle
+    // lit process.env pour savoir quelle cible viser, et pilote Chromium depuis
+    // l'exterieur. Le code qu'elle injecte DANS la page, lui, s'execute cote
+    // navigateur — d'ou les deux jeux de globales.
+    files: ['e2e/**/*.js', 'vitest.e2e.config.js'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
+  {
     // Les contextes co-localisent volontairement Provider + hook (useMars,
     // useThemeMode, useToast) : c'est le pattern React standard, importe
     // partout dans l'app. La regle ne concerne que le confort du Fast

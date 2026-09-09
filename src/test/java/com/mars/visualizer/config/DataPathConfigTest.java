@@ -228,5 +228,51 @@ class DataPathConfigTest {
 			assertTrue(m.contains("MEAN"), m);
 			assertFalse(m.contains("ni-lautre"), "le second chemin ne doit pas etre atteint");
 		}
+
+		/**
+		 * Le piege du gabarit a moitie rempli, et le seul de cette classe qui ne
+		 * se voyait PAS : quelqu'un laisse « netcdf.mean.path= » et lance.
+		 * {@code Paths.get("")} rend le chemin VIDE, que {@code Files.exists} et
+		 * {@code Files.isDirectory} resolvent tous deux contre le repertoire
+		 * courant. Les deux gardes passaient donc, et l'application demarrait
+		 * avec le dossier du JAR pour repertoire de donnees : mesure sur le JAR
+		 * livre, demarrage nominal, catalogue vide, aucun message.
+		 *
+		 * <p>C'est la panne la plus couteuse de la famille, parce qu'elle ne
+		 * ressemble pas a une panne : le service repond, il ne montre rien.
+		 */
+		@Test
+		@DisplayName("Une valeur VIDE est un oubli, pas le repertoire courant")
+		void valeurVide(@TempDir Path racine) throws IOException {
+			Files.createDirectory(racine.resolve("individual"));
+			DataPathConfig c = configuree("", racine.resolve("individual").toString());
+
+			String m = assertThrows(IllegalStateException.class, c::initialize).getMessage();
+			assertTrue(m.contains("netcdf.mean.path"),
+					"le refus doit nommer la cle a renseigner : " + m);
+		}
+
+		@Test
+		@DisplayName("Une valeur reduite a des espaces est traitee comme vide")
+		void valeurBlanche(@TempDir Path racine) throws IOException {
+			Files.createDirectory(racine.resolve("individual"));
+			DataPathConfig c = configuree("   ", racine.resolve("individual").toString());
+
+			assertThrows(IllegalStateException.class, c::initialize);
+		}
+
+		/**
+		 * Meme garde du cote individual : MEAN valide, individual vide. Sans
+		 * elle, seul le premier chemin serait protege.
+		 */
+		@Test
+		@DisplayName("La garde vaut aussi pour le repertoire individual")
+		void valeurVideIndividual(@TempDir Path racine) throws IOException {
+			Files.createDirectory(racine.resolve("mean"));
+			DataPathConfig c = configuree(racine.resolve("mean").toString(), "");
+
+			String m = assertThrows(IllegalStateException.class, c::initialize).getMessage();
+			assertTrue(m.contains("netcdf.individual.path"), m);
+		}
 	}
 }

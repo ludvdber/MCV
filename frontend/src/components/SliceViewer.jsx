@@ -35,9 +35,11 @@ import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
  * @param {boolean}     smooth       - lissage visuel Plotly (zsmooth 'best')
  * @param {number}      interpStep   - pas d'affichage en degres (0 = grille native,
  *                                     2/1 = sur-echantillonnage bilineaire client)
+ * @param {boolean}     hideStats    - masque la barre de statistiques (le rideau A/B
+ *                                     affiche la sienne, une par volet)
  */
 
-function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = false, showSurface = false, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip = false, windData = null, windParticles = false, topoData = null, titleText = null, onExportCSV = null, noExportMenu = false, externalPlotRef = null, logScale = false, smooth = true, interpStep = 0, compact = false }) {
+function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = false, showSurface = false, colorscaleName, reverseColorscale, customZMin, customZMax, showDetailedTooltip = false, windData = null, windParticles = false, topoData = null, titleText = null, onExportCSV = null, noExportMenu = false, externalPlotRef = null, logScale = false, smooth = true, interpStep = 0, compact = false, hideStats = false }) {
   const { t, i18n } = useTranslation();
   const { fontColor, paperBg, plotBg, titleSize, margin: responsiveMargin } = usePlotlyTheme();
   const internalPlotRef = useRef(null);
@@ -405,7 +407,12 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
           )}
         </Box>
       )}
-      {!compact && <StatsBar stats={stats} />}
+      {/* `hideStats` : le rideau A/B superpose deux SliceViewers complets, donc
+          deux barres au MEME endroit. Le rideau decoupant celle du dessus, la
+          barre lue melangeait les deux jeux — min/max d'un volet, moyenne et
+          mediane de l'autre, d'ou des moyennes hors des bornes affichees. Le
+          rideau rend desormais les deux barres lui-meme, etiquetees A et B. */}
+      {!compact && !hideStats && <StatsBar stats={stats} />}
     </Box>
   );
 }

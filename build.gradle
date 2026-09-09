@@ -110,6 +110,18 @@ tasks.named('classes') {
 	dependsOn 'copyFrontend'
 }
 
+// Le gabarit de configuration livre AVEC le JAR est le fichier
+// config/application.properties du depot : une seule source, pas une copie a
+// tenir a jour. Il entre dans le JAR sous un autre nom pour que Spring ne le
+// charge pas comme configuration (seuls les application*.properties le sont) ;
+// ConfigTemplateWriter le ressort a cote du JAR au premier demarrage quand
+// aucune configuration externe n'est trouvee.
+tasks.named('processResources') {
+	from('config/application.properties') {
+		rename { 'config-template.properties' }
+	}
+}
+
 // Compilation avec flag -parameters pour Spring Boot
 tasks.withType(JavaCompile) {
     options.compilerArgs << '-parameters'

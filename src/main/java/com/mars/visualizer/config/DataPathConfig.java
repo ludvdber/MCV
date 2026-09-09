@@ -55,6 +55,20 @@ public class DataPathConfig {
 						|| (cleaned.startsWith("'") && cleaned.endsWith("'")))) {
 			cleaned = cleaned.substring(1, cleaned.length() - 1).trim();
 		}
+		// Une valeur VIDE est le piege du gabarit a moitie rempli : quelqu'un
+		// laisse « netcdf.mean.path= » et lance. Paths.get("") rend le chemin
+		// VIDE, que Files.exists et Files.isDirectory resolvent tous deux contre
+		// le repertoire courant : les deux gardes passent, et l'application
+		// demarre avec le dossier du JAR pour repertoire de donnees. Mesure sur
+		// le JAR livre : demarrage nominal, catalogue vide, aucun message.
+		// Une case laissee vide n'est pas une configuration, c'est un oubli.
+		if (cleaned.isEmpty()) {
+			String errorMsg = "Le chemin " + label + " n'est pas renseigne."
+					+ aide(property, envVar);
+			log.error(errorMsg);
+			throw new IllegalStateException(errorMsg);
+		}
+
 		// Un chemin colle depuis un explorateur peut porter un caractere que le
 		// systeme refuse (un guillemet depareille sous Windows). Paths.get leve
 		// alors une InvalidPathException, qui remonterait telle quelle et
@@ -78,7 +92,8 @@ public class DataPathConfig {
 	 */
 	private static String aide(String property, String envVar) {
 		return " Configurez « " + property + " » dans config/application.properties"
-				+ " (a cote du JAR) ou via la variable d'environnement " + envVar
+				+ " (a cote du JAR ; le fichier est cree automatiquement au premier"
+				+ " demarrage s'il manque) ou via la variable d'environnement " + envVar
 				+ ". Chemins reseau acceptes : \\\\serveur\\partage\\... (Windows, doubler les"
 				+ " backslashes dans un .properties, ou ecrire //serveur/partage/...),"
 				+ " /mnt/... (montage Linux).";

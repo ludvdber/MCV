@@ -52,6 +52,18 @@ mcv/
 
 Le modèle de `config/application.properties` fourni à la racine du dépôt documente chaque réglage : port HTTP, chemins des données, limites de requêtes. L'application lit ce fichier automatiquement au démarrage et il surcharge les valeurs par défaut. Vous pouvez n'y garder que les lignes que vous changez.
 
+Vous n'avez pas besoin de le trouver pour commencer. **Si aucune configuration n'existe au premier démarrage, l'application en écrit une elle-même** dans `config/application.properties`, affiche son chemin absolu en clair dans la console, puis s'arrête en demandant les chemins des données. Le fichier déposé est exactement celui du dépôt, commenté ligne à ligne.
+
+Le fichier est aussi lu **à plat**, directement à côté du JAR, sans dossier `config/`. Télécharger le JAR et le fichier de configuration dans un seul dossier est donc un déploiement valable :
+
+```
+mcv/
+├── mars-visualizer.jar
+└── application.properties
+```
+
+Si les deux emplacements existent, c'est `config/` qui l'emporte. Une configuration déjà présente n'est jamais écrasée, quel que soit l'emplacement.
+
 Lancement :
 
 ```bash
@@ -67,6 +79,8 @@ Deux dossiers sont attendus :
 
 - `netcdf.mean.path` : les fichiers `.nc` moyennés (48 pas d'heure locale)
 - `netcdf.individual.path` : un sous-dossier par année martienne (`34/`, `35/`, ...) contenant les fichiers à pas de temps unique
+
+Les deux doivent porter une valeur. **Une ligne laissée vide n'est pas une valeur par défaut, c'est un oubli**, et l'application la refuse au démarrage en nommant la clé à remplir.
 
 Les chemins réseau fonctionnent nativement, l'application ne fait que lire les fichiers :
 

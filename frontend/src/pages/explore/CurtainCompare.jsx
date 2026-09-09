@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { useExploreState } from './ExploreContext.jsx';
 import { useResultColorscale } from './useResultColorscale.js';
 import SliceViewer from '../../components/SliceViewer';
+import StatsBar from '../../components/StatsBar';
 
 export default function CurtainCompare({ resultA, resultB, sharedPlotRef = null }) {
   const { t } = useTranslation();
@@ -67,16 +68,22 @@ export default function CurtainCompare({ resultA, resultB, sharedPlotRef = null 
     smooth: smoothHeatmap,
     interpStep,
     noExportMenu: true,
+    hideStats: true,
   };
 
   return (
     <Box>
       <Box ref={boxRef} sx={{ position: 'relative' }}>
         {/* Volet A (dessous, plein) */}
+        {/* Le titre du graphe est celui du volet A, mais il surplombe les DEUX
+            volets : sans le prefixe « A · » il donnerait le jeu de gauche pour
+            celui de toute l'image, y compris dans une figure exportee. Le
+            volet B, lui, ne dessine plus de titre du tout (il se posait sur
+            celui-ci) : son jeu est nomme par sa pastille et par sa barre. */}
         <SliceViewer
           sliceData={resultA.data}
           variableCode={resultA.params.variable}
-          datasetLabel={resultA.datasetLabel}
+          datasetLabel={`A · ${resultA.datasetLabel || resultA.label}`}
           externalPlotRef={sharedPlotRef}
           {...viewerProps}
         />
@@ -87,6 +94,7 @@ export default function CurtainCompare({ resultA, resultB, sharedPlotRef = null 
             sliceData={resultB.data}
             variableCode={resultB.params.variable}
             datasetLabel={resultB.datasetLabel}
+            titleText=""
             {...viewerProps}
           />
         </Box>
@@ -149,6 +157,29 @@ export default function CurtainCompare({ resultA, resultB, sharedPlotRef = null 
             ⇆
           </Box>
         </Box>
+      </Box>
+
+      {/* Les statistiques des DEUX volets, etiquetees. Chaque SliceViewer
+          rendait la sienne au meme endroit : le rideau tranchait la pile et la
+          barre lue melangeait les jeux — mesure sur deux slices TT, min et max
+          venus du volet A (140,6 / 173,6) mais ecart-type et mediane du volet B
+          (8,034 / 168,1), d'ou des moyennes hors des bornes affichees. Une
+          barre par volet supprime la question. */}
+      <Box sx={{ mt: 1, display: 'grid', gap: 0.5 }}>
+        {[
+          { cle: 'A', res: resultA, stats: statsA, couleur: 'var(--sand, #d9a066)' },
+          { cle: 'B', res: resultB, stats: statsB, couleur: 'var(--cyan-accent, #38bdf8)' },
+        ].map(({ cle, res, stats, couleur }) => (
+          <Box key={cle}>
+            <Typography
+              variant="caption"
+              sx={{ display: 'block', px: 0.5, fontWeight: 700, color: couleur }}
+            >
+              {`${cle} · ${res.datasetLabel || res.label}`}
+            </Typography>
+            <StatsBar stats={stats} />
+          </Box>
+        ))}
       </Box>
 
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, px: 0.5 }}>
