@@ -138,7 +138,7 @@ Server installation, systemd service and reverse-proxy setup: **[DEPLOYMENT.md](
 | `./gradlew build` | Full build: frontend, compilation, tests, JAR in `build/libs/` |
 | `./gradlew build -x test` | Same without the test suite |
 | `./gradlew bootJar` | JAR only, no tests |
-| `./gradlew test` | JUnit 5 suite (435 tests) + JaCoCo coverage report |
+| `./gradlew test` | JUnit 5 suite (448 tests) + JaCoCo coverage report |
 | `./gradlew buildFrontend` | Frontend production build only |
 
 Coverage report: `build/reports/jacoco/test/html/index.html`. Currently 96.2% of instructions, 87.6% of branches, 96.1% of lines.
@@ -150,7 +150,7 @@ Coverage report: `build/reports/jacoco/test/html/index.html`. Currently 96.2% of
 | `npm run dev` | Vite dev server on :5173 with hot reload |
 | `npm run build` | Production build into `frontend/dist/` |
 | `npm run preview` | Serves the production build locally |
-| `npm run test` | Vitest suite (1367 tests, jsdom) |
+| `npm run test` | Vitest suite (1391 tests, jsdom) |
 | `npm run test:e2e` | End-to-end suite (66 tests) in a real Chromium |
 | `npx vitest run --coverage` | Same, with the coverage report in `frontend/coverage/` |
 | `npm run lint` | ESLint check |
@@ -225,7 +225,6 @@ git update-index --chmod=+x gradlew
 | Wind rose | `/windrose` | wind direction/speed distribution at a point |
 | Difference | `/difference` | anomaly map between two datasets |
 | Explore | `/explore` | console: up to 4 linked views, probe, region statistics, sessions |
-| Legal notice | `/legal` | publisher, code licence, data provenance and citation, browser storage |
 
 All views support permalinks, CSV export, PNG/SVG export, log₁₀ scale and colorscale selection. Interfaces are available in English, French, Dutch, German and Spanish.
 

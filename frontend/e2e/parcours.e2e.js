@@ -202,15 +202,6 @@ describe('langues', () => {
 
 describe('pages annexes', () => {
 
-  it('la page des mentions legales rend sans erreur', async () => {
-    erreurs.length = 0;
-    await aller(page, '/legal');
-    await page.waitForTimeout(2000);
-    expect((await page.locator('body').innerText()).length).toBeGreaterThan(200);
-    expect(await debordementHorizontal(page)).toEqual([]);
-    expect(erreursReelles(erreurs)).toEqual([]);
-  }, 120000);
-
   it('une adresse inconnue rend la page 404, pas une page blanche', async () => {
     erreurs.length = 0;
     await aller(page, '/cette-page-nexiste-pas');

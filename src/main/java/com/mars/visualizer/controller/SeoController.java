@@ -57,7 +57,6 @@ public class SeoController {
 		routes.put("/windrose", "0.6");
 		routes.put("/difference", "0.6");
 		routes.put("/temporal-profile", "0.6");
-		routes.put("/legal", "0.2");
 		ROUTES = Collections.unmodifiableMap(routes);
 	}
 

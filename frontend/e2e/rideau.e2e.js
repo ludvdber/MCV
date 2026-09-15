@@ -114,6 +114,31 @@ describe('rideau A/B, rendu reel', () => {
   });
 
   /**
+   * Le volet B se CHOISIT, et ce que le controle annonce est ce que la carte
+   * montre. C'est le raccordement qui manquait : l'action SET_CURTAIN_B
+   * existait dans le reducteur, testee, et n'etait dispatchee de nulle part.
+   * B valait toujours la premiere autre coupe, et son nom ne vivait que dans
+   * l'infobulle du bouton — donc jamais au doigt, et remplacee par « Quitter »
+   * des l'ouverture, c'est-a-dire perdue au moment ou on la regarde.
+   *
+   * L'accord entre les deux est l'enonce qui compte : la barre d'outils et le
+   * panneau resolvaient le volet B chacun de leur cote, et leurs deux copies
+   * avaient deja diverge.
+   */
+  it('laisse choisir le volet B, et le controle s accorde avec la carte', async () => {
+    const liste = page.getByRole('combobox', { name: /volet b|pane b/i });
+    expect(await liste.count(),
+      'le volet B doit se choisir dans un controle visible, pas se deviner').toBe(1);
+    const annonce = (await liste.innerText()).trim().replace(/\s+/g, ' ');
+    expect(annonce.length, 'le controle doit nommer le jeu compare').toBeGreaterThan(0);
+
+    const texte = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
+    expect(texte,
+      'la pastille du volet B doit nommer le jeu que le controle annonce')
+      .toContain(`B · ${annonce}`);
+  });
+
+  /**
    * Le rideau se deplace : les invariants doivent tenir a toutes ses positions,
    * pas seulement a 50 %. Une barre tranchee ailleurs reste une barre tranchee.
    */

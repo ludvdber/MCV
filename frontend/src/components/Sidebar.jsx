@@ -32,7 +32,7 @@ import {
   Timeline as ProfilesIcon,
   BarChart as DiagnosticsIcon,
 } from '@mui/icons-material';
-import { DarkMode as DarkModeIcon, LightMode as LightModeIcon, Contrast as ContrastIcon, InfoOutlined as AboutIcon, Science as ScienceIcon, Gavel as GavelIcon } from '@mui/icons-material';
+import { DarkMode as DarkModeIcon, LightMode as LightModeIcon, Contrast as ContrastIcon, InfoOutlined as AboutIcon, Science as ScienceIcon } from '@mui/icons-material';
 import MethodologyDialog from './MethodologyDialog';
 import LanguageSwitcher from './LanguageSwitcher';
 import AboutDialog from './AboutDialog';
@@ -529,13 +529,34 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
             </IconButton>
           </Tooltip>
         )}
-        {/* Reglages en une rangee d'icones (theme, contraste, a propos) +
-            langue : cinq lignes compressees en une, la place revient au contenu */}
+        {/* Reglages en une rangee d'icones (theme, contraste, a propos,
+            methodologie) + langue : cinq lignes compressees en une, la place
+            revient au contenu.
+
+            Le rail replie doit porter les MEMES reglages que la barre
+            deployee. Il lui manquait le contraste renforce et la
+            methodologie, alors que /explore replie la nav automatiquement :
+            les deux etaient donc hors d'atteinte sur la page ou l'on passe le
+            plus de temps, sans que rien ne l'indique. */}
         {collapsed ? (
           <>
             <Tooltip title={mode === 'dark' ? t('theme.light') : t('theme.dark')} placement="right" arrow>
-              <IconButton onClick={toggleTheme} sx={{ color: 'var(--text-secondary)', p: 1 }}>
+              <IconButton
+                onClick={toggleTheme}
+                aria-label={mode === 'dark' ? t('theme.light') : t('theme.dark')}
+                sx={{ color: 'var(--text-secondary)', p: 1 }}
+              >
                 {mode === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={t('theme.contrast')} placement="right" arrow>
+              <IconButton
+                onClick={toggleContrast}
+                aria-label={t('theme.contrast')}
+                aria-pressed={highContrast}
+                sx={{ color: highContrast ? 'var(--mars-orange)' : 'var(--text-secondary)', p: 1, '&:hover': { color: 'var(--text-primary)' } }}
+              >
+                <ContrastIcon fontSize="small" />
               </IconButton>
             </Tooltip>
             <Tooltip title={t('about.title')} placement="right" arrow>
@@ -547,16 +568,13 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
                 <AboutIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            {/* Mentions legales : meme raison que la langue ci-dessous, /explore
-                replie la nav et prive sinon la page de tout lien legal. */}
-            <Tooltip title={t('nav.legal')} placement="right" arrow>
+            <Tooltip title={t('method.title')} placement="right" arrow>
               <IconButton
-                component={Link}
-                to="/legal"
-                aria-label={t('nav.legal')}
-                sx={{ color: 'var(--text-secondary)', p: 1, '&:hover': { color: 'var(--text-primary)' } }}
+                onClick={() => setMethodsOpen(true)}
+                aria-label={t('method.title')}
+                sx={{ color: 'var(--text-secondary)', p: 1, '&:hover': { color: 'var(--mars-orange)' } }}
               >
-                <GavelIcon fontSize="small" />
+                <ScienceIcon fontSize="small" />
               </IconButton>
             </Tooltip>
             {/* Langue accessible même rail replié (sinon /explore, qui replie la
@@ -593,21 +611,6 @@ function SidebarContent({ onClose, collapsed = false, onShortcutsOpen }) {
             {/* Provenance des donnees, visible sur toutes les pages */}
             <Typography variant="caption" sx={{ color: 'var(--text-secondary)', opacity: 0.65, fontSize: '0.66rem', letterSpacing: '0.02em' }}>
               {t('nav.dataCredit')} : GEM-Mars · BIRA-IASB
-            </Typography>
-            {/* Mentions legales : une page publique doit etre joignable depuis
-                n'importe laquelle de ses pages, d'ou le pied de barre plutot
-                qu'un lien sur le seul accueil. */}
-            <Typography
-              component={Link}
-              to="/legal"
-              variant="caption"
-              sx={{
-                color: 'var(--text-secondary)', opacity: 0.65, fontSize: '0.66rem',
-                letterSpacing: '0.02em', textDecoration: 'none', width: 'fit-content',
-                '&:hover': { color: 'var(--mars-orange)', opacity: 1 },
-              }}
-            >
-              {t('nav.legal')}
             </Typography>
           </>
         )}

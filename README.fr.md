@@ -138,7 +138,7 @@ Installation serveur, service systemd et reverse proxy : **[DEPLOYMENT.fr.md](DE
 | `./gradlew build` | Build complet : frontend, compilation, tests, JAR dans `build/libs/` |
 | `./gradlew build -x test` | Idem sans la suite de tests |
 | `./gradlew bootJar` | JAR uniquement, sans tests |
-| `./gradlew test` | Suite JUnit 5 (435 tests) + rapport de couverture JaCoCo |
+| `./gradlew test` | Suite JUnit 5 (448 tests) + rapport de couverture JaCoCo |
 | `./gradlew buildFrontend` | Build de production du frontend uniquement |
 
 Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellement 96,2 % des instructions, 87,6 % des branches et 96,1 % des lignes.
@@ -150,7 +150,7 @@ Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellemen
 | `npm run dev` | Serveur de développement Vite sur :5173 avec rechargement à chaud |
 | `npm run build` | Build de production dans `frontend/dist/` |
 | `npm run preview` | Sert le build de production en local |
-| `npm run test` | Suite Vitest (1367 tests, jsdom) |
+| `npm run test` | Suite Vitest (1391 tests, jsdom) |
 | `npm run test:e2e` | Suite de bout en bout (66 tests) dans un vrai Chromium |
 | `npx vitest run --coverage` | Idem, avec le rapport de couverture dans `frontend/coverage/` |
 | `npm run lint` | Vérification ESLint |
@@ -228,7 +228,6 @@ git update-index --chmod=+x gradlew
 | Rose des vents | `/windrose` | distribution direction/vitesse du vent en un point |
 | Différence | `/difference` | carte d'anomalies entre deux jeux de données |
 | Exploration | `/explore` | console : jusqu'à 4 vues liées, sonde, statistiques de région, sessions |
-| Mentions légales | `/legal` | éditeur, licence du code, provenance et citation des données, stockage navigateur |
 
 Toutes les vues offrent permaliens, export CSV, export PNG/SVG, échelle log₁₀ et choix de palette. L'interface est disponible en anglais, français, néerlandais, allemand et espagnol.
 

@@ -8,8 +8,10 @@
  * region, transect, zoom synchronise, rideau A/B et couches derivees.
  * Les aria-labels sont inchanges (stabilite des tests E2E).
  */
-import { useMemo } from 'react';
-import { Box, IconButton, Tooltip, Typography } from '@mui/material';
+import { useId, useMemo } from 'react';
+import {
+  Box, FormControl, IconButton, InputLabel, MenuItem, Select, Tooltip, Typography,
+} from '@mui/material';
 import {
   Place as PlaceIcon,
   Map as MapIcon,
@@ -31,6 +33,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useExploreState, useExploreDispatch, A } from './ExploreContext.jsx';
 import { LATLON_HEATMAP_TYPES, COLORSCALE_TYPES, SMOOTH_TYPES, ROI_TYPES } from './exploreConstants.jsx';
+import { slicesComparables, voletB, etiquetteVue } from './curtainSelection.js';
 
 /* disableInteractive : sans lui l'infobulle reste ouverte tant que le pointeur
    la survole et recouvre les boutons voisins du rail, qui sont petits et
@@ -68,17 +71,16 @@ export default function ExploreTools({ onDeriveAmplitude, onDeriveWindSpeed }) {
   const isSlice = r?.type === 'slice';
   const isWindComponent = ['UU', 'VV'].includes(r?.params?.variable);
 
-  /** Slices comparables a l'onglet actif (meme variable) — pour le rideau. */
-  const otherSlices = useMemo(() => {
-    if (!isSlice) return [];
-    return resultOrder
-      .filter(id => resultsById[id]?.type === 'slice' && id !== activeResult
-        && resultsById[id]?.params?.variable === r?.params?.variable)
-      .map(id => resultsById[id]);
-  }, [isSlice, resultOrder, resultsById, activeResult, r]);
+  /** Slices comparables a l'onglet actif (meme variable) — pour le rideau.
+   *  Meme definition que celle lue par le panneau : voir curtainSelection.js. */
+  const otherSlices = useMemo(
+    () => slicesComparables({ resultsById, resultOrder, activeResult }),
+    [resultsById, resultOrder, activeResult],
+  );
 
-  const curtainB = resultsById[curtainBId] ?? otherSlices[0] ?? null;
+  const curtainB = voletB({ curtainBId }, otherSlices);
   const curtainActive = curtainOn && isSlice && otherSlices.length > 0;
+  const idVoletB = useId();
 
   /* Rien a afficher pour les types sans toggle (timeseries, profil, rose) */
   const hasTools = !!r && (
@@ -184,17 +186,6 @@ export default function ExploreTools({ onDeriveAmplitude, onDeriveWindSpeed }) {
             <SyncZoomIcon fontSize="small" />
           </ToolButton>
         )}
-        {isSlice && otherSlices.length > 0 && (
-          <ToolButton
-            title={curtainActive
-              ? t('explore.curtain.exit')
-              : `${t('explore.curtain.enable')} · B: ${(curtainB ?? otherSlices[0]).label}`}
-            on={curtainActive}
-            onClick={() => dispatch({ type: A.TOGGLE_CURTAIN, bId: otherSlices[0].id })}
-          >
-            <CurtainIcon fontSize="small" />
-          </ToolButton>
-        )}
         {r?.type === 'animation' && onDeriveAmplitude && (
           <ToolButton title={t('explore.derived.amplitude')} onClick={onDeriveAmplitude}>
             <AmplitudeIcon fontSize="small" />
@@ -206,6 +197,50 @@ export default function ExploreTools({ onDeriveAmplitude, onDeriveWindSpeed }) {
           </ToolButton>
         )}
       </Box>
+
+      {/* ── Comparateur A/B ──────────────────────────────────────────────
+          Le rideau etait une simple icone dans la barre ci-dessus, et le
+          volet B valait toujours `otherSlices[0]` : l'action SET_CURTAIN_B
+          existait dans le reducteur sans que rien ne la declenche. On ne
+          pouvait donc pas choisir la vue comparee, et la seule mention du
+          volet B vivait dans l'infobulle du bouton — invisible au doigt, et
+          remplacee par « Quitter » des le rideau ouvert, c'est-a-dire perdue
+          au moment ou on la regarde. Les deux volets sont desormais nommes
+          en clair AVANT l'ouverture : A est la vue active, B se choisit. */}
+      {isSlice && otherSlices.length > 0 && (
+        <>
+          <Typography className="mcv-ins-h" component="h2">{t('explore.curtain.title')}</Typography>
+          <Box className="mcv-curtain">
+            <Typography className="mcv-curtain-a" variant="caption" component="p">
+              {t('explore.curtain.paneA')} · {etiquetteVue(r)}
+            </Typography>
+            <Box className="mcv-curtain-pick">
+              <FormControl size="small">
+                <InputLabel id={idVoletB}>{t('explore.curtain.paneB')}</InputLabel>
+                <Select
+                  labelId={idVoletB}
+                  label={t('explore.curtain.paneB')}
+                  value={curtainB?.id ?? ''}
+                  onChange={(e) => dispatch({ type: A.SET_CURTAIN_B, value: e.target.value })}
+                >
+                  {otherSlices.map((s) => (
+                    <MenuItem key={s.id} value={s.id}>{etiquetteVue(s)}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              {/* bId explicite : ce qui s'ouvre est exactement ce que la
+                  liste ci-contre affiche, meme si rien n'a ete choisi. */}
+              <ToolButton
+                title={curtainActive ? t('explore.curtain.exit') : t('explore.curtain.enable')}
+                on={curtainActive}
+                onClick={() => dispatch({ type: A.TOGGLE_CURTAIN, bId: curtainB?.id })}
+              >
+                <CurtainIcon fontSize="small" />
+              </ToolButton>
+            </Box>
+          </Box>
+        </>
+      )}
     </>
   );
 }

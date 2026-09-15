@@ -43,7 +43,6 @@ const ZonalMeanPage = lazy(() => import('./pages/ZonalMeanPage'));
 const WindRosePage = lazy(() => import('./pages/WindRosePage'));
 const DifferencePage = lazy(() => import('./pages/DifferencePage'));
 const TemporalProfilePage = lazy(() => import('./pages/TemporalProfilePage'));
-const LegalPage = lazy(() => import('./pages/LegalPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 /* ─── SEO par route ────────────────────────────────────────────────────────
@@ -91,7 +90,6 @@ const ROUTE_META = {
   '/windrose':         ['nav.windrose', 'meta.windrose'],
   '/difference':       ['nav.difference', 'meta.difference'],
   '/temporal-profile': ['nav.temporalprofile', 'meta.temporalprofile'],
-  '/legal':            ['nav.legal', 'meta.legal'],
 };
 
 function upsertMeta(attr, key, content) {
@@ -265,7 +263,6 @@ function AppContent() {
                 <Route path="/windrose" element={<PageTransition><WindRosePage /></PageTransition>} />
                 <Route path="/difference" element={<PageTransition><DifferencePage /></PageTransition>} />
                 <Route path="/temporal-profile" element={<PageTransition><TemporalProfilePage /></PageTransition>} />
-                <Route path="/legal" element={<PageTransition><LegalPage /></PageTransition>} />
                 <Route path="*" element={<PageTransition><NotFoundPage /></PageTransition>} />
               </Routes>
             </RouteErrorBoundary>

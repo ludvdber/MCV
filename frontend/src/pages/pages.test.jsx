@@ -10,7 +10,6 @@ import ZonalMeanPage from './ZonalMeanPage';
 import WindRosePage from './WindRosePage';
 import DifferencePage from './DifferencePage';
 import TemporalProfilePage from './TemporalProfilePage';
-import LegalPage from './LegalPage';
 import NotFoundPage from './NotFoundPage';
 import i18n from '../i18n';
 import {
@@ -170,12 +169,6 @@ describe('SlicePage', () => {
 });
 
 describe('pages statiques', () => {
-  it('la page legale s affiche sans appel reseau de donnees', () => {
-    renderAvecProviders(<LegalPage />, { route: '/legal' });
-    expect(screen.getAllByRole('heading').length).toBeGreaterThan(0);
-    expect(requetes.filter((r) => r.url.startsWith('/data/'))).toHaveLength(0);
-  });
-
   it('la page 404 propose un retour a l accueil', () => {
     renderAvecProviders(<NotFoundPage />, { route: '/inexistant' });
     // Le retour se fait par `navigate('/')`, pas par une ancre : on verifie
@@ -183,15 +176,5 @@ describe('pages statiques', () => {
     const bouton = screen.getByRole('button', { name: i18n.t('page.notfound.backHome') });
     expect(bouton).toBeTruthy();
     expect(bouton.disabled).toBe(false);
-  });
-
-  it('la page legale suit la langue', async () => {
-    const { unmount } = renderAvecProviders(<LegalPage />, { route: '/legal' });
-    const fr = document.body.textContent;
-    unmount();
-    await i18n.changeLanguage('en');
-    renderAvecProviders(<LegalPage />, { route: '/legal' });
-    expect(document.body.textContent).not.toBe(fr);
-    await i18n.changeLanguage('fr');
   });
 });

@@ -677,6 +677,17 @@ body {
 .mcv-tools { display: flex; flex-wrap: wrap; gap: 4px; }
 .mcv-tool-btn { border-radius: 10px !important; }
 
+/* --- comparateur A/B (choix du volet B) ---------------------------------
+   Le volet B etait toujours la premiere autre coupe et son nom ne vivait
+   que dans une infobulle : invisible au doigt, et perdue des l'ouverture du
+   rideau. Les deux volets sont maintenant nommes en clair. */
+.mcv-curtain { display: flex; flex-direction: column; gap: 6px; }
+.mcv-curtain-a { display: block; margin: 0 !important; opacity: 0.85; }
+.mcv-curtain-pick { display: flex; align-items: center; gap: 6px; }
+/* min-width: 0 sinon la liste deroulante refuse de se retrecir et pousse le
+   bouton hors du panneau sur les ecrans etroits. */
+.mcv-curtain-pick .MuiFormControl-root { flex: 1 1 auto; min-width: 0; }
+
 /* --- rangee d'onglets + cellules --- */
 .mcv-tabrow, .mcv-empty-stage {
   background: var(--mcv-glass) !important;

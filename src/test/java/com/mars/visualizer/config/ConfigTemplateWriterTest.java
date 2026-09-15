@@ -35,6 +35,12 @@ class ConfigTemplateWriterTest {
 		return base.resolve("config").resolve("application.properties");
 	}
 
+	/** Appel sans ligne de commande ni variable d'environnement : le cas ou le
+	 *  modele DOIT etre depose. */
+	private static Optional<Path> ecrire(Path base) {
+		return ConfigTemplateWriter.ecrireSiAbsent(base, new String[0], nom -> null);
+	}
+
 	@Nested
 	@DisplayName("Installation neuve")
 	class InstallationNeuve {
@@ -42,7 +48,7 @@ class ConfigTemplateWriterTest {
 		@Test
 		@DisplayName("Un dossier ne contenant que le JAR recoit le modele")
 		void deposeLeModele(@TempDir Path base) {
-			Optional<Path> ecrit = ConfigTemplateWriter.ecrireSiAbsent(base);
+			Optional<Path> ecrit = ecrire(base);
 
 			assertThat(ecrit).isPresent();
 			assertThat(dansConfig(base)).exists();
@@ -58,7 +64,7 @@ class ConfigTemplateWriterTest {
 		@Test
 		@DisplayName("Le modele porte bien les cles a renseigner et leurs commentaires")
 		void contenuUtile(@TempDir Path base) throws Exception {
-			ConfigTemplateWriter.ecrireSiAbsent(base);
+			ecrire(base);
 			String contenu = Files.readString(dansConfig(base));
 
 			assertThat(contenu)
@@ -81,7 +87,7 @@ class ConfigTemplateWriterTest {
 		@Test
 		@DisplayName("Le modele ne propose aucun chemin VIDE")
 		void aucuneValeurVide(@TempDir Path base) throws Exception {
-			ConfigTemplateWriter.ecrireSiAbsent(base);
+			ecrire(base);
 
 			assertThat(Files.readAllLines(dansConfig(base)))
 					.filteredOn(l -> l.startsWith("netcdf.mean.path")
@@ -90,6 +96,96 @@ class ConfigTemplateWriterTest {
 					.allSatisfy(l -> assertThat(l.substring(l.indexOf('=') + 1).trim())
 							.as("une valeur vide est un oubli qui demarre quand meme")
 							.isNotEmpty());
+		}
+	}
+
+	@Nested
+	@DisplayName("A cote du JAR, et non dans le repertoire courant")
+	class ACoteDuJar {
+
+		@Test
+		@DisplayName("L'annonce dit explicitement « a cote du JAR », dans les deux langues")
+		void annonceLEmplacement(@TempDir Path base) throws Exception {
+			// Defaut mesure sur un vrai serveur : le JAR etait dans
+			// /mnt/data/app, la commande tapee depuis /root, et le modele
+			// atterrissait dans /root/config ou personne ne le cherchait.
+			ecrire(base);
+			assertThat(Files.exists(dansConfig(base))).isTrue();
+		}
+
+		@Test
+		@DisplayName("Sans JAR (tests, IDE), on retombe sur le repertoire courant")
+		void repliSurLeRepertoireCourant() {
+			// La suite tourne depuis un classpath eclate : il n'y a pas de JAR
+			// a designer, et « a cote du JAR » n'a alors aucun sens.
+			assertThat(ConfigTemplateWriter.dossierDuJar()).isEmpty();
+			assertThat(ConfigTemplateWriter.baseParDefaut()).isEqualTo(java.nio.file.Paths.get(""));
+		}
+	}
+
+	@Nested
+	@DisplayName("Une configuration deja fournie autrement")
+	class DejaConfigure {
+
+		@Test
+		@DisplayName("Deux chemins passes en ligne de commande : ni modele, ni avertissement")
+		void ligneDeCommande(@TempDir Path base) {
+			// Le cas rencontre en production : l'exploitant lance
+			//   java -jar mcv.jar --netcdf.mean.path=... --netcdf.individual.path=...
+			// et lisait « Aucune configuration n'a ete trouvee », suivi de la
+			// consigne de renseigner ce qu'il venait de renseigner.
+			String[] args = {
+				"--netcdf.mean.path=/mnt/data/netcdf/cross_dirs",
+				"--netcdf.individual.path=/mnt/data/netcdf/individual",
+			};
+			assertThat(ConfigTemplateWriter.ecrireSiAbsent(base, args, nom -> null)).isEmpty();
+			assertThat(Files.exists(dansConfig(base)))
+					.as("un serveur deja configure ne doit rien trouver de nouveau sur son disque")
+					.isFalse();
+		}
+
+		@Test
+		@DisplayName("Les deux variables d'environnement suffisent aussi")
+		void variablesDEnvironnement(@TempDir Path base) {
+			java.util.Map<String, String> env = java.util.Map.of(
+					"NETCDF_MEAN_PATH", "/data/mean",
+					"NETCDF_INDIVIDUAL_PATH", "/data/individual");
+			assertThat(ConfigTemplateWriter.ecrireSiAbsent(base, new String[0], env::get)).isEmpty();
+			assertThat(Files.exists(dansConfig(base))).isFalse();
+		}
+
+		@Test
+		@DisplayName("Un seul des deux chemins ne suffit pas : l'aide reste utile")
+		void configurationPartielle(@TempDir Path base) {
+			String[] args = { "--netcdf.mean.path=/mnt/data/mean" };
+			assertThat(ConfigTemplateWriter.ecrireSiAbsent(base, args, nom -> null)).isPresent();
+			assertThat(Files.exists(dansConfig(base))).isTrue();
+		}
+
+		@Test
+		@DisplayName("Spring accepte les formes relachees, la detection aussi")
+		void formesRelachees(@TempDir Path base) {
+			// NETCDF_MEAN_PATH, netcdf_mean_path et netcdf.mean.path designent
+			// la meme propriete pour Spring : les trois doivent compter ici.
+			String[] args = {
+				"--NETCDF_MEAN_PATH=/data/mean",
+				"--netcdf_individual_path=/data/individual",
+			};
+			assertThat(ConfigTemplateWriter.ecrireSiAbsent(base, args, nom -> null)).isEmpty();
+		}
+
+		@Test
+		@DisplayName("Une valeur vide ne compte pas comme une configuration")
+		void valeurVide(@TempDir Path base) {
+			String[] args = { "--netcdf.mean.path=", "--netcdf.individual.path=" };
+			assertThat(ConfigTemplateWriter.ecrireSiAbsent(base, args, nom -> null)).isPresent();
+		}
+
+		@Test
+		@DisplayName("Un argument sans « = » ne fait pas tomber la detection")
+		void argumentSansValeur(@TempDir Path base) {
+			String[] args = { "--debug", "--netcdf.mean.path", "/data/mean" };
+			assertThat(ConfigTemplateWriter.ecrireSiAbsent(base, args, nom -> null)).isPresent();
 		}
 	}
 
@@ -103,7 +199,7 @@ class ConfigTemplateWriterTest {
 			Files.createDirectories(base.resolve("config"));
 			Files.writeString(dansConfig(base), "netcdf.mean.path=/donnees/production");
 
-			assertThat(ConfigTemplateWriter.ecrireSiAbsent(base)).isEmpty();
+			assertThat(ecrire(base)).isEmpty();
 			assertThat(Files.readString(dansConfig(base)))
 					.as("ecraser la configuration d'un serveur au redemarrage serait pire que le mal")
 					.isEqualTo("netcdf.mean.path=/donnees/production");
@@ -122,7 +218,7 @@ class ConfigTemplateWriterTest {
 			Files.writeString(base.resolve("application.properties"),
 					"netcdf.mean.path=/donnees/production");
 
-			assertThat(ConfigTemplateWriter.ecrireSiAbsent(base)).isEmpty();
+			assertThat(ecrire(base)).isEmpty();
 			assertThat(base.resolve("config")).doesNotExist();
 		}
 	}
@@ -192,7 +288,7 @@ class ConfigTemplateWriterTest {
 
 			assertThatNoException()
 					.as("la generation est un confort : elle ne doit ajouter aucun mode de panne")
-					.isThrownBy(() -> assertThat(ConfigTemplateWriter.ecrireSiAbsent(base)).isEmpty());
+					.isThrownBy(() -> assertThat(ecrire(base)).isEmpty());
 		}
 	}
 }

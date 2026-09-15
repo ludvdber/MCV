@@ -58,6 +58,26 @@ duplicating a single byte of the archive.
   that does not exist.
 - **The build pins UTF-8 source encoding**, so accented console messages no
   longer depend on the locale of the machine that compiled the JAR.
+- **The JAR no longer ships three builds worth of dead JavaScript.** The task
+  that packages the frontend copied without ever deleting, and Vite names every
+  chunk after its own hash, so nothing was ever replaced: 163 files shipped for
+  the 55 a build produces, 3 MB of orphans. A page removed from the router even
+  stayed reachable at its old asset address. The JAR is 1 MB lighter.
+- **The animated wind is capped at 60 frames per second, and its speed no
+  longer depends on your monitor.** The loop followed the screen refresh rate
+  with no bound: measured on the Explore console with four views in grid
+  layout, 181 frames per second and 1.39 million pixels repainted per frame,
+  three times the work of a 60 Hz screen for an identical picture. The
+  advection constant was expressed per FRAME, so the wind also flowed three
+  times faster there than on a 60 Hz screen. Everything that moves is now
+  scaled by elapsed time, and a map that has scrolled off-screen stops
+  animating instead of running for nobody.
+- **The A/B curtain now lets you choose what it compares.** Pane B was always
+  the first other comparable slice: the action that would have changed it
+  existed in the state machine and was emitted from nowhere. Its name appeared
+  only in the button tooltip, which a touch screen never shows and which is
+  replaced by "Exit" the moment the curtain opens. Both panes are now named in
+  plain text before opening: A is the active view, B is a list you pick from.
 
 ### Verified
 
@@ -65,8 +85,8 @@ Measured against the institute's real data, not fixtures:
 
 | Layer | Result |
 |---|---|
-| Backend | 435 tests, 0 failures, 96.2% instruction coverage, 87.6% branches |
-| Frontend (jsdom) | 1367 tests, 0 failures, 90.5% statements, 93.8% lines |
+| Backend | 448 tests, 0 failures, 96.0% instruction coverage, 87.4% branches |
+| Frontend (jsdom) | 1391 tests, 0 failures, 90.6% statements, 93.9% lines |
 | End-to-end (Chromium) | 66 tests, 0 failures against this JAR |
 | Export audit | 560 checks across 23 CSV cases and 10 NetCDF cases |
 

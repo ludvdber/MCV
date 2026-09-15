@@ -41,6 +41,7 @@ import { DiffMenuButton } from './ExploreToolbarButtons';
 import ExploreResultViewer from './ExploreResultViewer.jsx';
 import CellErrorBoundary from './CellErrorBoundary.jsx';
 import CurtainCompare from './CurtainCompare.jsx';
+import { slicesComparables, voletB } from './curtainSelection.js';
 import ProbeLayer from './ProbeLayer.jsx';
 import RoiLayer from './RoiLayer.jsx';
 import TransectLayer from './TransectLayer.jsx';
@@ -247,24 +248,18 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExp
 
   /** Slices comparables a l'onglet actif (meme variable). Sert au quick-diff
    *  ET au rideau (le bouton du rideau vit dans ExploreTools). */
-  const otherSlices = useMemo(() => {
-    if (activeResultObj?.type !== 'slice') return [];
-    return resultOrder
-      .filter(id => resultsById[id]?.type === 'slice' && id !== activeResult
-        && resultsById[id]?.params?.variable === activeResultObj.params.variable)
-      .map(id => resultsById[id]);
-  }, [resultOrder, resultsById, activeResult, activeResultObj]);
+  const otherSlices = useMemo(
+    () => slicesComparables({ resultsById, resultOrder, activeResult }),
+    [resultsById, resultOrder, activeResult],
+  );
 
-  /** Volet B du rideau : l'id memorise s'il est toujours valide, sinon la
-   *  premiere slice comparable. */
-  const curtainB = useMemo(() => {
-    if (!curtainOn) return null;
-    const memo = resultsById[curtainBId];
-    if (memo && memo.type === 'slice'
-      && memo.params?.variable === activeResultObj?.params?.variable
-      && curtainBId !== activeResult) return memo;
-    return otherSlices[0] ?? null;
-  }, [curtainOn, curtainBId, resultsById, activeResultObj, activeResult, otherSlices]);
+  /** Volet B du rideau : la vue choisie si elle est toujours comparable,
+   *  sinon la premiere. Meme definition que celle qu'affiche la liste
+   *  deroulante d'ExploreTools — voir curtainSelection.js. */
+  const curtainB = useMemo(
+    () => (curtainOn ? voletB({ curtainBId }, otherSlices) : null),
+    [curtainOn, curtainBId, otherSlices],
+  );
 
   const curtainActive = curtainOn && activeResultObj?.type === 'slice' && !!curtainB;
 

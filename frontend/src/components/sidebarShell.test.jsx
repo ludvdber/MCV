@@ -171,17 +171,35 @@ describe('historique dans la barre', () => {
 });
 
 describe('pied de barre', () => {
-  it('mene a la page legale', () => {
-    const { container } = rendre();
-    const liens = [...container.querySelectorAll('a')].map((a) => a.getAttribute('href'));
-    expect(liens).toContain('/legal');
-  });
-
   it('cite la source des donnees', () => {
     const { container } = rendre();
-    // La provenance doit rester lisible sur chaque page, pas seulement dans
-    // les mentions legales.
+    // La provenance doit rester lisible sur chaque page.
     expect(container.textContent).toContain('GEM-Mars');
     expect(container.textContent).toContain('BIRA-IASB');
+  });
+
+  /**
+   * Le rail replie doit porter les MEMES reglages que la barre deployee.
+   * Il lui manquait le contraste renforce et la methodologie — et
+   * /explore replie la nav automatiquement, donc les deux etaient hors
+   * d'atteinte sur la page ou l'on passe le plus de temps, sans que rien ne
+   * l'indique. Un reglage qui n'existe que dans un etat de l'interface est un
+   * reglage que la moitie des visiteurs n'aura jamais.
+   */
+  it('replie, garde tous les reglages de la barre deployee', () => {
+    const noms = (props) => {
+      const { container, unmount } = rendre(props);
+      const trouves = [...container.querySelectorAll('button')]
+        .map((b) => b.getAttribute('aria-label'))
+        .filter(Boolean);
+      unmount();
+      return trouves;
+    };
+    const replie = noms({ collapsed: true });
+    for (const cle of ['theme.contrast', 'about.title', 'method.title']) {
+      expect(replie, `reglage absent du rail replie : ${cle}`).toContain(i18n.t(cle));
+    }
+    // Le theme bascule son propre libelle : on accepte l'un ou l'autre.
+    expect(replie.some((n) => n === i18n.t('theme.dark') || n === i18n.t('theme.light'))).toBe(true);
   });
 });

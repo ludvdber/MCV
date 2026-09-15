@@ -176,6 +176,178 @@ describe('WindParticlesLayer', () => {
   });
 });
 
+/* ── Cout d animation et vitesse ───────────────────────────────────────────
+   Mesure sur la console en ligne, quatre vues en grille : 181 images par
+   seconde, huit canvas animes, 1,39 million de pixels repeints par image. La
+   boucle suivait le taux de rafraichissement de l ECRAN, sans aucune borne —
+   et la constante d advection etait exprimee PAR IMAGE, si bien que le vent
+   defilait trois fois plus vite sur cet ecran que sur un 60 Hz. Ce n est donc
+   pas qu une question de GPU : deux personnes ne voyaient pas le meme
+   phenomene.
+
+   Ces tests livrent les images a la main. C est le seul moyen de choisir la
+   CADENCE : les minuteries simulees de vitest en donnent une toutes les 16 ms,
+   c est-a-dire exactement le cas qui marchait deja. */
+
+/** Remplace requestAnimationFrame par une livraison manuelle horodatee. */
+function installerImages() {
+  const rafOrigine = window.requestAnimationFrame;
+  const annulerOrigine = window.cancelAnimationFrame;
+  let attendu = null;
+  let id = 0;
+  window.requestAnimationFrame = (cb) => { attendu = cb; return ++id; };
+  window.cancelAnimationFrame = () => { attendu = null; };
+  return {
+    /** Livre une image a l instant t, en millisecondes. */
+    image(t) {
+      const cb = attendu;
+      attendu = null;
+      if (cb) act(() => { cb(t); });
+    },
+    get programmee() { return attendu !== null; },
+    restaurer() {
+      window.requestAnimationFrame = rafOrigine;
+      window.cancelAnimationFrame = annulerOrigine;
+    },
+  };
+}
+
+/** Math.random deterministe : deux montages partent des memes particules. */
+function semer() {
+  const origine = Math.random;
+  let x = 1234567;
+  Math.random = () => { x = (x * 1103515245 + 12345) % 2147483648; return x / 2147483648; };
+  return () => { Math.random = origine; };
+}
+
+/** Indices des debuts d image : le fondu (fillRect) ouvre chaque image. */
+const debutsDImage = (journal) => journal
+  .map((a, i) => (a.m === 'fillRect' ? i : -1))
+  .filter((i) => i >= 0);
+
+/** Longueur totale des trainees tracees dans l image n (1-based), en pixels. */
+function longueurDeLImage(journal, n) {
+  const debuts = debutsDImage(journal);
+  const depart = debuts[n - 1];
+  if (depart === undefined) return 0;
+  const fin = debuts[n] ?? journal.length;
+  let total = 0;
+  let de = null;
+  for (let i = depart; i < fin; i++) {
+    const a = journal[i];
+    if (a.m === 'moveTo') de = a.args;
+    else if (a.m === 'lineTo' && de) total += Math.hypot(a.args[0] - de[0], a.args[1] - de[1]);
+  }
+  return total;
+}
+
+describe('WindParticlesLayer, cout et vitesse', () => {
+  it('plafonne a 60 images par seconde sur un ecran a 181 Hz', () => {
+    const images = installerImages();
+    try {
+      const { canvas } = monterParticules();
+      const journal = dessins.find((d) => d.canvas === canvas).journal;
+      journal.length = 0;
+      for (let t = 0; t <= 1000; t += 1000 / 181) images.image(t);
+      // 182 images proposees en une seconde, une soixantaine dessinees.
+      const dessinees = debutsDImage(journal).length;
+      expect(dessinees).toBeGreaterThan(50);
+      expect(dessinees).toBeLessThan(70);
+    } finally { images.restaurer(); }
+  });
+
+  it('dessine toutes les images d un ecran 60 Hz : le plafond ne doit pas'
+    + ' rejeter une image sur deux', () => {
+    // Le piege du plafond : un seuil pose exactement a 16,67 ms refuserait la
+    // moitie des images d un ecran 60 Hz a cause de la gigue, et l animation
+    // tomberait a 30 images par seconde sur le materiel le plus repandu.
+    const images = installerImages();
+    try {
+      const { canvas } = monterParticules();
+      const journal = dessins.find((d) => d.canvas === canvas).journal;
+      journal.length = 0;
+      let t = 0;
+      for (let i = 0; i < 30; i++) {
+        t += 16.2 + Math.random() * 0.9;   // 16,2 a 17,1 ms : gigue reelle
+        images.image(t);
+      }
+      expect(debutsDImage(journal).length).toBe(30);
+    } finally { images.restaurer(); }
+  });
+
+  it('advecte au TEMPS ecoule, pas au nombre d images', () => {
+    // Deux cadences sous le plafond, meme premiere image, donc memes
+    // particules au depart de la seconde : sa longueur doit doubler quand la
+    // duree double. Avant, elle etait identique et le vent allait deux fois
+    // plus vite sur l ecran rapide.
+    const trainees = (periode) => {
+      const desemer = semer();
+      const images = installerImages();
+      try {
+        const { canvas, unmount } = monterParticules();
+        const journal = dessins.find((d) => d.canvas === canvas).journal;
+        journal.length = 0;
+        images.image(periode);
+        images.image(2 * periode);
+        const longueur = longueurDeLImage(journal, 2);
+        unmount();
+        return longueur;
+      } finally { images.restaurer(); desemer(); }
+    };
+    const a60 = trainees(1000 / 60);
+    const a30 = trainees(1000 / 30);
+    expect(a60).toBeGreaterThan(0);
+    expect(a30 / a60).toBeGreaterThan(1.8);
+    expect(a30 / a60).toBeLessThan(2.2);
+  });
+
+  it('suspend l animation quand la carte sort de l ecran, et la reprend sans bond', () => {
+    // Le navigateur ne freine que les ONGLETS caches : une carte qui a defile
+    // hors du champ continuait d animer son vent a pleine vitesse pour
+    // personne. Au retour, la premiere image ne doit pas rattraper tout le
+    // temps ecoule d un seul coup.
+    const observateurs = [];
+    const origine = globalThis.IntersectionObserver;
+    globalThis.IntersectionObserver = class {
+      constructor(rappel) { this.rappel = rappel; observateurs.push(this); }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+      takeRecords() { return []; }
+    };
+    const images = installerImages();
+    try {
+      const { canvas } = monterParticules();
+      const journal = dessins.find((d) => d.canvas === canvas).journal;
+      journal.length = 0;
+      images.image(20);
+      const normale = longueurDeLImage(journal, 1);
+      expect(normale).toBeGreaterThan(0);
+
+      act(() => { observateurs[0].rappel([{ isIntersecting: false }]); });
+      expect(images.programmee).toBe(false);
+      journal.length = 0;
+      images.image(40);
+      expect(journal).toHaveLength(0);
+
+      act(() => { observateurs[0].rappel([{ isIntersecting: true }]); });
+      expect(images.programmee).toBe(true);
+      images.image(400);
+      expect(debutsDImage(journal).length).toBe(1);
+      expect(longueurDeLImage(journal, 1)).toBeLessThan(normale * 3);
+    } finally {
+      images.restaurer();
+      globalThis.IntersectionObserver = origine;
+    }
+  });
+
+  /* Qu on anime PAR DEFAUT, l observateur ne faisant que suspendre, est deja
+     prouve par tous les tests ci-dessus : le bouchon d IntersectionObserver de
+     src/test/setup.js est inerte et n appelle jamais son rappel, et ils
+     dessinent quand meme. Une couche qui n animerait qu apres un premier
+     rapport d intersection y serait muette. */
+});
+
 describe('WindSpeedLegend', () => {
   const stats = windSpeedStats(WIND);
 

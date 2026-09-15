@@ -103,7 +103,17 @@ tasks.register('buildFrontend', Exec) {
 	outputs.dir('frontend/dist')
 }
 
-tasks.register('copyFrontend', Copy) {
+// Sync et NON Copy : une tache Copy n'efface rien, elle ajoute. Les fragments
+// JavaScript de Vite portent une empreinte dans leur nom, donc chaque build en
+// produit de nouveaux sans jamais reprendre les anciens, et le dossier
+// empaquete grossissait a chaque fois. Mesure sur ce depot : 163 fichiers dans
+// le JAR pour 55 reellement produits — 108 orphelins et 3,0 Mo de poids mort.
+// Ce n'est pas qu'une question de taille : une page retiree du routeur restait
+// SERVABLE a l'ancienne adresse de son fragment, ce qui est exactement ce
+// qu'on ne veut pas quand on retire une page. Sync fait du dossier de
+// destination le reflet exact de frontend/dist ; rien d'autre n'ecrit sous
+// static/ (src/main/resources/static est vide).
+tasks.register('copyFrontend', Sync) {
 	dependsOn 'buildFrontend'
 	from 'frontend/dist'
 	into 'build/resources/main/static'

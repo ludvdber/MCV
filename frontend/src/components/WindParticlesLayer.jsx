@@ -21,6 +21,11 @@
  * prefers-reduced-motion : trace des lignes de courant statiques a la place
  * de l'animation.
  *
+ * Cout : la boucle est plafonnee a 60 images par seconde (IPS_MAX) et
+ * suspendue des que la carte sort de l'ecran. Tout ce qui evolue est rapporte
+ * au temps ecoule et non au nombre d'images (ADVECTION), donc l'animation a la
+ * meme vitesse sur tous les ecrans.
+ *
  * @param {React.RefObject} plotRef  — ref du div Plotly (externalPlotRef du viewer)
  * @param {Object|null}     windData — WindResponse { lats[], lons[], u[], v[] } (points aplatis)
  * @param {boolean}         enabled
@@ -42,9 +47,55 @@ const STATIC_LINES = 320;
 const STATIC_STEPS = 8;
 /** Capacite d'un tampon de bande : le pire des deux rendus, si tout y tombe. */
 const MAX_SEGMENTS = Math.max(N_PARTICLES, STATIC_LINES * STATIC_STEPS);
-/** deg / (m/s) / frame — vitesse visuelle de l'advection */
-const ADVECT_K = 0.011;
-const MAX_AGE = 110;
+
+/**
+ * Plafond d'images par seconde.
+ *
+ * `requestAnimationFrame` suit le taux de rafraichissement de l'ECRAN, sans
+ * aucune borne. Mesure sur la console Explorer en ligne, quatre vues en
+ * grille : 181 images par seconde, huit canvas animes, 1,39 million de pixels
+ * repeints par image — trois fois le travail d'un ecran 60 Hz pour un resultat
+ * visuellement identique, les images supplementaires n'etant meme pas
+ * affichees. Au-dela de 60 l'oeil ne gagne rien sur des trainees qui
+ * s'estompent ; le GPU, lui, paie tout.
+ */
+const IPS_MAX = 60;
+const INTERVALLE_MS = 1000 / IPS_MAX;
+/**
+ * Un ecran 60 Hz livre ses images a 16,67 ms avec quelques dixiemes de gigue.
+ * Un seuil pose exactement a 16,67 ms en refuserait une sur deux et
+ * l'animation tomberait a 30 images par seconde sur le materiel le plus
+ * repandu — l'inverse du but poursuivi.
+ */
+const SEUIL_MS = INTERVALLE_MS * 0.9;
+/**
+ * Ecart maximal pris en compte entre deux images. Au retour d'un onglet reste
+ * en arriere-plan, le navigateur livre une image apres plusieurs secondes :
+ * sans ce plafond les particules feraient un bond de plusieurs tours de
+ * planete d'un coup.
+ */
+const ECOULE_MAX_MS = 100;
+
+/**
+ * deg / (m/s) / SECONDE — vitesse visuelle de l'advection.
+ *
+ * Etait exprimee PAR IMAGE (0,011), ce qui n'est pas qu'une question de cout :
+ * le vent defilait trois fois plus vite sur un ecran 181 Hz que sur un 60 Hz.
+ * La vitesse d'une animation ne doit pas dependre du materiel de celui qui
+ * regarde, sans quoi deux personnes ne voient pas le meme phenomene. Valeur
+ * inchangee a 60 images par seconde : 0,011 x 60.
+ */
+const ADVECTION = 0.66;
+/** Duree de vie d'une particule, en SECONDES (etait 15 a 125 images). */
+const AGE_MIN_S = 0.25;
+const AGE_ETENDUE_S = 110 / 60;
+/** Opacite conservee par les trainees a chaque image de 1/60 s. Elevee a la
+ *  puissance du temps ecoule pour que la longueur des trainees ne depende pas
+ *  davantage du taux de rafraichissement. */
+const FONDU_PAR_IMAGE = 0.93;
+/** Pas geometrique des lignes de courant figees (prefers-reduced-motion) :
+ *  une longueur a l'ecran, pas une vitesse — donc pas de temps ici. */
+const PAS_LIGNE = 0.033;
 
 /** Reconstruit une grille reguliere { lats[], lons[], u[][], v[][] } depuis les points aplatis. */
 function gridify(windData) {
@@ -119,7 +170,7 @@ export default function WindParticlesLayer({ plotRef, windData, enabled = false,
       P[k] = lonMin + Math.random() * (lonMax - lonMin);
       P[k + 1] = latMin + Math.random() * (latMax - latMin);
       P[k + 2] = P[k]; P[k + 3] = P[k + 1];
-      P[k + 4] = 15 + Math.random() * MAX_AGE;
+      P[k + 4] = AGE_MIN_S + Math.random() * AGE_ETENDUE_S;
     }
     for (let i = 0; i < nParticules; i++) respawn(i * 5);
 
@@ -148,6 +199,10 @@ export default function WindParticlesLayer({ plotRef, windData, enabled = false,
     let raf = 0;
     let stopped = false;
     let staticTimer = null;
+    /* Horodatage du dernier rendu. C'est celui que requestAnimationFrame passe
+       a son rappel, et non `performance.now()` : lui seul suit l'horloge que
+       les tests avancent a la main. `null` = premiere image a venir. */
+    let tDernierRendu = null;
 
     /** Trace les segments accumules, une passe de stroke() par bande de vitesse. */
     function strokeBands() {
@@ -166,10 +221,25 @@ export default function WindParticlesLayer({ plotRef, windData, enabled = false,
       }
     }
 
-    function frame() {
+    function frame(horodatage) {
       if (stopped) return;
+      /* Reprogrammee D'ABORD : aucune des sorties anticipees ci-dessous
+         (image de trop, graphe pas encore trace) ne doit arreter la boucle. */
+      raf = requestAnimationFrame(frame);
+      const maintenant = typeof horodatage === 'number' ? horodatage : performance.now();
+      if (tDernierRendu === null) tDernierRendu = maintenant - INTERVALLE_MS;
+      const ecoule = maintenant - tDernierRendu;
+      if (ecoule < SEUIL_MS) return;
       const g = plotGeometry();
-      if (!g) { raf = requestAnimationFrame(frame); return; }
+      /* Le graphe n'est pas encore trace : on ne consomme pas le budget de
+         temps, sans quoi la premiere image reellement dessinee avancerait les
+         particules de tout le retard accumule. */
+      if (!g) return;
+      tDernierRendu = maintenant;
+      /* Tout ce qui evolue est desormais rapporte a ce dt, en secondes : la
+         vitesse des particules, leur duree de vie et la longueur des trainees
+         ne dependent plus du taux de rafraichissement de l'ecran. */
+      const dt = Math.min(ecoule, ECOULE_MAX_MS) / 1000;
       const { size, xr, yr } = g;
       const toX = (lon) => size.l + ((lon - xr[0]) / ((xr[1] - xr[0]) || 1)) * size.w;
       const toY = (lat) => size.t + ((yr[1] - lat) / ((yr[1] - yr[0]) || 1)) * size.h;
@@ -180,7 +250,7 @@ export default function WindParticlesLayer({ plotRef, windData, enabled = false,
       ctx.rect(size.l, size.t, size.w, size.h);
       ctx.clip();
       ctx.globalCompositeOperation = 'destination-in';
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.93)';
+      ctx.fillStyle = `rgba(0, 0, 0, ${FONDU_PAR_IMAGE ** (dt * IPS_MAX)})`;
       ctx.fillRect(size.l, size.t, size.w, size.h);
       ctx.globalCompositeOperation = 'source-over';
       segN.fill(0);
@@ -188,9 +258,9 @@ export default function WindParticlesLayer({ plotRef, windData, enabled = false,
         const w = sampleWind(grid, P[k], P[k + 1]);
         P[k + 2] = P[k]; P[k + 3] = P[k + 1];
         if (!w) { respawn(k); continue; }
-        P[k] += w[0] * ADVECT_K;
-        P[k + 1] += w[1] * ADVECT_K;
-        P[k + 4] -= 1;
+        P[k] += w[0] * ADVECTION * dt;
+        P[k + 1] += w[1] * ADVECTION * dt;
+        P[k + 4] -= dt;
         if (P[k + 4] <= 0 || P[k] < lonMin || P[k] > lonMax || P[k + 1] < latMin || P[k + 1] > latMax) {
           respawn(k); continue;
         }
@@ -205,7 +275,6 @@ export default function WindParticlesLayer({ plotRef, windData, enabled = false,
       }
       strokeBands();
       ctx.restore();
-      raf = requestAnimationFrame(frame);
     }
 
     /** Variante statique (prefers-reduced-motion) : lignes de courant figees. */
@@ -228,8 +297,8 @@ export default function WindParticlesLayer({ plotRef, windData, enabled = false,
         for (let s = 0; s < STATIC_STEPS; s++) {
           const w = sampleWind(grid, lon, lat);
           if (!w) break;
-          const lonNext = lon + w[0] * ADVECT_K * 3;
-          const latNext = lat + w[1] * ADVECT_K * 3;
+          const lonNext = lon + w[0] * PAS_LIGNE;
+          const latNext = lat + w[1] * PAS_LIGNE;
           /* Meme codage de la vitesse que l'animation : sans mouvement, la
              couleur et l'epaisseur restent la seule lecture de l'intensite. */
           const b = windBand(Math.hypot(w[0], w[1]), stats.min, stats.max);
@@ -245,14 +314,46 @@ export default function WindParticlesLayer({ plotRef, windData, enabled = false,
       ctx.restore();
     }
 
-    if (reducedMotion) drawStaticStreamlines();
-    else raf = requestAnimationFrame(frame);
+    function animer() {
+      if (stopped || raf) return;
+      /* Repartir sans horodatage de reference : sinon la premiere image
+         apres une pause rattraperait tout le temps ecoule d'un bond. */
+      tDernierRendu = null;
+      raf = requestAnimationFrame(frame);
+    }
+    function suspendre() {
+      cancelAnimationFrame(raf);
+      raf = 0;
+    }
+
+    let io = null;
+    if (reducedMotion) {
+      drawStaticStreamlines();
+    } else {
+      /* On anime PAR DEFAUT, et l'observateur ne fait que suspendre : une
+         carte doit tourner meme la ou IntersectionObserver n'existe pas.
+         Hors de l'ecran, une carte continuait sinon d'animer son vent a
+         pleine vitesse — le navigateur ne freine que les ONGLETS caches, pas
+         ce qui a defile hors du champ. Dans la console Explorer, descendre
+         jusqu'au panneau du bas laissait huit canvas tourner pour personne.
+         C'est le div Plotly qui est observe, pas le canvas : lui a une
+         taille avant meme que le graphe soit trace. */
+      animer();
+      io = new IntersectionObserver(
+        (entrees) => (entrees.some((e) => e.isIntersecting) ? animer() : suspendre()),
+        // Marge : l'animation repart juste AVANT l'entree dans le champ, la
+        // carte n'apparait donc jamais figee.
+        { rootMargin: '150px' },
+      );
+      io.observe(plotEl);
+    }
 
     return () => {
       stopped = true;
       cancelAnimationFrame(raf);
       clearTimeout(staticTimer);
       ro.disconnect();
+      io?.disconnect();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     };
   }, [enabled, windData, plotRef, mode, compact]);

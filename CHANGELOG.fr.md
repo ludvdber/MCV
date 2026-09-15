@@ -63,6 +63,28 @@ temporelles, sans dupliquer un seul octet de l'archive.
 - **La compilation fixe l'encodage des sources en UTF-8**, donc les messages
   accentués de la console ne dépendent plus de la langue de la machine qui a
   construit le JAR.
+- **Le JAR n'embarque plus trois builds de JavaScript mort.** La tâche qui
+  empaquette le frontend copiait sans jamais effacer, et Vite nomme chaque
+  fragment d'après son empreinte : rien n'était donc jamais remplacé. 163
+  fichiers livrés pour les 55 que produit un build, soit 3 Mo d'orphelins. Une
+  page retirée du routeur restait même joignable à son ancienne adresse de
+  fragment. Le JAR pèse 1 Mo de moins.
+- **Le vent animé est plafonné à 60 images par seconde, et sa vitesse ne dépend
+  plus de votre écran.** La boucle suivait le taux de rafraîchissement du moniteur
+  sans aucune borne : mesuré sur la console Explorer avec quatre vues en grille,
+  181 images par seconde et 1,39 million de pixels repeints par image, soit trois
+  fois le travail d'un écran 60 Hz pour une image identique. La constante
+  d'advection était exprimée par IMAGE, si bien que le vent défilait aussi trois
+  fois plus vite là que sur un écran 60 Hz. Tout ce qui bouge est désormais
+  rapporté au temps écoulé, et une carte sortie de l'écran cesse de s'animer au
+  lieu de tourner pour personne.
+- **Le rideau A/B laisse enfin choisir ce qu'il compare.** Le volet B était
+  toujours la première autre coupe comparable : l'action qui aurait pu en changer
+  existait dans la machine à états et n'était émise de nulle part. Son nom
+  n'apparaissait que dans l'infobulle du bouton, qu'un écran tactile ne montre
+  jamais et qui devient « Quitter » dès l'ouverture du rideau. Les deux volets
+  sont maintenant nommés en clair avant d'ouvrir : A est la vue active, B se
+  choisit dans une liste.
 
 ### Vérifié
 
@@ -70,8 +92,8 @@ Mesuré contre les données réelles de l'institut, pas contre des fixtures :
 
 | Couche | Résultat |
 |---|---|
-| Backend | 435 tests, 0 échec, 96,2 % de couverture d'instructions, 87,6 % de branches |
-| Frontend (jsdom) | 1367 tests, 0 échec, 90,5 % d'instructions, 93,8 % de lignes |
+| Backend | 448 tests, 0 échec, 96,0 % de couverture d'instructions, 87,4 % de branches |
+| Frontend (jsdom) | 1391 tests, 0 échec, 90,6 % d'instructions, 93,9 % de lignes |
 | Bout en bout (Chromium) | 66 tests, 0 échec contre ce JAR |
 | Audit des exports | 560 contrôles sur 23 cas CSV et 10 cas NetCDF |
 
