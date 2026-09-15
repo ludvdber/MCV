@@ -275,4 +275,105 @@ class DataPathConfigTest {
 			assertTrue(m.contains("netcdf.individual.path"), m);
 		}
 	}
+
+	/**
+	 * La FORME du refus, pas seulement son contenu.
+	 *
+	 * <p>Le message existait deja et disait le necessaire ; ce qui manquait etait
+	 * qu'on puisse le lire. Il est desormais coupe en deux — ce qui ne va pas,
+	 * ce qu'il faut faire — parce que c'est ce que
+	 * {@link ConfigurationFailureAnalyzer} imprime sous deux titres a la place
+	 * de la trace de pile. Si les deux moities se remelangeaient, la console
+	 * redeviendrait un pave sans que rien n'echoue par ailleurs.
+	 */
+	@Nested
+	@DisplayName("Forme du refus")
+	class Forme {
+
+		private DataPathConfig avecEnvironnement(String mean, String individual,
+				java.util.function.UnaryOperator<String> env) {
+			DataPathConfig c = configuree(mean, individual);
+			ReflectionTestUtils.setField(c, "environnement", env);
+			return c;
+		}
+
+		@Test
+		@DisplayName("La description nomme la valeur fautive, l'action nomme la cle")
+		void deuxMoities(@TempDir Path racine) throws IOException {
+			Files.createDirectory(racine.resolve("individual"));
+			DataPathConfig c = avecEnvironnement(racine.resolve("absent").toString(),
+					racine.resolve("individual").toString(), n -> null);
+
+			ConfigurationInvalideException e =
+					assertThrows(ConfigurationInvalideException.class, c::initialize);
+
+			assertTrue(e.probleme().contains("absent"),
+					"la description doit montrer le chemin refuse : " + e.probleme());
+			assertFalse(e.probleme().contains("NETCDF_MEAN_PATH"),
+					"la marche a suivre appartient a l'action : " + e.probleme());
+			assertTrue(e.action().contains("netcdf.mean.path"), e.action());
+			assertTrue(e.action().contains("NETCDF_MEAN_PATH"), e.action());
+			assertTrue(e.getMessage().contains(e.probleme()) && e.getMessage().contains(e.action()),
+					"hors de Spring, le message complet doit rester entier");
+		}
+
+		/**
+		 * Le JAR est publie et l'institut n'est pas francophone. La banniere de
+		 * premier demarrage est bilingue depuis toujours ; le refus, lui, ne
+		 * l'etait pas, alors que c'est le seul des deux qu'on lit en urgence.
+		 */
+		@Test
+		@DisplayName("Le refus est bilingue")
+		void bilingue(@TempDir Path racine) throws IOException {
+			Files.createDirectory(racine.resolve("individual"));
+			DataPathConfig c = avecEnvironnement(racine.resolve("absent").toString(),
+					racine.resolve("individual").toString(), n -> null);
+
+			ConfigurationInvalideException e =
+					assertThrows(ConfigurationInvalideException.class, c::initialize);
+
+			assertTrue(e.probleme().contains("n'existe pas"), e.probleme());
+			assertTrue(e.probleme().contains("does not exist"), e.probleme());
+			assertTrue(e.action().contains("Renseignez"), e.action());
+			assertTrue(e.action().contains("Set \"netcdf.mean.path\""), e.action());
+		}
+
+		/**
+		 * Le piege documente de l'unite systemd livree : Spring classe les
+		 * variables d'environnement AU-DESSUS du fichier externe. Sans cette
+		 * phrase, le refus envoie corriger un fichier que l'application n'ecoute
+		 * pas, et l'exploitant relance en boucle en voyant la meme erreur sur
+		 * une ligne qu'il vient de changer.
+		 */
+		@Test
+		@DisplayName("Une variable d'environnement posee est signalee comme prioritaire")
+		void variableDEnvironnementPrioritaire(@TempDir Path racine) throws IOException {
+			Files.createDirectory(racine.resolve("individual"));
+			DataPathConfig c = avecEnvironnement(racine.resolve("absent").toString(),
+					racine.resolve("individual").toString(),
+					n -> "NETCDF_MEAN_PATH".equals(n) ? "/ailleurs/mean" : null);
+
+			ConfigurationInvalideException e =
+					assertThrows(ConfigurationInvalideException.class, c::initialize);
+
+			assertTrue(e.action().contains("/ailleurs/mean"),
+					"la valeur qui l'emporte doit etre montree : " + e.action());
+			assertTrue(e.action().contains("l'emporte"), e.action());
+			assertTrue(e.action().contains("overrides"), e.action());
+		}
+
+		@Test
+		@DisplayName("Sans variable d'environnement, aucun avertissement parasite")
+		void sansVariableAucunAvertissement(@TempDir Path racine) throws IOException {
+			Files.createDirectory(racine.resolve("individual"));
+			DataPathConfig c = avecEnvironnement(racine.resolve("absent").toString(),
+					racine.resolve("individual").toString(), n -> null);
+
+			ConfigurationInvalideException e =
+					assertThrows(ConfigurationInvalideException.class, c::initialize);
+
+			assertFalse(e.action().contains("ATTENTION"),
+					"un avertissement qui sort pour rien finit par etre ignore : " + e.action());
+		}
+	}
 }

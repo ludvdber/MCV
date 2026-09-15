@@ -4,6 +4,10 @@
 
 This guide is for the team installing MCV on a BIRA-IASB server. The application ships as a single JAR file that contains both the web interface and the API. Nothing needs to be installed besides Java.
 
+![Deployment diagram: browser, nginx, the Spring Boot JAR, the NetCDF files](docs/images/architecture.svg)
+
+The whole of it is that one JAR and one configuration file. The reverse proxy is what gives the site its certificate and its public name; on a purely internal network it can be left out and the JAR served directly. The NetCDF files are only ever **read**, and only the requested slice of them, so they can stay where they already live.
+
 ## Prerequisites
 
 - Java 21 or newer (check with `java -version`)
@@ -53,6 +57,12 @@ mcv/
 The `config/application.properties` template provided at the root of the repository documents every setting: HTTP port, data paths, request limits. The application reads this file automatically at startup and it overrides the defaults embedded in the JAR. You only need to keep the lines you change.
 
 You do not need to find it to get started. **If no configuration exists on the first launch, the application writes one itself** to `config/application.properties`, prints its absolute path in plain text on the console, then stops and asks for the data paths. The file it drops is exactly the one in the repository, commented line by line.
+
+This is what the very first `java -jar mars-visualizer.jar` in an empty folder looks like:
+
+![First launch: the template is written, then the application states which path is missing](docs/images/premier-demarrage.png)
+
+Two things are worth noticing there, because they are what you will work from. The path announced in the banner is **absolute**: it is the file to open, not one to guess. And the refusal itself is not a Java stack trace but a description and an action, in French and in English, naming the property, the equivalent environment variable and the accepted path formats. When the failure is a configuration one, that block is all you get and all you need; the stack trace is still available by starting with `--logging.level.org.springframework.boot.diagnostics=DEBUG` if the cause turns out to be elsewhere.
 
 The file is also read **flat**, directly beside the JAR, with no `config/` folder. Downloading the JAR and the configuration file into a single folder is therefore a valid deployment:
 
@@ -162,7 +172,9 @@ java -jar mars-visualizer.jar
 
 Precedence order: environment variables, then `config/application.properties`, then the defaults inside the JAR.
 
-That order has a consequence worth keeping in mind. **An environment variable silences the matching line of the file**, without saying so. Someone who fills the file in correctly, restarts, and sees nothing change has to hunt for the variable overriding it. This is why the supplied systemd unit ships `NETCDF_MEAN_PATH` and `NETCDF_INDIVIDUAL_PATH` commented out: one place to fill in. Pick one mechanism, not both.
+That order has a consequence worth keeping in mind. **An environment variable silences the matching line of the file.** Someone who fills the file in correctly, restarts, and sees nothing change would otherwise have to hunt for the variable overriding it.
+
+When that ends in a refusal to start, the application says so itself: the `Action` block opens with a warning naming the variable and printing the value it carries, so the search stops there rather than in the file you have just corrected. It cannot help when the variable points at a folder that merely holds the *wrong* data, because that starts perfectly well. This is why the supplied systemd unit ships `NETCDF_MEAN_PATH` and `NETCDF_INDIVIDUAL_PATH` commented out: one place to fill in. Pick one mechanism, not both.
 
 ## Example systemd service (Linux)
 
@@ -185,7 +197,7 @@ The `WorkingDirectory` matters: it is where the application looks for the `confi
 
 **A complete, commented unit ships in [`deploy/mcv.service`](deploy/mcv.service)**, covering the three network variants (local proxy, remote proxy or Cloudflare, direct exposure) plus a few hardening options. The matching Nginx block is [`deploy/nginx-mcv.conf`](deploy/nginx-mcv.conf).
 
-> **Do not forget this when upgrading.** The JAR carries no real data path, only the neutral `/data/gem-mars/...` placeholder. The two `Environment=NETCDF_*_PATH` lines are therefore not optional: without them the service refuses to start. The failure is clean and the log names the missing path, but a JAR dropped over the old one without that section will not come back up.
+> **Do not forget this when upgrading.** The JAR carries no real data path, only the neutral `/data/gem-mars/...` placeholder, so the two folders have to be supplied on every deployment. In the shipped unit they come from `config/application.properties` inside the `WorkingDirectory`, which is exactly why the two `Environment=NETCDF_*_PATH` lines are shipped commented out: one place to fill in, not two. Dropping a new JAR over the old one leaves that file alone; replacing the whole folder does not. A service that restarts without it refuses to start, says so in plain text and names the property to fill in, but it does not come back up.
 
 ## Behind a reverse proxy
 

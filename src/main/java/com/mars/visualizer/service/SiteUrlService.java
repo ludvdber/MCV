@@ -3,6 +3,8 @@ package com.mars.visualizer.service;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.mars.visualizer.config.ConfigurationInvalideException;
+
 import jakarta.servlet.http.HttpServletRequest;
 
 /**
@@ -58,8 +60,21 @@ public class SiteUrlService {
 			return "";
 		}
 		if (!v.startsWith("http://") && !v.startsWith("https://")) {
-			throw new IllegalArgumentException(
-					"site.public-url doit commencer par http:// ou https:// (recu : \"" + v + "\")");
+			throw new ConfigurationInvalideException(
+					"L'adresse publique du site n'a pas de protocole : \"" + v + "\".\n"
+							+ "The public site address has no scheme: \"" + v + "\".",
+					"Écrivez « site.public-url » en entier, protocole compris, par exemple"
+							+ " site.public-url=https://" + v + " (ou http://). La propriété"
+							+ " se règle dans config/application.properties à côté du JAR,"
+							+ " ou par la variable d'environnement SITE_PUBLIC_URL. Laissée"
+							+ " vide, elle est déduite de la requête, ce qui est déjà correct"
+							+ " derrière un reverse proxy.\n\n"
+							+ "Write \"site.public-url\" in full, scheme included, for example"
+							+ " site.public-url=https://" + v + " (or http://). The property"
+							+ " lives in config/application.properties next to the JAR, or in"
+							+ " the SITE_PUBLIC_URL environment variable. Left empty, it is"
+							+ " derived from the request, which is already correct behind a"
+							+ " reverse proxy.");
 		}
 		while (v.endsWith("/")) {
 			v = v.substring(0, v.length() - 1);

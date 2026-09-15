@@ -67,6 +67,8 @@ An unreachable path is detected at startup within a few seconds and the applicat
 
 Configuration can be supplied three ways (highest priority first): command-line arguments, environment variables, or a `config/application.properties` file next to the JAR. A commented bilingual template is provided in [`config/application.properties`](config/application.properties).
 
+**You do not have to go looking for it.** On the first start, if no configuration exists either flat beside the JAR or in a `config/` folder, the application drops that template itself and prints its absolute path on the console. And when a path is missing or wrong, the refusal to start takes the form of a bilingual `APPLICATION FAILED TO START` block stating what is wrong on one side and what to fix on the other, with no stack trace. Both are shown in [DEPLOYMENT.md](DEPLOYMENT.md#installing).
+
 ---
 
 ## Run
@@ -136,10 +138,10 @@ Server installation, systemd service and reverse-proxy setup: **[DEPLOYMENT.md](
 | `./gradlew build` | Full build: frontend, compilation, tests, JAR in `build/libs/` |
 | `./gradlew build -x test` | Same without the test suite |
 | `./gradlew bootJar` | JAR only, no tests |
-| `./gradlew test` | JUnit 5 suite (397 tests) + JaCoCo coverage report |
+| `./gradlew test` | JUnit 5 suite (427 tests) + JaCoCo coverage report |
 | `./gradlew buildFrontend` | Frontend production build only |
 
-Coverage report: `build/reports/jacoco/test/html/index.html`. Currently 94.9% of instructions, 84.5% of branches.
+Coverage report: `build/reports/jacoco/test/html/index.html`. Currently 96.4% of instructions, 88.8% of branches, 96.1% of lines.
 
 ### npm (`frontend/`)
 
@@ -148,8 +150,8 @@ Coverage report: `build/reports/jacoco/test/html/index.html`. Currently 94.9% of
 | `npm run dev` | Vite dev server on :5173 with hot reload |
 | `npm run build` | Production build into `frontend/dist/` |
 | `npm run preview` | Serves the production build locally |
-| `npm run test` | Vitest suite (1353 tests, jsdom) |
-| `npm run test:e2e` | End-to-end suite (59 tests) in a real Chromium |
+| `npm run test` | Vitest suite (1362 tests, jsdom) |
+| `npm run test:e2e` | End-to-end suite (66 tests) in a real Chromium |
 | `npx vitest run --coverage` | Same, with the coverage report in `frontend/coverage/` |
 | `npm run lint` | ESLint check |
 
@@ -163,8 +165,10 @@ are arithmetically possible, no horizontal overflow at 390, 820 and 1600 pixels,
 no touch target under 24 by 24 pixels, and no slider without an accessible name
 and a readable value text. It covers the A/B curtain, the eleven
 visualization pages, the console grids and tools, phone rendering, and the real
-journeys: keyboard, permalink, export, five locales. Four defects lived in
-production under a green jsdom suite because all of them were geometric.
+journeys: keyboard, permalink, export, five locales. Three defects lived in
+production under a green jsdom suite because all three were geometric: a plot
+container at full size with nothing drawn in it, two statistics bars at the same
+coordinates sliced by the curtain, and two centred titles overlapping by 94%.
 
 ```bash
 npm run test:e2e                                          # targets localhost:5173
@@ -174,7 +178,7 @@ MCV_E2E_URL=https://mars.example.be npm run test:e2e      # targets a deployment
 `MCV_E2E_API` reroutes `/api` to another server, so a local interface can be
 exercised against a backend that actually holds the data.
 
-Frontend coverage is currently 90.2% of statements and 93.7% of lines. The
+Frontend coverage is currently 90.5% of statements and 93.8% of lines. The
 Vitest configuration sets `coverage.all`, so a file no test imports still counts
 towards the denominator: removing that flag would inflate the figure without a
 single new test being written.
@@ -227,7 +231,7 @@ All views support permalinks, CSV export, PNG/SVG export, log₁₀ scale and co
 
 The Explore console holds up to four views side by side, tied together by a shared probe and a common region selection, so the same point can be read across several diagnostics at once:
 
-![Explore console: four views in a grid, each animating its own wind field](docs/images/explorer.en.png)
+![Explore console: four views in a grid, tied together by a shared probe; each map animates its own wind field](docs/images/explorer.en.png)
 
 On any map, winds can be drawn as **particles advected** along the UU/VV field. Trail colour and thickness follow the local speed, and the legend gives the bounds of the scale along with the field average:
 

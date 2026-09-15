@@ -125,4 +125,10 @@ tasks.named('processResources') {
 // Compilation avec flag -parameters pour Spring Boot
 tasks.withType(JavaCompile) {
     options.compilerArgs << '-parameters'
+    // Les sources portent des accents, y compris dans des messages destinés à la
+    // console d'exploitation. Sans cette ligne, javac lit les fichiers avec
+    // l'encodage par défaut de la MACHINE : le même dépôt compile en UTF-8 ici
+    // et en windows-1252 ailleurs, et « répertoire » devient illisible dans le
+    // JAR livré sans qu'aucun test ne le voie.
+    options.encoding = 'UTF-8'
 }

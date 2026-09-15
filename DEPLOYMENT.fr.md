@@ -4,6 +4,10 @@
 
 Ce guide s'adresse à l'équipe qui installera MCV sur un serveur de l'IASB. L'application est un unique fichier JAR qui contient à la fois l'interface web et l'API. Il n'y a rien d'autre à installer que Java.
 
+![Schéma de déploiement : navigateur, nginx, le JAR Spring Boot, les fichiers NetCDF](docs/images/architecture.fr.svg)
+
+Tout tient dans ce JAR et un fichier de configuration. Le reverse proxy est ce qui donne au site son certificat et son nom public ; sur un réseau purement interne, on peut s'en passer et servir le JAR directement. Les fichiers NetCDF sont uniquement **lus**, et seulement la tranche demandée, donc ils peuvent rester là où ils sont déjà.
+
 ## Prérequis
 
 - Java 21 ou plus récent (`java -version` pour vérifier)
@@ -53,6 +57,12 @@ mcv/
 Le modèle de `config/application.properties` fourni à la racine du dépôt documente chaque réglage : port HTTP, chemins des données, limites de requêtes. L'application lit ce fichier automatiquement au démarrage et il surcharge les valeurs par défaut. Vous pouvez n'y garder que les lignes que vous changez.
 
 Vous n'avez pas besoin de le trouver pour commencer. **Si aucune configuration n'existe au premier démarrage, l'application en écrit une elle-même** dans `config/application.properties`, affiche son chemin absolu en clair dans la console, puis s'arrête en demandant les chemins des données. Le fichier déposé est exactement celui du dépôt, commenté ligne à ligne.
+
+Voici à quoi ressemble le tout premier `java -jar mars-visualizer.jar` dans un dossier vide :
+
+![Premier démarrage : le modèle est écrit, puis l'application dit quel chemin manque](docs/images/premier-demarrage.png)
+
+Deux détails méritent d'être remarqués, parce que c'est avec eux que vous allez travailler. Le chemin annoncé dans la bannière est **absolu** : c'est le fichier à ouvrir, pas un fichier à deviner. Et le refus lui-même n'est pas une trace de pile Java mais une description et une action, en français et en anglais, qui nomment la propriété, la variable d'environnement équivalente et les formats de chemins acceptés. Quand la panne est une panne de configuration, ce bloc est tout ce que vous obtenez et tout ce dont vous avez besoin ; la trace de pile reste accessible en démarrant avec `--logging.level.org.springframework.boot.diagnostics=DEBUG` si la cause se révèle être ailleurs.
 
 Le fichier est aussi lu **à plat**, directement à côté du JAR, sans dossier `config/`. Télécharger le JAR et le fichier de configuration dans un seul dossier est donc un déploiement valable :
 
@@ -162,7 +172,9 @@ java -jar mars-visualizer.jar
 
 L'ordre de priorité est : variables d'environnement, puis `config/application.properties`, puis les valeurs par défaut du JAR.
 
-Cet ordre a une conséquence qu'il faut avoir en tête. **Une variable d'environnement rend muette la ligne correspondante du fichier**, sans le dire. Quelqu'un qui remplit correctement le fichier, redémarre, et ne voit rien changer doit chercher la variable qui l'écrase. C'est pourquoi l'unité systemd fournie livre `NETCDF_MEAN_PATH` et `NETCDF_INDIVIDUAL_PATH` commentées : un seul endroit à remplir. Choisissez un mécanisme, pas les deux.
+Cet ordre a une conséquence qu'il faut avoir en tête. **Une variable d'environnement rend muette la ligne correspondante du fichier.** Quelqu'un qui remplit correctement le fichier, redémarre, et ne voit rien changer devrait sinon partir à la chasse à la variable qui l'écrase.
+
+Quand cela finit par un refus de démarrer, l'application le dit désormais elle-même : le bloc `Action` commence par un avertissement qui nomme la variable et affiche la valeur qu'elle porte, si bien que la recherche s'arrête là plutôt que dans le fichier qu'on vient de corriger. Elle ne peut rien quand la variable désigne un dossier qui contient simplement les *mauvaises* données, puisque ce cas-là démarre très bien. C'est pourquoi l'unité systemd fournie livre `NETCDF_MEAN_PATH` et `NETCDF_INDIVIDUAL_PATH` commentées : un seul endroit à remplir. Choisissez un mécanisme, pas les deux.
 
 ## Exemple de service systemd (Linux)
 
@@ -185,7 +197,7 @@ Le `WorkingDirectory` est important : c'est là que l'application cherche le dos
 
 **Une unité complète et commentée est fournie dans [`deploy/mcv.service`](deploy/mcv.service)**, avec les trois variantes réseau (proxy local, proxy distant ou Cloudflare, exposition directe) et quelques options de durcissement. Le bloc Nginx correspondant est dans [`deploy/nginx-mcv.conf`](deploy/nginx-mcv.conf).
 
-> **À ne pas oublier lors d'une mise à jour.** Le JAR ne contient aucun chemin de données réel, seulement l'exemple neutre `/data/gem-mars/...`. Les deux lignes `Environment=NETCDF_*_PATH` ne sont donc pas facultatives : sans elles le service refuse de démarrer. L'échec est propre et le journal nomme le chemin manquant, mais un JAR déposé par-dessus l'ancien sans cette section ne redonnera pas un service en marche.
+> **À ne pas oublier lors d'une mise à jour.** Le JAR ne contient aucun chemin de données réel, seulement l'exemple neutre `/data/gem-mars/...` : les deux dossiers doivent donc être fournis à chaque déploiement. Dans l'unité livrée ils viennent du fichier `config/application.properties` placé dans le `WorkingDirectory`, et c'est précisément pour cela que les deux lignes `Environment=NETCDF_*_PATH` sont livrées commentées : un seul endroit à remplir, pas deux. Déposer un nouveau JAR par-dessus l'ancien ne touche pas ce fichier ; remplacer le dossier entier, si. Un service relancé sans lui refuse de démarrer, le dit en clair et nomme la propriété à renseigner, mais il ne revient pas en marche.
 
 ## Derrière un reverse proxy
 

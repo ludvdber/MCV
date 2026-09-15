@@ -1,0 +1,6 @@
+# Le seul lien entre l'application et ConfigurationFailureAnalyzer : Spring Boot
+# decouvre ses analyseurs de panne par ce fichier, pas par annotation. Sans
+# cette ligne, un refus de demarrage redevient une trace de pile de quarante
+# lignes, sans qu'aucune compilation ni aucun test de classe ne s'en apercoive.
+org.springframework.boot.diagnostics.FailureAnalyzer=\
+com.mars.visualizer.config.ConfigurationFailureAnalyzer

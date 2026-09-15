@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
+import com.mars.visualizer.config.ConfigurationInvalideException;
 import com.mars.visualizer.controller.IndexHtmlController;
 import com.mars.visualizer.controller.SeoController;
 import com.mars.visualizer.service.SiteUrlService;
@@ -96,16 +97,25 @@ class SeoTest {
 			assertFalse(new SiteUrlService("   ").estConfiguree());
 		}
 
+		/**
+		 * Le refus porte le type que {@code ConfigurationFailureAnalyzer}
+		 * reconnait : c'est lui qui remplace la trace de pile par un bloc
+		 * lisible. Mesure avant : la seule phrase utile arrivait en soixantieme
+		 * ligne de console, derriere trois « Caused by », et aucun message de
+		 * niveau ERROR ne la precedait.
+		 */
 		@Test
 		@DisplayName("Une valeur sans protocole empeche le demarrage")
 		void sansProtocole() {
-			IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+			ConfigurationInvalideException e = assertThrows(ConfigurationInvalideException.class,
 					() -> new SiteUrlService("mars.exemple.be"));
 			assertTrue(e.getMessage().contains("mars.exemple.be"), e.getMessage());
 			assertTrue(e.getMessage().contains("site.public-url"), e.getMessage());
-			assertThrows(IllegalArgumentException.class,
+			assertTrue(e.action().contains("https://"),
+					"l'action doit montrer la forme attendue : " + e.action());
+			assertThrows(ConfigurationInvalideException.class,
 					() -> new SiteUrlService("ftp://mars.exemple.be"));
-			assertThrows(IllegalArgumentException.class,
+			assertThrows(ConfigurationInvalideException.class,
 					() -> new SiteUrlService("//mars.exemple.be"));
 		}
 

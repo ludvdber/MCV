@@ -67,6 +67,8 @@ Un chemin injoignable est détecté au démarrage en quelques secondes et l'appl
 
 La configuration peut être fournie de trois manières (par priorité décroissante) : arguments de ligne de commande, variables d'environnement, ou fichier `config/application.properties` placé à côté du JAR. Un modèle commenté bilingue est fourni dans [`config/application.properties`](config/application.properties).
 
+**Vous n'avez pas besoin d'aller le chercher.** Au premier démarrage, si aucune configuration n'existe ni à plat à côté du JAR ni dans un dossier `config/`, l'application dépose ce modèle elle-même et annonce son chemin absolu dans la console. Et quand un chemin manque ou est faux, le refus de démarrer prend la forme d'un bloc `APPLICATION FAILED TO START` bilingue qui dit ce qui ne va pas d'un côté et quoi corriger de l'autre, sans trace de pile. Les deux sont montrés dans [DEPLOYMENT.fr.md](DEPLOYMENT.fr.md#installer).
+
 ---
 
 ## Lancement
@@ -136,10 +138,10 @@ Installation serveur, service systemd et reverse proxy : **[DEPLOYMENT.fr.md](DE
 | `./gradlew build` | Build complet : frontend, compilation, tests, JAR dans `build/libs/` |
 | `./gradlew build -x test` | Idem sans la suite de tests |
 | `./gradlew bootJar` | JAR uniquement, sans tests |
-| `./gradlew test` | Suite JUnit 5 (397 tests) + rapport de couverture JaCoCo |
+| `./gradlew test` | Suite JUnit 5 (427 tests) + rapport de couverture JaCoCo |
 | `./gradlew buildFrontend` | Build de production du frontend uniquement |
 
-Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellement 94,9 % des instructions et 84,5 % des branches.
+Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellement 96,4 % des instructions, 88,8 % des branches et 96,1 % des lignes.
 
 ### npm (`frontend/`)
 
@@ -148,8 +150,8 @@ Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellemen
 | `npm run dev` | Serveur de développement Vite sur :5173 avec rechargement à chaud |
 | `npm run build` | Build de production dans `frontend/dist/` |
 | `npm run preview` | Sert le build de production en local |
-| `npm run test` | Suite Vitest (1353 tests, jsdom) |
-| `npm run test:e2e` | Suite de bout en bout (59 tests) dans un vrai Chromium |
+| `npm run test` | Suite Vitest (1362 tests, jsdom) |
+| `npm run test:e2e` | Suite de bout en bout (66 tests) dans un vrai Chromium |
 | `npx vitest run --coverage` | Idem, avec le rapport de couverture dans `frontend/coverage/` |
 | `npm run lint` | Vérification ESLint |
 
@@ -165,8 +167,11 @@ entre deux familles comme un titre et une barre d'outils, des statistiques lues
 nom accessible ni valeur lisible. Elle couvre le
 rideau A/B, les onze pages de visualisation, les grilles et les outils de la
 console, l'affichage sur téléphone, et les parcours réels : clavier, permalien,
-export, cinq langues. Quatre défauts ont vécu en production sous une suite jsdom
-verte parce qu'ils étaient tous géométriques.
+export, cinq langues. Trois défauts ont vécu en production sous une suite jsdom
+verte parce qu'ils étaient tous les trois géométriques : un conteneur de graphe
+à pleine taille sans rien de dessiné dedans, deux barres de statistiques aux
+mêmes coordonnées tranchées par le rideau, et deux titres centrés qui se
+recouvraient à 94 %.
 
 ```bash
 npm run test:e2e                                          # cible localhost:5173
@@ -176,7 +181,7 @@ MCV_E2E_URL=https://mars.exemple.be npm run test:e2e      # cible un déploiemen
 `MCV_E2E_API` rebranche `/api` vers un autre serveur, ce qui permet d'éprouver
 une interface locale contre un backend qui, lui, possède les données.
 
-La couverture du frontend est actuellement de 90,2 % des instructions et 93,7 %
+La couverture du frontend est actuellement de 90,5 % des instructions et 93,8 %
 des lignes. La configuration Vitest active `coverage.all` : un fichier qu'aucun
 test n'importe entre quand même au dénominateur. Retirer ce réglage gonflerait
 le chiffre sans qu'une seule ligne de test soit écrite.
@@ -229,7 +234,7 @@ Toutes les vues offrent permaliens, export CSV, export PNG/SVG, échelle log₁�
 
 La console d'exploration réunit jusqu'à quatre vues côte à côte, reliées par une sonde partagée et une même sélection de région, ce qui permet de lire un même point sur plusieurs diagnostics à la fois :
 
-![Console d'exploration : quatre vues en grille, chacune animant son propre champ de vent](docs/images/explorer.png)
+![Console d'exploration : quatre vues en grille, reliées par une sonde commune ; chaque carte anime son propre champ de vent](docs/images/explorer.png)
 
 Sur n'importe quelle carte, les vents peuvent s'afficher en **particules advectées** le long du champ UU/VV. La couleur et l'épaisseur des traînées suivent la vitesse locale, et la légende donne les bornes de l'échelle ainsi que la moyenne du champ :
 
