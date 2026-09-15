@@ -136,7 +136,7 @@ Installation serveur, service systemd et reverse proxy : **[DEPLOYMENT.fr.md](DE
 | `./gradlew build` | Build complet : frontend, compilation, tests, JAR dans `build/libs/` |
 | `./gradlew build -x test` | Idem sans la suite de tests |
 | `./gradlew bootJar` | JAR uniquement, sans tests |
-| `./gradlew test` | Suite JUnit 5 (395 tests) + rapport de couverture JaCoCo |
+| `./gradlew test` | Suite JUnit 5 (397 tests) + rapport de couverture JaCoCo |
 | `./gradlew buildFrontend` | Build de production du frontend uniquement |
 
 Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellement 94,9 % des instructions et 84,5 % des branches.
@@ -148,8 +148,8 @@ Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellemen
 | `npm run dev` | Serveur de développement Vite sur :5173 avec rechargement à chaud |
 | `npm run build` | Build de production dans `frontend/dist/` |
 | `npm run preview` | Sert le build de production en local |
-| `npm run test` | Suite Vitest (1348 tests, jsdom) |
-| `npm run test:e2e` | Suite de bout en bout (20 tests) dans un vrai Chromium |
+| `npm run test` | Suite Vitest (1353 tests, jsdom) |
+| `npm run test:e2e` | Suite de bout en bout (59 tests) dans un vrai Chromium |
 | `npx vitest run --coverage` | Idem, avec le rapport de couverture dans `frontend/coverage/` |
 | `npm run lint` | Vérification ESLint |
 
@@ -157,11 +157,16 @@ Les deux suites ne prouvent pas la même chose. Celle de Vitest tourne dans
 jsdom, qui n'a pas de moteur de mise en page : aucune boîte n'a de position ni
 de taille, et `clip-path` n'existe pas. Elle prouve la logique, jamais
 l'affichage. La suite de bout en bout ouvre un vrai navigateur sur
-l'application servie et vérifie quatre invariants sur chaque page : aucun
-conteneur de graphe vide, aucun élément superposé à un autre, des statistiques
-lues à l'écran arithmétiquement possibles, aucun débordement horizontal. Trois
-défauts du rideau A/B ont vécu en production sous une suite jsdom verte parce
-qu'ils étaient tous les trois géométriques.
+l'application servie et vérifie sept invariants : aucun conteneur de graphe
+vide, aucun élément superposé à un autre de même nature, aucun recouvrement
+entre deux familles comme un titre et une barre d'outils, des statistiques lues
+à l'écran arithmétiquement possibles, aucun débordement horizontal à 390, 820 et
+1600 pixels, aucune cible tactile sous 24 par 24 pixels, et aucun curseur sans
+nom accessible ni valeur lisible. Elle couvre le
+rideau A/B, les onze pages de visualisation, les grilles et les outils de la
+console, l'affichage sur téléphone, et les parcours réels : clavier, permalien,
+export, cinq langues. Quatre défauts ont vécu en production sous une suite jsdom
+verte parce qu'ils étaient tous géométriques.
 
 ```bash
 npm run test:e2e                                          # cible localhost:5173

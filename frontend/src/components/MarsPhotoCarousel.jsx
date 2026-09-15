@@ -327,31 +327,60 @@ export default function MarsPhotoCarousel() {
         </>
       )}
 
-      {/* Dots */}
+      {/* Pastilles de navigation.
+          Elles mesuraient 6 par 6 pixels, pour un ecart de 11 px entre centres :
+          le critere 2.5.8 des WCAG 2.2 en demande 24, et une sonde au doigt les
+          a toutes signalees. Le repere visuel reste une pastille de 6 px, mais
+          il vit desormais dans un vrai bouton de 24 par 24 qui porte l'appui.
+
+          Seize boutons de 24 px font 384 px de large : plus qu'un telephone.
+          En dessous de « sm » on affiche donc un compteur a la place, et la
+          navigation passe par les fleches, qui sont larges. Les masquer plutot
+          que les retrecir est le seul choix qui ne reintroduise ni cible
+          minuscule ni debordement horizontal. */}
       {photos.length > 1 && (
-        <Box sx={{
-          position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)',
-          display: 'flex', gap: 0.7,
-        }}>
-          {photos.map((_, i) => (
-            <Box
-              key={i}
-              role="button"
-              tabIndex={0}
-              aria-label={`Photo ${i + 1}`}
-              onClick={() => { setCurrent(i); setImgReady(false); }}
-              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCurrent(i); setImgReady(false); } }}
-              sx={{
-                width: i === current ? 18 : 6, height: 6,
-                borderRadius: 3,
-                backgroundColor: i === current ? '#38bdf8' : 'rgba(255,255,255,0.22)',
-                transition: 'width 0.3s ease, background-color 0.3s ease',
-                cursor: 'pointer',
-                boxShadow: i === current ? '0 0 8px rgba(56,189,248,0.7)' : 'none',
-              }}
-            />
-          ))}
-        </Box>
+        <>
+          <Box sx={{
+            position: 'absolute', top: 6, left: '50%', transform: 'translateX(-50%)',
+            display: { xs: 'none', sm: 'flex' }, gap: 0,
+          }}>
+            {photos.map((_, i) => (
+              <Box
+                key={i}
+                component="button"
+                type="button"
+                aria-label={`Photo ${i + 1}`}
+                aria-current={i === current ? 'true' : undefined}
+                onClick={() => { setCurrent(i); setImgReady(false); }}
+                sx={{
+                  width: 24, height: 24, p: 0, border: 'none', background: 'none',
+                  display: 'grid', placeItems: 'center', cursor: 'pointer',
+                }}
+              >
+                <Box
+                  component="span"
+                  sx={{
+                    width: i === current ? 18 : 6, height: 6,
+                    borderRadius: 3,
+                    backgroundColor: i === current ? '#38bdf8' : 'rgba(255,255,255,0.22)',
+                    transition: 'width 0.3s ease, background-color 0.3s ease',
+                    boxShadow: i === current ? '0 0 8px rgba(56,189,248,0.7)' : 'none',
+                  }}
+                />
+              </Box>
+            ))}
+          </Box>
+
+          <Typography sx={{
+            position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)',
+            display: { xs: 'block', sm: 'none' },
+            fontSize: '0.62rem', fontVariantNumeric: 'tabular-nums',
+            color: 'rgba(255,255,255,0.92)', backgroundColor: 'rgba(0,0,0,0.7)',
+            px: 0.8, py: 0.2, borderRadius: 1,
+          }}>
+            {`${current + 1} / ${photos.length}`}
+          </Typography>
+        </>
       )}
 
       {/* Attribution NASA. Ce credit doit se LIRE, c'est sa raison d'etre :

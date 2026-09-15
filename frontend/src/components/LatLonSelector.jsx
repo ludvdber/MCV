@@ -51,6 +51,8 @@ function LatLonSelector({ latitude, longitude, onLatChange, onLonChange, disable
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography gutterBottom>{t('selector.latlon.latitude')}</Typography>
         <Slider
+          aria-label={t('selector.latlon.latitude')}
+          getAriaValueText={(v) => `${v}°`}
           min={-88}
           max={88}
           step={4}
@@ -66,6 +68,8 @@ function LatLonSelector({ latitude, longitude, onLatChange, onLonChange, disable
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography gutterBottom>{t('selector.latlon.longitude')}</Typography>
         <Slider
+          aria-label={t('selector.latlon.longitude')}
+          getAriaValueText={(v) => `${v}°`}
           min={-176}
           max={180}
           step={4}

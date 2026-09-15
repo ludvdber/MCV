@@ -137,6 +137,8 @@ function IndividualSelector({ years = [], onSelect, initialYear = null, initialL
             {/* Slider : navigation grossiere */}
             <Box sx={{ flex: 1, px: 1, pt: 0.5 }}>
               <Slider
+                aria-label={t('selector.individual.ls')}
+                getAriaValueText={v => `${v.toFixed(2)}°`}
                 value={targetLs}
                 onChange={handleSliderChange}
                 min={yearInfo.lsMin}

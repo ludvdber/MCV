@@ -136,7 +136,7 @@ Server installation, systemd service and reverse-proxy setup: **[DEPLOYMENT.md](
 | `./gradlew build` | Full build: frontend, compilation, tests, JAR in `build/libs/` |
 | `./gradlew build -x test` | Same without the test suite |
 | `./gradlew bootJar` | JAR only, no tests |
-| `./gradlew test` | JUnit 5 suite (395 tests) + JaCoCo coverage report |
+| `./gradlew test` | JUnit 5 suite (397 tests) + JaCoCo coverage report |
 | `./gradlew buildFrontend` | Frontend production build only |
 
 Coverage report: `build/reports/jacoco/test/html/index.html`. Currently 94.9% of instructions, 84.5% of branches.
@@ -148,19 +148,23 @@ Coverage report: `build/reports/jacoco/test/html/index.html`. Currently 94.9% of
 | `npm run dev` | Vite dev server on :5173 with hot reload |
 | `npm run build` | Production build into `frontend/dist/` |
 | `npm run preview` | Serves the production build locally |
-| `npm run test` | Vitest suite (1348 tests, jsdom) |
-| `npm run test:e2e` | End-to-end suite (20 tests) in a real Chromium |
+| `npm run test` | Vitest suite (1353 tests, jsdom) |
+| `npm run test:e2e` | End-to-end suite (59 tests) in a real Chromium |
 | `npx vitest run --coverage` | Same, with the coverage report in `frontend/coverage/` |
 | `npm run lint` | ESLint check |
 
 The two suites prove different things. The Vitest one runs in jsdom, which has
 no layout engine: no box has a position or a size, and `clip-path` does not
 exist. It proves logic, never appearance. The end-to-end suite opens a real
-browser against the served application and checks four invariants on every
-page: no empty plot container, no element overlapping another, on-screen
-statistics that are arithmetically possible, no horizontal overflow. Three
-defects of the A/B curtain lived in production under a green jsdom suite
-because all three were geometric.
+browser against the served application and checks seven invariants: no empty plot
+container, no element overlapping another of the same kind, no overlap between
+two different families such as a title and a toolbar, on-screen statistics that
+are arithmetically possible, no horizontal overflow at 390, 820 and 1600 pixels,
+no touch target under 24 by 24 pixels, and no slider without an accessible name
+and a readable value text. It covers the A/B curtain, the eleven
+visualization pages, the console grids and tools, phone rendering, and the real
+journeys: keyboard, permalink, export, five locales. Four defects lived in
+production under a green jsdom suite because all of them were geometric.
 
 ```bash
 npm run test:e2e                                          # targets localhost:5173

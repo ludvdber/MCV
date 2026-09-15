@@ -34,7 +34,16 @@ function TimeSelector({ value, onChange, disabled = false }) {
           {formatTime(value)}
         </Box>
       </Typography>
+      {/* Un curseur MUI ne porte aucun nom accessible par defaut, et il annonce
+          son INDICE, pas la valeur lue a l'ecran. Mesure sur les six curseurs
+          de l'application : ni aria-label, ni aria-labelledby, ni
+          aria-valuetext. Un lecteur d'ecran disait donc « curseur, 23, de 0 a
+          47 » la ou l'ecran affiche « 11.5h », sans dire de quoi il s'agit —
+          echec WCAG 4.1.2 de niveau A. On reutilise le formateur qui sert
+          deja a l'etiquette visible : une seule verite pour les deux. */}
       <Slider
+        aria-label={t('selector.time.label')}
+        getAriaValueText={formatTime}
         min={0}
         max={47}
         step={1}

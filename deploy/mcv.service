@@ -78,9 +78,23 @@ TimeoutStopSec=45
 
 # ---------------------------------------------------------------------------
 # Donnees — OBLIGATOIRE
+#
+# DEUX endroits possibles, et un seul doit servir : ce fichier-ci, ou
+# /opt/mcv/config/application.properties. Une variable d'environnement
+# L'EMPORTE sur le fichier (mesure : fichier et variable pointant vers deux
+# dossiers differents, c'est la variable qui est validee au demarrage).
+#
+# Les deux lignes ci-dessous sont donc livrees COMMENTEES. Sans elles,
+# l'application lit config/application.properties, qu'elle cree elle-meme au
+# premier demarrage si personne ne l'a depose : un seul endroit a remplir, et
+# le message d'erreur qui nomme ce fichier dit alors la verite.
+#
+# Ne les decommentez que si vous preferez piloter le service par variables
+# d'environnement — auquel cas les valeurs du fichier deviennent inertes pour
+# ces deux cles, silencieusement.
 # ---------------------------------------------------------------------------
-Environment=NETCDF_MEAN_PATH=/mnt/gem-mars/mean
-Environment=NETCDF_INDIVIDUAL_PATH=/mnt/gem-mars/individual
+#Environment=NETCDF_MEAN_PATH=/mnt/gem-mars/mean
+#Environment=NETCDF_INDIVIDUAL_PATH=/mnt/gem-mars/individual
 
 # Adresse publique annoncee aux moteurs de recherche (voir en-tete de ce
 # fichier). Laissee commentee, elle est deduite de la requete.

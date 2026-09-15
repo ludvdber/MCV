@@ -168,6 +168,36 @@ describe('carrousel de photos', () => {
     }
   });
 
+  /**
+   * Les pastilles de navigation etaient des div en role=button de 6 par 6
+   * pixels, pour 11 px entre centres : sous les 24 exiges par le critere 2.5.8
+   * des WCAG 2.2, et sans semantique de bouton. jsdom ne mesure rien, donc la
+   * TAILLE se verifie dans la suite de bout en bout ; ce qui se verifie ici,
+   * c'est ce qui reste vrai sans moteur de rendu — ce sont de vrais boutons,
+   * ils portent leur etiquette, et le repere visuel est un enfant, pas la cible
+   * elle-meme.
+   */
+  it('les pastilles sont de vrais boutons etiquetes, pas des div cliquables', async () => {
+    brancherNasa(() => Promise.resolve({
+      ok: true, json: () => Promise.resolve(reponseNasa(4, 'mars')),
+    }));
+    const { container } = renderSimple(<MarsPhotoCarousel />);
+    await waitFor(() => expect(screen.queryAllByRole('img').length).toBeGreaterThanOrEqual(1));
+
+    const pastilles = [...container.querySelectorAll('[aria-label^="Photo "]')];
+    expect(pastilles.length, 'une pastille par photo').toBeGreaterThan(1);
+    for (const p of pastilles) {
+      expect(p.tagName.toLowerCase(),
+        'un div en role=button n a ni activation clavier native ni taille propre')
+        .toBe('button');
+      expect(p.children.length,
+        'le repere visuel doit vivre DANS le bouton, pour que la cible puisse'
+        + ' etre plus grande que lui').toBeGreaterThan(0);
+    }
+    // Exactement une pastille est marquee comme courante.
+    expect(pastilles.filter((p) => p.getAttribute('aria-current') === 'true')).toHaveLength(1);
+  });
+
   it('reste muet quand la mediatheque NASA est injoignable', async () => {
     // Le carrousel est DECORATIF : une API tierce en panne ne doit pas
     // empecher l'accueil de s'afficher ni laisser un chargement infini.

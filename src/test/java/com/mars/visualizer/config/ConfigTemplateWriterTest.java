@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
@@ -123,6 +124,55 @@ class ConfigTemplateWriterTest {
 
 			assertThat(ConfigTemplateWriter.ecrireSiAbsent(base)).isEmpty();
 			assertThat(base.resolve("config")).doesNotExist();
+		}
+	}
+
+	/**
+	 * Le fichier de configuration ne sert a rien si l'unite de service le
+	 * court-circuite.
+	 *
+	 * <p>Spring donne la priorite aux variables d'environnement sur le fichier
+	 * externe. Mesure faite : fichier et variable pointant vers deux dossiers
+	 * differents, c'est la VARIABLE qui est validee au demarrage. L'unite
+	 * livree posait justement NETCDF_MEAN_PATH et NETCDF_INDIVIDUAL_PATH, si
+	 * bien qu'un exploitant pouvait remplir correctement
+	 * config/application.properties, redemarrer, et ne rien voir changer — le
+	 * message d'erreur lui designant alors un fichier deja juste.
+	 *
+	 * <p>Ce test lit le fichier reellement livre. Il echouera si quelqu'un
+	 * decommente ces lignes sans mesurer la consequence.
+	 */
+	@Nested
+	@DisplayName("L'unite systemd livree n'annule pas le fichier de configuration")
+	class UniteDeService {
+
+		private static final Path UNITE = Path.of("deploy", "mcv.service");
+
+		@Test
+		@DisplayName("Les chemins de donnees ne sont pas imposes par variable d'environnement")
+		void pasDeSurchargeDesChemins() throws Exception {
+			assertThat(UNITE).as("l'unite livree doit exister").exists();
+
+			List<String> actives = Files.readAllLines(UNITE).stream()
+					.map(String::trim)
+					.filter(l -> l.startsWith("Environment="))
+					.filter(l -> l.contains("NETCDF_MEAN_PATH") || l.contains("NETCDF_INDIVIDUAL_PATH"))
+					.toList();
+
+			assertThat(actives)
+					.as("une variable d'environnement l'emporte sur config/application.properties :"
+							+ " ces lignes rendraient le fichier inerte, en silence")
+					.isEmpty();
+		}
+
+		/** Le sujet doit rester EXPLIQUE dans l'unite, pas seulement absent. */
+		@Test
+		@DisplayName("L'unite explique ou se configurent les chemins")
+		void expliqueOuConfigurer() throws Exception {
+			String texte = Files.readString(UNITE);
+			assertThat(texte)
+					.as("l'exploitant doit lire dans l'unite ou remplir les chemins")
+					.contains("config/application.properties");
 		}
 	}
 

@@ -162,6 +162,8 @@ java -jar mars-visualizer.jar
 
 L'ordre de priorité est : variables d'environnement, puis `config/application.properties`, puis les valeurs par défaut du JAR.
 
+Cet ordre a une conséquence qu'il faut avoir en tête. **Une variable d'environnement rend muette la ligne correspondante du fichier**, sans le dire. Quelqu'un qui remplit correctement le fichier, redémarre, et ne voit rien changer doit chercher la variable qui l'écrase. C'est pourquoi l'unité systemd fournie livre `NETCDF_MEAN_PATH` et `NETCDF_INDIVIDUAL_PATH` commentées : un seul endroit à remplir. Choisissez un mécanisme, pas les deux.
+
 ## Exemple de service systemd (Linux)
 
 ```ini

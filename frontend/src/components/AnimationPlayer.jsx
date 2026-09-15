@@ -515,6 +515,8 @@ function AnimationPlayer({ animationData, variableCode, datasetLabel, showLocati
           </Typography>
 
           <Slider
+            aria-label={t('selector.time.label')}
+            getAriaValueText={formatTime}
             min={0}
             max={maxFrame}
             step={1}

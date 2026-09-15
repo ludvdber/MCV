@@ -31,6 +31,9 @@ export async function ouvrir({ largeur = 1600, hauteur = 1000, langue = 'fr-FR' 
   const contexte = await navigateur.newContext({
     viewport: { width: largeur, height: hauteur },
     locale: langue,
+    // Le permalien passe par le presse-papier : sans cette permission, le test
+    // du parcours mesurerait le refus du navigateur, pas l'application.
+    permissions: ['clipboard-read', 'clipboard-write'],
   });
   // La visite guidee s'ouvre au premier passage et pose un voile qui intercepte
   // les clics. On la marque comme deja vue AVANT le premier rendu : un test doit
@@ -250,6 +253,117 @@ export async function debordementHorizontal(page) {
       .filter((e) => e.droite > limite + 1 && e.largeur > 20)
       .slice(0, 5);
   });
+}
+
+/**
+ * INVARIANT 5 — deux familles d'elements ne se marchent pas dessus.
+ *
+ * Variante de l'invariant 2 pour le cas ou les deux elements ne sont PAS de
+ * meme nature : un titre de graphe et la barre d'outils Plotly, une legende et
+ * une pastille. C'est le recouvrement le plus courant en petite largeur, ou
+ * chaque piece garde sa taille et finit par empieter sur la voisine.
+ */
+export async function chevauchement(page, selecteurA, selecteurB, recouvrementMin = 0.15) {
+  return page.evaluate(({ sa, sb, seuil }) => {
+    const boites = (sel) => [...document.querySelectorAll(sel)]
+      .map((el) => {
+        const r = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        return {
+          texte: (el.textContent || el.getAttribute('aria-label') || '').slice(0, 50),
+          x: r.x, y: r.y, w: r.width, h: r.height,
+          visible: style.visibility !== 'hidden' && style.display !== 'none'
+            && parseFloat(style.opacity || '1') > 0.05,
+        };
+      })
+      .filter((b) => b.w > 4 && b.h > 4 && b.visible);
+
+    const fautes = [];
+    for (const a of boites(sa)) {
+      for (const b of boites(sb)) {
+        const dx = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+        const dy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+        if (dx <= 0 || dy <= 0) continue;
+        const part = (dx * dy) / Math.min(a.w * a.h, b.w * b.h);
+        if (part >= seuil) {
+          fautes.push({
+            a: a.texte, b: b.texte,
+            recouvrement: Math.round(part * 100) + '%',
+            zoneCommune: `${Math.round(dx)}x${Math.round(dy)} px`,
+          });
+        }
+      }
+    }
+    return fautes;
+  }, { sa: selecteurA, sb: selecteurB, seuil: recouvrementMin });
+}
+
+/**
+ * INVARIANT 6 — une cible tactile mesure au moins 24 par 24 pixels.
+ *
+ * C'est le critere 2.5.8 des WCAG 2.2, niveau AA. Il ne se voit pas a l'oeil
+ * sur un ecran de bureau ou l'on vise a la souris, et il n'a aucun effet sur
+ * une suite jsdom, ou tout element mesure zero. Les elements espaces d'au moins
+ * 24 px de leurs voisins beneficient de l'exception d'espacement ; on ne la
+ * modelise pas ici, on se contente de signaler, ce qui reste actionnable.
+ */
+export async function ciblesTactilesTropPetites(page, minimum = 24) {
+  return page.evaluate((min) => {
+    const interactifs = 'button, a[href], [role="button"], [role="tab"], [role="slider"], input, select, summary';
+    // La cible EFFECTIVE n'est pas toujours l'element interrogeable. Un
+    // curseur MUI expose un input de 20 px pose sur la pastille, mais l'appui
+    // est pris sur tout le rail : mesure faite, 352 x 30 px la ou l'input en
+    // annonce 20 x 20. Mesurer l'input reviendrait a signaler un defaut qui
+    // n'existe pas, et un test qui crie pour rien finit ignore.
+    const cible = (el) => (el.matches('input[type=range]')
+      ? el.closest('[class*="Slider-root"]') ?? el
+      : el);
+
+    return [...document.querySelectorAll(interactifs)]
+      .map((el0) => {
+        const el = cible(el0);
+        const r = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        return {
+          balise: el.tagName.toLowerCase(),
+          etiquette: (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 40),
+          largeur: Math.round(r.width), hauteur: Math.round(r.height),
+          visible: r.width > 0 && r.height > 0 && style.visibility !== 'hidden'
+            && style.display !== 'none' && parseFloat(style.opacity || '1') > 0.05,
+        };
+      })
+      .filter((e) => e.visible && (e.largeur < min || e.hauteur < min));
+  }, minimum);
+}
+
+/**
+ * INVARIANT 7 — un curseur dit ce qu'il regle et ce qu'il vaut.
+ *
+ * Un curseur MUI ne porte aucun nom accessible par defaut, et il annonce son
+ * INDICE plutot que la valeur affichee. Mesure faite sur les six curseurs de
+ * l'application : ni aria-label, ni aria-labelledby, ni aria-valuetext. Un
+ * lecteur d'ecran disait « curseur, 23, de 0 a 47 » la ou l'ecran affiche
+ * « 11.5h », sans jamais nommer la grandeur reglee. C'est un echec WCAG 4.1.2
+ * de niveau A, et il est invisible pour qui teste a la souris comme pour une
+ * suite jsdom.
+ */
+export async function curseursSansNom(page) {
+  return page.evaluate(() =>
+    [...document.querySelectorAll('input[type=range]')]
+      .filter((x) => {
+        const r = x.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      })
+      .map((x) => ({
+        nom: x.getAttribute('aria-label')
+          || (x.getAttribute('aria-labelledby')
+            && document.getElementById(x.getAttribute('aria-labelledby'))?.textContent?.trim())
+          || (x.labels && x.labels.length ? x.labels[0].textContent.trim() : null),
+        valeurLue: x.getAttribute('aria-valuetext'),
+        valeurBrute: x.value,
+        bornes: `${x.min}-${x.max}`,
+      }))
+      .filter((c) => !c.nom || !c.valeurLue));
 }
 
 /** Les erreurs de console qui ne viennent pas du reseau de test. */

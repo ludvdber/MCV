@@ -99,6 +99,8 @@ function AltitudeSelector({ value, onChange, variableCode, disabled = false, den
         )}
       </Typography>
       <Slider
+        aria-label={t('selector.altitude.label')}
+        getAriaValueText={formatKm}
         min={0}
         max={max}
         step={1}
