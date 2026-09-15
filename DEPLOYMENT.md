@@ -205,6 +205,16 @@ The `WorkingDirectory` matters: it is where the application looks for the `confi
 
 > **Do not forget this when upgrading.** The JAR carries no real data path, only the neutral `/data/gem-mars/...` placeholder, so the two folders have to be supplied on every deployment. In the shipped unit they come from `config/application.properties` inside the `WorkingDirectory`, which is exactly why the two `Environment=NETCDF_*_PATH` lines are shipped commented out: one place to fill in, not two. Dropping a new JAR over the old one leaves that file alone; replacing the whole folder does not. A service that restarts without it refuses to start, says so in plain text and names the property to fill in, but it does not come back up.
 
+## Cross-origin calls (CORS)
+
+MCV serves its own web interface, so the browser calls the API on the **same origin** and this setting never comes into play in an ordinary deployment. It only matters when the frontend is served separately, by the Vite dev server or by an interface hosted on another domain, which must then be named:
+
+```properties
+cors.allowed-origin=https://front.exemple.be
+```
+
+Left unset, the value is `http://localhost:5173`, the dev server. On a public deployment that means a developer machine can call this API from a browser. The data is public and read-only, no session or cookie is involved, and the per-IP limits still apply: nothing is exposed that a plain HTTP client could not already fetch. Set it to your own domain if you would rather close it anyway.
+
 ## Behind a reverse proxy
 
 The application honours `X-Forwarded-*` headers, but only when they come from a proxy it has good reason to believe. That is the job of the two settings already enabled:

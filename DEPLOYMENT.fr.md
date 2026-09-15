@@ -205,6 +205,16 @@ Le `WorkingDirectory` est important : c'est là que l'application cherche le dos
 
 > **À ne pas oublier lors d'une mise à jour.** Le JAR ne contient aucun chemin de données réel, seulement l'exemple neutre `/data/gem-mars/...` : les deux dossiers doivent donc être fournis à chaque déploiement. Dans l'unité livrée ils viennent du fichier `config/application.properties` placé dans le `WorkingDirectory`, et c'est précisément pour cela que les deux lignes `Environment=NETCDF_*_PATH` sont livrées commentées : un seul endroit à remplir, pas deux. Déposer un nouveau JAR par-dessus l'ancien ne touche pas ce fichier ; remplacer le dossier entier, si. Un service relancé sans lui refuse de démarrer, le dit en clair et nomme la propriété à renseigner, mais il ne revient pas en marche.
 
+## Appels inter-origine (CORS)
+
+MCV sert sa propre interface : le navigateur appelle donc l'API sur la **même origine**, et ce réglage n'entre jamais en jeu dans un déploiement ordinaire. Il ne sert que si le frontend est servi à part, par le serveur de développement Vite ou par une interface hébergée sur un autre domaine, qu'il faut alors nommer :
+
+```properties
+cors.allowed-origin=https://front.exemple.be
+```
+
+Non renseigné, la valeur est `http://localhost:5173`, celle du serveur de développement. Sur un déploiement public, cela signifie qu'une machine de développement peut appeler cette API depuis un navigateur. Les données sont publiques et en lecture seule, aucune session ni cookie n'intervient, et les limites par IP s'appliquent toujours : rien n'est exposé qu'un simple client HTTP ne puisse déjà récupérer. Renseignez votre propre domaine si vous préférez fermer quand même.
+
 ## Derrière un reverse proxy
 
 L'application honore les en-têtes `X-Forwarded-*`, mais seulement quand ils viennent d'un proxy qu'elle a de bonnes raisons de croire. C'est le rôle du couple de réglages déjà actifs :
