@@ -20,6 +20,7 @@ import PageLoader from '../components/PageLoader';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { triggerApiDownload } from '../utils/exportUtils';
+import { datasetFileToken } from '../utils/datasetLabel';
 import { timeParam } from '../utils/urlParams';
 import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
 import { useVisualizationPage } from '../hooks/useVisualizationPage';
@@ -82,7 +83,7 @@ function ZonalMeanPage() {
   const handleExportCSV = () => {
     triggerApiDownload(
       exportZonalMeanCSV({ dataset: selectedDataset, variable: selectedVariable, time: selectedTime }),
-      `mars_zonalmean_${selectedVariable || 'plot'}.csv`,
+      `zonalmean_${datasetFileToken(selectedDataset)}_${selectedVariable || 'plot'}.csv`,
     );
   };
 

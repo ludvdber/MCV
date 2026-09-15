@@ -20,6 +20,7 @@ import { useMars } from '../context/MarsContext';
 import { useToast } from '../context/ToastContext';
 import { VARIABLES_MAP } from '../components/VariableSelector';
 import { triggerApiDownload, downloadAnimationCSV, downloadTextFile } from '../utils/exportUtils';
+import { datasetFileToken } from '../utils/datasetLabel';
 import {
   getSlice, getTimeSeries, getProfile, getCrossSection,
   getTemporalProfile, getTransect,
@@ -531,7 +532,7 @@ function ExplorePageContent() {
           if (v != null && !Number.isNaN(v)) rows.push(`${latitudes[i]},${longitudes[j]},${v}`);
         }
       }
-      downloadTextFile(rows.join('\n'), `derived_${activeResultObj.derived}_${activeResultObj.params.variable}.csv`);
+      downloadTextFile(rows.join('\n'), `derived_${activeResultObj.derived}_${datasetFileToken(activeResultObj.params.dataset)}_${activeResultObj.params.variable}.csv`);
       return;
     }
 
@@ -543,25 +544,25 @@ function ExplorePageContent() {
       case 'slice':
         triggerApiDownload(
           exportSliceCSV({ dataset: params.dataset, variable: params.variable, time: params.time, altitude: altitudeToSend }),
-          `slice_${params.variable}_t${params.time}_a${params.altitude}.csv`,
+          `slice_${datasetFileToken(params.dataset)}_${params.variable}_t${params.time}_a${params.altitude}.csv`,
         );
         break;
       case 'timeseries':
         triggerApiDownload(
           exportTimeSeriesCSV({ dataset: params.dataset, variable: params.variable, latitude: params.lat, longitude: params.lon, altitude: altitudeToSend }),
-          `timeseries_${params.variable}_lat${params.lat}_lon${params.lon}.csv`,
+          `timeseries_${datasetFileToken(params.dataset)}_${params.variable}_lat${params.lat}_lon${params.lon}.csv`,
         );
         break;
       case 'profile':
         triggerApiDownload(
           exportProfileCSV({ dataset: params.dataset, variable: params.variable, time: params.time, latitude: params.lat, longitude: params.lon }),
-          `profile_${params.variable}_lat${params.lat}_lon${params.lon}.csv`,
+          `profile_${datasetFileToken(params.dataset)}_${params.variable}_lat${params.lat}_lon${params.lon}.csv`,
         );
         break;
       case 'crosssection':
         triggerApiDownload(
           exportCrossSectionCSV({ dataset: params.dataset, variable: params.variable, time: params.time, type: params.crossSectionType, fixedCoordinate: params.crossSectionType === 'meridional' ? params.lon : params.lat }),
-          `crosssection_${params.variable}_${params.crossSectionType}.csv`,
+          `crosssection_${datasetFileToken(params.dataset)}_${params.variable}_${params.crossSectionType}.csv`,
         );
         break;
       case 'animation': {
@@ -572,31 +573,31 @@ function ExplorePageContent() {
       case 'hovmoller':
         triggerApiDownload(
           exportHovmollerCSV({ dataset: params.dataset, variable: params.variable, altitude: altitudeToSend, type: params.hovmollerType || 'latitude' }),
-          `hovmoller_${params.variable}_alt${params.altitude}.csv`,
+          `hovmoller_${datasetFileToken(params.dataset)}_${params.variable}_alt${params.altitude}.csv`,
         );
         break;
       case 'zonalmean':
         triggerApiDownload(
           exportZonalMeanCSV({ dataset: params.dataset, variable: params.variable, time: params.time }),
-          `zonalmean_${params.variable}_t${params.time}.csv`,
+          `zonalmean_${datasetFileToken(params.dataset)}_${params.variable}_t${params.time}.csv`,
         );
         break;
       case 'windrose':
         triggerApiDownload(
           exportWindRoseCSV({ dataset: params.dataset, latitude: params.lat, longitude: params.lon, altitude: altitudeToSend }),
-          `windrose_lat${params.lat}_lon${params.lon}.csv`,
+          `windrose_${datasetFileToken(params.dataset)}_lat${params.lat}_lon${params.lon}.csv`,
         );
         break;
       case 'difference':
         triggerApiDownload(
           exportDifferenceCSV({ datasetA: params.dataset, datasetB: params.datasetB, variable: params.variable, time: params.time, altitude: altitudeToSend }),
-          `difference_${params.variable}_t${params.time}.csv`,
+          `difference_${datasetFileToken(params.dataset)}_vs_${datasetFileToken(params.datasetB)}_${params.variable}_t${params.time}.csv`,
         );
         break;
       case 'temporalprofile':
         triggerApiDownload(
           exportTemporalProfileCSV({ dataset: params.dataset, variable: params.variable, latitude: params.lat, longitude: params.lon }),
-          `temporalprofile_${params.variable}_lat${params.lat}_lon${params.lon}.csv`,
+          `temporalprofile_${datasetFileToken(params.dataset)}_${params.variable}_lat${params.lat}_lon${params.lon}.csv`,
         );
         break;
       case 'transect': {
@@ -611,7 +612,7 @@ function ExplorePageContent() {
             }
           }
         }
-        downloadTextFile(rows.join('\n'), `transect_${params.variable}_t${params.time}.csv`);
+        downloadTextFile(rows.join('\n'), `transect_${datasetFileToken(params.dataset)}_${params.variable}_t${params.time}.csv`);
         break;
       }
       case 'tides': {
@@ -623,7 +624,7 @@ function ExplorePageContent() {
             rows.push(`${d.latitudes[i]},${d.longitudes[j]},${d.mean[i][j]},${d.amplitudeDiurnal[i][j]},${d.phaseDiurnal[i][j]},${d.amplitudeSemidiurnal[i][j]},${d.phaseSemidiurnal[i][j]}`);
           }
         }
-        downloadTextFile(rows.join('\n'), `tides_${params.variable}_alt${params.altitude}.csv`);
+        downloadTextFile(rows.join('\n'), `tides_${datasetFileToken(params.dataset)}_${params.variable}_alt${params.altitude}.csv`);
         break;
       }
     }
@@ -636,7 +637,7 @@ function ExplorePageContent() {
     const altitudeToSend = variable?.altitudeType === null ? 0 : params.altitude;
     triggerApiDownload(
       exportSliceNetCDF({ dataset: params.dataset, variable: params.variable, time: params.time, altitude: altitudeToSend }),
-      `slice_${params.variable}_t${params.time}_a${params.altitude}.nc`,
+      `slice_${datasetFileToken(params.dataset)}_${params.variable}_t${params.time}_a${params.altitude}.nc`,
     );
   }, [activeResultObj]);
 

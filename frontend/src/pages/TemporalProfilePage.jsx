@@ -20,6 +20,7 @@ import PageLoader from '../components/PageLoader';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { triggerApiDownload } from '../utils/exportUtils';
+import { datasetFileToken } from '../utils/datasetLabel';
 import { floatParam } from '../utils/urlParams';
 import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
 import { useVisualizationPage } from '../hooks/useVisualizationPage';
@@ -88,7 +89,7 @@ function TemporalProfilePage() {
         dataset: selectedDataset, variable: selectedVariable,
         latitude: selectedLatitude, longitude: selectedLongitude,
       }),
-      `temporal_profile_${selectedVariable}_${selectedLatitude}_${selectedLongitude}.csv`,
+      `temporal_profile_${datasetFileToken(selectedDataset)}_${selectedVariable}_${selectedLatitude}_${selectedLongitude}.csv`,
     );
   };
 

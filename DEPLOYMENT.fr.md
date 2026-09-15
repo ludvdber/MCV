@@ -17,6 +17,12 @@ Tout tient dans ce JAR et un fichier de configuration. Le reverse proxy est ce q
 
 Un JAR prêt à l'emploi est publié dans les releases GitHub du projet. **Aucune compilation n'est nécessaire**, sauf si vous souhaitez modifier l'application vous-mêmes.
 
+La release contient aussi un fichier `SHA256SUMS.txt`. Sur un serveur d'institut, vérifier une archive téléchargée coûte une commande et vaut la peine :
+
+```bash
+sha256sum -c SHA256SUMS.txt
+```
+
 Pour construire depuis les sources (uniquement en cas de modification du code) :
 
 ```bash

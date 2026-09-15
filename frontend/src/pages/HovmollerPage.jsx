@@ -20,6 +20,7 @@ import PageLoader from '../components/PageLoader';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { triggerApiDownload } from '../utils/exportUtils';
+import { datasetFileToken } from '../utils/datasetLabel';
 import { altitudeParam } from '../utils/urlParams';
 import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
 import { useVisualizationPage } from '../hooks/useVisualizationPage';
@@ -83,7 +84,7 @@ function HovmollerPage() {
   const handleExportCSV = () => {
     triggerApiDownload(
       exportHovmollerCSV({ dataset: selectedDataset, variable: selectedVariable, altitude: selectedAltitude, type: hovType }),
-      `mars_hovmoller_${selectedVariable || 'plot'}.csv`,
+      `hovmoller_${datasetFileToken(selectedDataset)}_${selectedVariable || 'plot'}.csv`,
     );
   };
 

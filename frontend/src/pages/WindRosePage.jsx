@@ -17,6 +17,7 @@ import PageLoader from '../components/PageLoader';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { triggerApiDownload } from '../utils/exportUtils';
+import { datasetFileToken } from '../utils/datasetLabel';
 import { floatParam, altitudeParam } from '../utils/urlParams';
 import { useVisualizationPage } from '../hooks/useVisualizationPage';
 import { INDIVIDUAL_PREFIX } from '../constants';
@@ -79,7 +80,7 @@ function WindRosePage() {
         dataset: selectedDataset, latitude: selectedLatitude,
         longitude: selectedLongitude, altitude: selectedAltitude,
       }),
-      'mars_windrose.csv',
+      `windrose_${datasetFileToken(selectedDataset)}_lat${selectedLatitude}_lon${selectedLongitude}_alt${selectedAltitude}.csv`,
     );
   };
 

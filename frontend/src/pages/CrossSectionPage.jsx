@@ -20,6 +20,7 @@ import PageLoader from '../components/PageLoader';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { triggerApiDownload } from '../utils/exportUtils';
+import { datasetFileToken } from '../utils/datasetLabel';
 import { floatParam, timeParam } from '../utils/urlParams';
 import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
 import { useVisualizationPage } from '../hooks/useVisualizationPage';
@@ -102,7 +103,7 @@ function CrossSectionPage() {
   const handleExportCSV = () => {
     triggerApiDownload(
       exportCrossSectionCSV({ dataset: selectedDataset, variable: selectedVariable, time: selectedTime, type: csType, fixedCoordinate }),
-      `crosssection_${selectedVariable}_${csType}.csv`,
+      `crosssection_${datasetFileToken(selectedDataset)}_${selectedVariable}_${csType}.csv`,
     );
   };
 

@@ -15,9 +15,11 @@ import org.springframework.stereotype.Service;
 
 import com.mars.visualizer.config.DataPathConfig;
 import com.mars.visualizer.dto.internal.AnimationData;
+import com.mars.visualizer.dto.internal.CoordonneeScalaire;
 import com.mars.visualizer.dto.internal.CrossSectionData;
 import com.mars.visualizer.dto.internal.HovmollerData;
 import com.mars.visualizer.dto.internal.ProfileData;
+import com.mars.visualizer.dto.internal.ProvenanceTranche;
 import com.mars.visualizer.dto.internal.SliceData;
 import com.mars.visualizer.dto.internal.TimeSeriesData;
 import com.mars.visualizer.dto.internal.TemporalProfileData;
@@ -71,8 +73,9 @@ import ucar.nc2.NetcdfFiles;
 public class NetCDFReaderService {
 
 	// Noms de coordonnées et variables standardisés
-	private static final String COORD_LAT = "lat";
-	private static final String COORD_LON = "lon";
+	private static final String COORD_LAT  = "lat";
+	private static final String COORD_LON  = "lon";
+	private static final String COORD_TIME = "time";
 	private static final String VAR_UU    = "UU";
 	private static final String VAR_VV    = "VV";
 	private static final String VAR_MTSF  = "MTSF";
@@ -219,6 +222,81 @@ public class NetCDFReaderService {
 					v.findAttributeString("standard_name", null),
 					v.findAttributeString("long_name", null));
 		});
+	}
+
+	/**
+	 * Provenance d'une tranche 2D : de quel jeu, à quel instant, à quelle
+	 * altitude elle a été extraite, avec les métadonnées CF de chaque axe
+	 * RECOPIÉES du fichier source.
+	 *
+	 * <p>Recopiées, et non déduites, parce que les deux familles de jeux n'ont
+	 * pas la même convention de temps. Un fichier MEAN porte une heure solaire
+	 * locale ({@code units = "hours"}, 48 pas) ; un fichier INDIVIDUAL porte un
+	 * instant absolu ({@code units = "hours since 1970-01-01 00:00:00"}, un seul
+	 * pas). Écrire « heure locale » sans regarder produirait {@code 414984 h}
+	 * présenté comme une coordonnée scientifique sur un jeu individuel.
+	 *
+	 * <p>Une provenance absente ne doit JAMAIS faire échouer un export : toute
+	 * lecture qui échoue est journalisée et la coordonnée simplement omise. Le
+	 * fichier perd sa traçabilité, pas son contenu.
+	 *
+	 * @param datasetId     identifiant public du jeu (porte l'année martienne et le Ls)
+	 * @param filename      fichier source résolu
+	 * @param variableName  variable extraite (décide de l'axe vertical utilisé)
+	 * @param timeIndex     index du pas de temps
+	 * @param altitudeIndex index du niveau demandé
+	 */
+	public ProvenanceTranche extractProvenance(String datasetId, String filename,
+			String variableName, int timeIndex, int altitudeIndex) {
+
+		List<CoordonneeScalaire> coords = new ArrayList<>(2);
+		Integer altIndex = null;
+		try {
+			altIndex = readFile(filename, "error.netcdf.read", ncfile -> {
+				ajouteCoordonnee(coords, ncfile, filename, COORD_TIME, COORD_TIME, timeIndex, "T");
+
+				ucar.nc2.Variable variable = ncfile.findVariable(variableName);
+				if (variable == null || variable.getShape().length != 4) {
+					// Variable de surface (3D) : il n'y a pas de niveau à nommer.
+					return null;
+				}
+				String altDimName = variable.getDimension(1).getShortName();
+				boolean ajoutee = ajouteCoordonnee(coords, ncfile, filename, altDimName,
+						"altitude", altitudeIndex, "Z");
+				return ajoutee ? Integer.valueOf(altitudeIndex) : null;
+			});
+		} catch (RuntimeException e) {
+			// La traçabilité est un confort ; le fichier de données ne l'est pas.
+			log.warn("Provenance indisponible pour {} / {} : {}", filename, variableName, e.toString());
+		}
+		return new ProvenanceTranche(datasetId, variableName, timeIndex, altIndex, coords);
+	}
+
+	/**
+	 * Ajoute une coordonnée scalaire lue dans {@code ncfile}, si elle existe et
+	 * si l'index demandé est dans ses bornes. Retourne {@code true} si elle a
+	 * été ajoutée.
+	 */
+	private boolean ajouteCoordonnee(List<CoordonneeScalaire> cible, NetcdfFile ncfile,
+			String filename, String coordName, String nomExporte, int index, String axe)
+			throws IOException {
+
+		ucar.nc2.Variable coord = ncfile.findVariable(coordName);
+		if (coord == null) {
+			return false;
+		}
+		double[] valeurs = cachedCoordinates(ncfile, filename, coordName);
+		if (index < 0 || index >= valeurs.length) {
+			return false;
+		}
+		cible.add(new CoordonneeScalaire(nomExporte, valeurs[index],
+				new VariableMetadata(
+						coord.findAttributeString("units", null),
+						coord.findAttributeString("standard_name", null),
+						coord.findAttributeString("long_name", null)),
+				axe,
+				coord.findAttributeString("positive", null)));
+		return true;
 	}
 
 	/**

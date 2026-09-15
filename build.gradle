@@ -6,7 +6,10 @@ plugins {
 }
 
 group = 'com.mars'
-version = '0.0.1-SNAPSHOT'
+// Un SNAPSHOT est par definition « pas encore publie » : une release ne peut
+// pas en etre un. Meme numero que frontend/package.json, sinon deux versions
+// coexistent dans un seul livrable.
+version = '1.0.0'
 description = 'Mars Climate Viewer'
 
 java {

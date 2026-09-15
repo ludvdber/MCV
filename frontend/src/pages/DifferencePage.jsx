@@ -23,6 +23,7 @@ import { Functions as LogIcon, Place as PlaceIcon, Map as MapIcon, BlurOn as Smo
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { triggerApiDownload } from '../utils/exportUtils';
+import { datasetFileToken } from '../utils/datasetLabel';
 import { timeParam, altitudeParam } from '../utils/urlParams';
 import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
 import { useVisualizationPage } from '../hooks/useVisualizationPage';
@@ -113,7 +114,7 @@ function DifferencePage() {
         datasetA: selectedDataset, datasetB: datasetB,
         variable: selectedVariable, time: selectedTime, altitude: selectedAltitude,
       }),
-      `mars_diff_${selectedVariable || 'plot'}.csv`,
+      `difference_${datasetFileToken(selectedDataset)}_vs_${datasetFileToken(datasetB)}_${selectedVariable || 'plot'}.csv`,
     );
   };
 

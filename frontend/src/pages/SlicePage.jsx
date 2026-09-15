@@ -25,6 +25,7 @@ import PageLoader from '../components/PageLoader';
 import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { triggerApiDownload } from '../utils/exportUtils';
+import { datasetFileToken } from '../utils/datasetLabel';
 import { useResolvedColorscale } from '../hooks/useResolvedColorscale';
 import { useVisualizationPage } from '../hooks/useVisualizationPage';
 import { gridToTable } from '../utils/dataToTable';
@@ -115,14 +116,14 @@ function SlicePage() {
   const handleExportCSV = () => {
     triggerApiDownload(
       exportSliceCSV({ dataset: selectedDataset, variable: selectedVariable, time: selectedTime, altitude: selectedAltitude }),
-      `slice_${selectedVariable}_t${selectedTime}_a${selectedAltitude}.csv`,
+      `slice_${datasetFileToken(selectedDataset)}_${selectedVariable}_t${selectedTime}_a${selectedAltitude}.csv`,
     );
   };
 
   const handleExportNetCDF = () => {
     triggerApiDownload(
       exportSliceNetCDF({ dataset: selectedDataset, variable: selectedVariable, time: selectedTime, altitude: selectedAltitude }),
-      `slice_${selectedVariable}_t${selectedTime}_a${selectedAltitude}.nc`,
+      `slice_${datasetFileToken(selectedDataset)}_${selectedVariable}_t${selectedTime}_a${selectedAltitude}.nc`,
     );
   };
 

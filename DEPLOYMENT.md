@@ -17,6 +17,12 @@ The whole of it is that one JAR and one configuration file. The reverse proxy is
 
 A ready-to-run JAR is published on the GitHub releases page of the project. **You do not need to compile anything** unless you want to modify the application yourself.
 
+The release also carries a `SHA256SUMS.txt`. On an institutional server, checking a downloaded archive costs one command and is worth it:
+
+```bash
+sha256sum -c SHA256SUMS.txt
+```
+
 To build from source (only if you modify the code):
 
 ```bash

@@ -274,9 +274,17 @@ public class ExportController extends AbstractDataController {
 		// Les metadonnees viennent du fichier GEM-Mars, pas d'une table locale :
 		// l'export ecrivait "see_source" dans units alors qu'il se declare CF-1.8.
 		VariableMetadata meta = netcdfService.readVariableMetadata(resolved.filename(), variable);
+		// Sans provenance, deux tranches de saisons opposees sortaient sous le
+		// meme nom avec des metadonnees identiques au bit pres.
+		ProvenanceTranche provenance = netcdfService.extractProvenance(
+				dataset, resolved.filename(), variable, resolved.time(), altitude);
 		byte[] ncData = netcdfWriter.writeSliceNetCDF(variable, meta,
-				slice.latitudes(), slice.longitudes(), slice.data());
-		return netcdfResponse(ncData, String.format(Locale.ROOT, "slice_%s_t%d_a%d.nc", variable, time, altitude));
+				slice.latitudes(), slice.longitudes(), slice.data(), provenance);
+		// Le nom porte desormais le jeu, comme le fait deja l'export CSV : le
+		// nom de fichier est la premiere chose qu'une personne lit, et c'est
+		// souvent la seule qui survit a un tri dans un dossier de telechargement.
+		return netcdfResponse(ncData, String.format(Locale.ROOT, "slice_%s_%s_t%d_alt%d.nc",
+				dataset, variable, resolved.time(), altitude));
 	}
 
 	// =========================================================================

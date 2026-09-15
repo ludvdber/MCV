@@ -138,10 +138,10 @@ Installation serveur, service systemd et reverse proxy : **[DEPLOYMENT.fr.md](DE
 | `./gradlew build` | Build complet : frontend, compilation, tests, JAR dans `build/libs/` |
 | `./gradlew build -x test` | Idem sans la suite de tests |
 | `./gradlew bootJar` | JAR uniquement, sans tests |
-| `./gradlew test` | Suite JUnit 5 (427 tests) + rapport de couverture JaCoCo |
+| `./gradlew test` | Suite JUnit 5 (435 tests) + rapport de couverture JaCoCo |
 | `./gradlew buildFrontend` | Build de production du frontend uniquement |
 
-Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellement 96,4 % des instructions, 88,8 % des branches et 96,1 % des lignes.
+Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellement 96,2 % des instructions, 87,6 % des branches et 96,1 % des lignes.
 
 ### npm (`frontend/`)
 
@@ -150,7 +150,7 @@ Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellemen
 | `npm run dev` | Serveur de développement Vite sur :5173 avec rechargement à chaud |
 | `npm run build` | Build de production dans `frontend/dist/` |
 | `npm run preview` | Sert le build de production en local |
-| `npm run test` | Suite Vitest (1362 tests, jsdom) |
+| `npm run test` | Suite Vitest (1367 tests, jsdom) |
 | `npm run test:e2e` | Suite de bout en bout (66 tests) dans un vrai Chromium |
 | `npx vitest run --coverage` | Idem, avec le rapport de couverture dans `frontend/coverage/` |
 | `npm run lint` | Vérification ESLint |
@@ -284,6 +284,7 @@ curl "http://localhost:8080/api/data/slice?dataset=<id>&variable=TT&time=24&alti
 | Fichier | Contenu |
 |---|---|
 | [DEPLOYMENT.fr.md](DEPLOYMENT.fr.md) | Installation serveur, service systemd, reverse proxy |
+| [CHANGELOG.fr.md](CHANGELOG.fr.md) | Ce que contient chaque version publiée, et ce qu'elle corrige |
 | [config/application.properties](config/application.properties) | Modèle de configuration commenté |
 | [deploy/](deploy/) | Unité systemd et bloc Nginx prêts à copier, avec les trois variantes réseau |
 

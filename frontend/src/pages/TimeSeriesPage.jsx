@@ -8,6 +8,7 @@ import Grid from '@mui/material/Grid';
 import { Add as AddIcon, Close as RemoveIcon } from '@mui/icons-material';
 import { getTimeSeries, exportTimeSeriesCSV } from '../services/api';
 import { triggerDownload } from '../utils/exportUtils';
+import { datasetFileToken } from '../utils/datasetLabel';
 import DatasetSelector from '../components/DatasetSelector';
 import VariableSelector from '../components/VariableSelector';
 import AltitudeSelector from '../components/AltitudeSelector';
@@ -233,7 +234,7 @@ function TimeSeriesPage() {
         longitude: points[0].lon,
         altitude: altitudeToSend,
       }).then(res => {
-        triggerDownload(URL.createObjectURL(res.data), `timeseries_${selectedVariable}_lat${points[0].lat}_lon${points[0].lon}.csv`);
+        triggerDownload(URL.createObjectURL(res.data), `timeseries_${datasetFileToken(selectedDataset)}_${selectedVariable}_lat${points[0].lat}_lon${points[0].lon}.csv`);
       }).catch(() => { showToast(t('export.error'), 'error'); });
     }
   };

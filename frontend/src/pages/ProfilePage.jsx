@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next';
 import { useMars } from '../context/MarsContext';
 import { useToast } from '../context/ToastContext';
 import { triggerApiDownload } from '../utils/exportUtils';
+import { datasetFileToken } from '../utils/datasetLabel';
 import { usePlotRef } from '../hooks/usePlotRef';
 import { scrollViewerIntoView } from '../utils/scrollToViewer';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
@@ -233,7 +234,7 @@ function ProfilePage() {
           latitude: points[0].lat,
           longitude: points[0].lon,
         }),
-        `mars_profile_${selectedVariable || 'plot'}.csv`,
+        `profile_${datasetFileToken(selectedDataset)}_${selectedVariable || 'plot'}.csv`,
       );
     }
   };

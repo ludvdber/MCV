@@ -33,3 +33,38 @@ export function formatDatasetId(id, t) {
   }
   return id;
 }
+
+/* Le nom de fichier d'un export doit dire DE QUEL JEU il vient.
+ *
+ * Mesuré avant correction : deux tranches de TT au meme pas de temps et a la
+ * meme altitude, l'une du printemps nord (Ls 0-30), l'autre de l'ete sud
+ * (Ls 270-300), se telechargeaient toutes deux sous « slice_TT_t0_a0.nc ».
+ * Le serveur envoyait pourtant un Content-Disposition complet : c'est le
+ * frontend qui impose son propre nom (triggerApiDownload), donc l'en-tete
+ * n'atteint jamais le disque et le corriger cote serveur ne suffisait pas.
+ *
+ * On ne met pas l'id complet, qui fait 65 caracteres
+ * (« hl-b274_032094p_ls000_0000_MY35_sol668to739_71days_mean_crossdir ») :
+ * l'annee martienne et le Ls de depart suffisent a distinguer deux jeux, et
+ * tiennent dans un nom de fichier lisible.
+ */
+const MY_RE = /MY(\d+)/i;
+const LS_RE = /ls[_ ]?(\d{3})/i;
+
+/**
+ * Jeton court et sûr pour un nom de fichier : « MY35_Ls000 », « MY34_Ls5p00 ».
+ * Repli sur l'id assaini plutôt que sur rien : mieux vaut un nom long qu'un nom
+ * ambigu.
+ *
+ * @param {string} id identifiant du dataset (MEAN ou INDIVIDUAL)
+ * @returns {string} jeton composé uniquement de [A-Za-z0-9._-]
+ */
+export function datasetFileToken(id) {
+  if (!id) return 'dataset';
+  const ind = id.match(IND_RE);
+  if (ind) return `MY${ind[1]}_Ls${ind[2].replace('.', 'p')}`;
+  const my = id.match(MY_RE);
+  const ls = id.match(LS_RE);
+  if (my && ls) return `MY${my[1]}_Ls${ls[1]}`;
+  return id.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 40);
+}
