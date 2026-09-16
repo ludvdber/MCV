@@ -242,8 +242,10 @@ export async function lectureVisibleIncoherente(page) {
 export async function debordementHorizontal(page) {
   return page.evaluate(() => {
     const limite = document.documentElement.clientWidth;
-    if (document.documentElement.scrollWidth <= limite + 1) return [];
-    return [...document.querySelectorAll('body *')]
+    const trop = document.documentElement.scrollWidth - limite;
+    if (trop <= 1) return [];
+
+    const coupables = [...document.querySelectorAll('body *')]
       .map((el) => {
         const r = el.getBoundingClientRect();
         return { droite: Math.round(r.right), largeur: Math.round(r.width),
@@ -252,6 +254,16 @@ export async function debordementHorizontal(page) {
       })
       .filter((e) => e.droite > limite + 1 && e.largeur > 20)
       .slice(0, 5);
+
+    // Le FAIT est que la page defile ; nommer l'element fautif est un confort.
+    // Cette sonde ne renvoyait que la liste des coupables, donc une cause sans
+    // element rendait la liste vide et l'invariant passait AU VERT sur une page
+    // qui debordait reellement. C'est exactement ce qui est arrive : le halo
+    // tactile du pouce d'un curseur est un pseudo-element, il n'a pas de
+    // rectangle, et les 4 px de defilement mesures a 390 px sur /slice,
+    // /animation et /timeseries n'ont jamais fait echouer un test. Le
+    // debordement est donc annonce en premier, qu'on sache ou non l'attribuer.
+    return [{ debordement: `${trop} px`, largeurVue: limite }, ...coupables];
   });
 }
 

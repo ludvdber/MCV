@@ -19,10 +19,10 @@ rewriting the front page.
 | `./gradlew build` | Full build: frontend, compilation, tests, JAR in `build/libs/` |
 | `./gradlew build -x test` | Same without the test suite |
 | `./gradlew bootJar` | JAR only, no tests |
-| `./gradlew test` | JUnit 5 suite (448 tests) + JaCoCo coverage report |
+| `./gradlew test` | JUnit 5 suite (452 tests) + JaCoCo coverage report |
 | `./gradlew buildFrontend` | Frontend production build only |
 
-Coverage report: `build/reports/jacoco/test/html/index.html`. Currently 96.2% of instructions, 87.6% of branches, 96.1% of lines.
+Coverage report: `build/reports/jacoco/test/html/index.html`. Currently 96.1% of instructions, 87.5% of branches, 95.8% of lines.
 
 ### npm (`frontend/`)
 
@@ -32,7 +32,7 @@ Coverage report: `build/reports/jacoco/test/html/index.html`. Currently 96.2% of
 | `npm run build` | Production build into `frontend/dist/` |
 | `npm run preview` | Serves the production build locally |
 | `npm run test` | Vitest suite (1395 tests, jsdom) |
-| `npm run test:e2e` | End-to-end suite (66 tests) in a real Chromium |
+| `npm run test:e2e` | End-to-end suite (69 tests) in a real Chromium |
 | `npx vitest run --coverage` | Same, with the coverage report in `frontend/coverage/` |
 | `npm run lint` | ESLint check |
 

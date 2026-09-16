@@ -10,6 +10,7 @@ import com.mars.visualizer.dto.response.ProfileResponse;
 import com.mars.visualizer.dto.response.StatsResult;
 import com.mars.visualizer.dto.response.TemporalProfileResponse;
 import com.mars.visualizer.dto.internal.ProfileData;
+import com.mars.visualizer.exception.ValidationException;
 import com.mars.visualizer.service.NetCDFReaderService;
 import com.mars.visualizer.service.ValidationService;
 import com.mars.visualizer.util.DatasetResolver;
@@ -69,6 +70,8 @@ public class ProfileController extends AbstractDataController {
             @RequestParam double latitude,
             @RequestParam double longitude) {
 
+        requireMeanDataset(dataset);
+
         var resolved = resolveDataset(dataset, 0);
         validationService.validateLatitude(latitude);
         validationService.validateLongitude(longitude);
@@ -87,5 +90,24 @@ public class ProfileController extends AbstractDataController {
                 tpData.altitudes(), times, tpData.data(), stats);
 
         return cachedOk(response);
+    }
+
+    /**
+     * Un profil temporel est une grille altitude x temps. Un fichier INDIVIDUAL
+     * ne porte qu'un seul pas de temps, donc la grille se reduit a UNE colonne :
+     * un graphe qui a l'air d'un diagnostic et ne dit rien du cycle diurne.
+     *
+     * <p>Les cinq autres vues qui ont besoin des 48 pas refusent deja
+     * ({@code timeseries}, {@code animation}, {@code hovmoller},
+     * {@code windrose}, {@code tides}), et le frontend classe deja le profil
+     * temporel parmi elles : {@code MEAN_ONLY_TYPES} le masque dans la console
+     * Explorer pour un jeu individuel. Seule l'API le contredisait encore, en
+     * repondant 200. Mesure sur le site en ligne avant correction : une reponse
+     * complete avec {@code times} d'un seul element.
+     */
+    private void requireMeanDataset(String dataset) {
+        if (datasetResolver.isIndividualDataset(dataset)) {
+            throw new ValidationException("error.individual.temporalprofile");
+        }
     }
 }

@@ -42,6 +42,34 @@ duplicating a single byte of the archive.
   application, so the header never reached the disk. The wind rose export was
   the worst case: a constant `mars_windrose.csv` regardless of dataset, location
   and altitude.
+- **Image exports carry the same provenance as data exports.** A PNG or SVG of a
+  figure is what ends up in a talk or a paper, and it downloaded as
+  `mars_slice_TT.png` whatever the dataset, local hour and altitude, so two
+  figures from opposite Martian seasons collided and the browser silently named
+  the second one "(1)". Twelve export menus now take the same base name as the
+  data export of the same view, and a test reads the sources so the next one
+  cannot ship without it.
+- **The temporal profile refuses an individual dataset, like its five siblings.**
+  An individual file holds a single timestep, so an altitude-by-time grid
+  collapses to one column. `timeseries`, `animation`, `hovmoller`, `windrose` and
+  `tides` all answered 400; the temporal profile answered 200 and drew that one
+  column, on both the data endpoint and the CSV export. The frontend already
+  classed it as MEAN-only, so the API was contradicting the interface.
+- **French error messages no longer show doubled apostrophes.** Six of them read
+  `n''est` on screen. The doubling is the `MessageFormat` convention, but Spring
+  only runs a message through `MessageFormat` when it carries arguments, so a
+  message without any was published exactly as written. Measured on the live
+  site before the fix. A test now resolves every message through the production
+  bean and holds both directions of the rule.
+- **A slider pushed to either end no longer pushes the page sideways.** The
+  thumb's touch halo (42 px) and its value bubble (up to 73 px, "143.9 km")
+  overhang the rail, which sat flush with the edge of its card: at 390 px the
+  page scrolled 4 px horizontally, and the altitude bubble was cut off by the
+  screen edge at the top of the column. Sliders are now inset by 24 px, a figure
+  measured against the widest bubble in the application. The end-to-end
+  invariant that should have caught this was itself blind, reporting only
+  offending *elements* and a pseudo-element has no rectangle: it now reports the
+  overflow whether or not it can name a culprit.
 - **Scientific symbols survive the export.** `Dust mixing ratio (0.1 µm)` used to
   become `(0.1 ?m)` in the three dust variables. NetCDF-3 attribute text must
   stay ASCII, but `um` preserves the meaning where `?` destroys it. Accents are
@@ -93,9 +121,9 @@ Measured against the institute's real data, not fixtures:
 
 | Layer | Result |
 |---|---|
-| Backend | 448 tests, 0 failures, 96.0% instruction coverage, 87.4% branches |
+| Backend | 452 tests, 0 failures, 96.1% instruction coverage, 87.5% branches |
 | Frontend (jsdom) | 1395 tests, 0 failures, 90.6% statements, 93.9% lines |
-| End-to-end (Chromium) | 66 tests, 0 failures against this JAR |
+| End-to-end (Chromium) | 69 tests, 0 failures against this JAR |
 | Export audit | 560 checks across 23 CSV cases and 10 NetCDF cases |
 
 Every exported value was compared three ways: the delivered file, the JSON the

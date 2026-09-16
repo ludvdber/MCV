@@ -219,6 +219,9 @@ public class ExportController extends AbstractDataController {
 			@RequestParam double latitude,
 			@RequestParam double longitude) {
 
+		// Meme refus que /api/data/temporal-profile : un fichier individuel n'a
+		// qu'un pas de temps, donc le CSV n'aurait qu'une colonne de valeurs.
+		requireMeanDataset(dataset, "error.individual.temporalprofile");
 		var resolved = resolveDataset(dataset, 0);
 		validationService.validateLatitude(latitude);
 		validationService.validateLongitude(longitude);

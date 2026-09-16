@@ -2,6 +2,8 @@ package com.mars.visualizer;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -263,6 +265,28 @@ class ExportControllerTest {
                             .param("longitude", "0")
                             .param("altitude", "0"))
                     .andExpect(status().isBadRequest());
+        }
+
+        /**
+         * Une vue et son export doivent refuser AU MEME endroit. Les deux
+         * points d'entree du profil temporel acceptaient un jeu INDIVIDUAL,
+         * dont le fichier ne porte qu'un pas de temps : le CSV n'aurait eu
+         * qu'une seule colonne de valeurs sous un en-tete de profil temporel.
+         */
+        @Test
+        @DisplayName("Export CSV temporal-profile avec dataset INDIVIDUAL retourne 400")
+        void temporalProfileIndividualRetourne400() throws Exception {
+            when(datasetResolver.isIndividualDataset("IND_MY34_LS5.00")).thenReturn(true);
+
+            mockMvc.perform(get("/api/export/csv/temporal-profile")
+                            .param("dataset", "IND_MY34_LS5.00")
+                            .param("variable", "TT")
+                            .param("latitude", "0")
+                            .param("longitude", "0"))
+                    .andExpect(status().isBadRequest());
+
+            verify(netcdfService, never())
+                    .extractTemporalProfile(any(), any(), anyDouble(), anyDouble());
         }
 
     }

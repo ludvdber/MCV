@@ -45,6 +45,37 @@ temporelles, sans dupliquer un seul octet de l'archive.
   qui nomme le téléchargement, donc l'en-tête n'atteignait jamais le disque. La
   rose des vents était le pire cas : un `mars_windrose.csv` constant, quels que
   soient le jeu, le point et l'altitude.
+- **Les exports d'image portent la même provenance que les exports de données.**
+  Un PNG ou un SVG de figure est ce qui finit dans un exposé ou un article, et
+  il se téléchargeait sous le nom `mars_slice_TT.png` quels que soient le jeu,
+  l'heure locale et l'altitude : deux figures de saisons martiennes opposées
+  entraient en collision et le navigateur nommait silencieusement la seconde
+  « (1) ». Douze menus d'export reprennent maintenant le nom de base de l'export
+  de données de la même vue, et un test lit les sources pour que le prochain ne
+  reparte pas sans.
+- **Le profil temporel refuse un jeu individuel, comme ses cinq semblables.**
+  Un fichier individuel ne porte qu'un pas de temps, donc une grille
+  altitude × temps se réduit à une colonne. `timeseries`, `animation`,
+  `hovmoller`, `windrose` et `tides` répondaient 400 ; le profil temporel
+  répondait 200 et dessinait cette colonne unique, aussi bien sur la donnée que
+  sur l'export CSV. Le frontend le classait déjà parmi les vues réservées aux
+  moyennes : c'est l'API qui contredisait l'interface.
+- **Les messages d'erreur français n'affichent plus d'apostrophes doublées.**
+  Six d'entre eux affichaient `n''est` à l'écran. Le doublement est la
+  convention de `MessageFormat`, mais Spring ne fait passer un message par
+  `MessageFormat` que s'il porte des arguments : un message sans argument était
+  donc publié tel quel. Mesuré sur le site en ligne avant correction. Un test
+  résout désormais chaque message par le bean de production et tient les deux
+  sens de la règle.
+- **Un curseur poussé à fond ne décale plus la page.** Le halo tactile du pouce
+  (42 px) et sa bulle de valeur (jusqu'à 73 px, « 143.9 km ») débordent de la
+  piste, qui affleurait le bord de sa carte : à 390 px la page défilait de 4 px
+  latéralement, et la bulle d'altitude était coupée par le bord de l'écran en
+  haut de la colonne. Les curseurs rentrent maintenant de 24 px, chiffre mesuré
+  sur la plus large bulle de l'application. L'invariant de bout en bout qui
+  aurait dû voir ça était lui-même aveugle : il ne signalait que des *éléments*
+  fautifs, et un pseudo-élément n'a pas de rectangle. Il annonce désormais le
+  débordement, qu'il sache ou non l'attribuer.
 - **Les symboles scientifiques survivent à l'export.** `Dust mixing ratio
   (0.1 µm)` devenait `(0.1 ?m)` sur les trois variables de poussière. Le texte
   des attributs NetCDF-3 doit rester en ASCII, mais « um » conserve le sens là
@@ -101,9 +132,9 @@ Mesuré contre les données réelles de l'institut, pas contre des fixtures :
 
 | Couche | Résultat |
 |---|---|
-| Backend | 448 tests, 0 échec, 96,0 % de couverture d'instructions, 87,4 % de branches |
+| Backend | 452 tests, 0 échec, 96,1 % de couverture d'instructions, 87,5 % de branches |
 | Frontend (jsdom) | 1395 tests, 0 échec, 90,6 % d'instructions, 93,9 % de lignes |
-| Bout en bout (Chromium) | 66 tests, 0 échec contre ce JAR |
+| Bout en bout (Chromium) | 69 tests, 0 échec contre ce JAR |
 | Audit des exports | 560 contrôles sur 23 cas CSV et 10 cas NetCDF |
 
 Chaque valeur exportée a été comparée de trois façons : le fichier livré, le

@@ -27,6 +27,36 @@ const ECRANS = [
 let ouvert = null;
 afterEach(async () => { await ouvert?.navigateur?.close(); ouvert = null; });
 
+/**
+ * Ce qu'un curseur laisse depasser de la page : le halo tactile de son pouce
+ * (42 px centres dessus, un pseudo-element sans rectangle propre) et sa bulle
+ * de valeur, dont la largeur depend du texte affiche. Les deux ne sortent qu'aux
+ * extremites de la course, et seul le cote droit provoque un defilement — a
+ * gauche le navigateur coupe sans rien signaler.
+ */
+async function horsDeLaPage(page) {
+  return page.evaluate(() => {
+    const vue = document.documentElement.clientWidth;
+    const fautes = [];
+    for (const pouce of document.querySelectorAll('.MuiSlider-thumb')) {
+      const r = pouce.getBoundingClientRect();
+      const centre = r.left + r.width / 2;
+      if (centre - 21 < -1 || centre + 21 > vue + 1) {
+        fautes.push({ quoi: 'halo tactile', centre: Math.round(centre), vue });
+      }
+    }
+    for (const bulle of document.querySelectorAll('.MuiSlider-valueLabel')) {
+      const r = bulle.getBoundingClientRect();
+      if (r.width < 2) continue;
+      if (r.left < -1 || r.right > vue + 1) {
+        fautes.push({ quoi: 'bulle de valeur', texte: bulle.textContent.trim().slice(0, 12),
+                      gauche: Math.round(r.left), droite: Math.round(r.right), vue });
+      }
+    }
+    return fautes;
+  });
+}
+
 describe('tailles d ecran et cibles tactiles', () => {
 
   for (const ecran of ECRANS) {
@@ -55,6 +85,65 @@ describe('tailles d ecran et cibles tactiles', () => {
         `${ecran.nom} : un graphe plus large que son cadre fait defiler toute la page`)
         .toEqual([]);
     }, 150000);
+  }
+
+  /**
+   * Un curseur POUSSE A FOND, sur les trois pages qui en portent.
+   *
+   * Le pouce d'un curseur MUI emporte un halo tactile de 42 px (son ::after),
+   * soit 21 px de debordement de chaque cote de la piste. Au milieu de la
+   * course cela ne se voit pas ; a l'extremite, le halo sort de la page. Mesure
+   * a 390 px avant correction : 4 px de defilement horizontal a alt=102, 1 px a
+   * alt=101, 0 px a alt=51 — le defaut suit la position du curseur, donc aucun
+   * test qui laisse les valeurs par defaut ne peut le rencontrer.
+   *
+   * On pousse au clavier plutot que par permalien : la touche Fin est
+   * l'interaction reelle, et le test n'a pas besoin d'un identifiant de jeu.
+   */
+  for (const chemin of ['/slice', '/animation', '/timeseries']) {
+    it(`un curseur pousse a fond ne fait pas defiler ${chemin}`, async () => {
+      ouvert = await ouvrir({ largeur: 390, hauteur: 844 });
+      const { page } = ouvert;
+      await aller(page, chemin);
+
+      const curseurs = page.locator('.MuiSlider-root input[type="range"]');
+      await curseurs.first().waitFor({ state: 'attached', timeout: 30000 });
+      const combien = await curseurs.count();
+      expect(combien, `${chemin} : aucun curseur trouve, le test ne verifie rien`)
+        .toBeGreaterThan(0);
+
+      for (let i = 0; i < combien; i++) {
+        await curseurs.nth(i).focus();
+        await page.keyboard.press('End');
+      }
+      await page.waitForTimeout(600);
+
+      expect(await debordementHorizontal(page),
+        `${chemin} : curseurs au maximum, la page ne doit pas defiler lateralement`)
+        .toEqual([]);
+
+      expect(await horsDeLaPage(page),
+        `${chemin} : au maximum, halo tactile ou bulle de valeur hors de la page`)
+        .toEqual([]);
+
+      // Et au minimum. De ce cote un debordement ne cree AUCUN defilement, donc
+      // la mesure precedente ne peut rien voir : la bulle du curseur
+      // d'altitude sortait de 8 px a gauche et affichait « 143.9 km » coupe par
+      // le bord de l'ecran, soit la valeur que l'utilisateur est en train de
+      // lire.
+      for (let i = 0; i < combien; i++) {
+        await curseurs.nth(i).focus();
+        await page.keyboard.press('Home');
+      }
+      await page.waitForTimeout(600);
+
+      expect(await debordementHorizontal(page),
+        `${chemin} : curseurs au minimum, la page ne doit pas defiler lateralement`)
+        .toEqual([]);
+      expect(await horsDeLaPage(page),
+        `${chemin} : au minimum, halo tactile ou bulle de valeur hors de la page`)
+        .toEqual([]);
+    }, 120000);
   }
 
   /**

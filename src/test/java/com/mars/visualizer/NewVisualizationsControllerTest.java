@@ -2,6 +2,8 @@ package com.mars.visualizer;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -522,28 +524,36 @@ class NewVisualizationsControllerTest {
                     .andExpect(jsonPath("$.stats").exists());
         }
 
+        /**
+         * Un profil temporel est une grille altitude x temps, et un fichier
+         * INDIVIDUAL ne porte qu'UN pas de temps : la grille se reduit a une
+         * colonne. La version precedente de ce test attendait 200 et ecrivait
+         * cette colonne unique en toutes lettres dans sa fixture
+         * ({@code new float[][]{{100f}}}) : elle figeait le defaut comme s'il
+         * s'agissait d'une fonction.
+         *
+         * <p>Les cinq autres vues qui demandent les 48 pas refusent deja, et le
+         * frontend classe le profil temporel parmi elles
+         * ({@code MEAN_ONLY_TYPES} masque le type pour un jeu individuel dans
+         * la console Explorer). Seule l'API le contredisait, mesure sur le site
+         * en ligne : 200 avec {@code times} d'un seul element.
+         */
         @Test
-        @DisplayName("GET /api/data/temporal-profile avec dataset INDIVIDUAL ajuste time a 0")
-        void temporalProfileIndividualRetourne200() throws Exception {
-            when(datasetResolver.resolveFilename("IND_MY34_LS5.00")).thenReturn("/fake/ind.nc");
+        @DisplayName("GET /api/data/temporal-profile avec dataset INDIVIDUAL retourne 400")
+        void temporalProfileIndividualRetourne400() throws Exception {
             when(datasetResolver.isIndividualDataset("IND_MY34_LS5.00")).thenReturn(true);
-            when(datasetResolver.getActualLs("IND_MY34_LS5.00", "/fake/ind.nc")).thenReturn(5.0);
-
-            TemporalProfileData tpData = new TemporalProfileData(
-                    new float[][]{{100f}},
-                    new double[]{1.0},
-                    0.0, 0.0);
-
-            when(netcdfService.extractTemporalProfile("/fake/ind.nc", "TT", 0.0, 0.0))
-                    .thenReturn(tpData);
 
             mockMvc.perform(get("/api/data/temporal-profile")
                             .param("dataset", "IND_MY34_LS5.00")
                             .param("variable", "TT")
                             .param("latitude", "0")
                             .param("longitude", "0"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.dataset").value("IND_MY34_LS5.00"));
+                    .andExpect(status().isBadRequest());
+
+            // Le refus tombe AVANT la moindre lecture : un fichier de plusieurs
+            // centaines de Mo ne doit pas etre ouvert pour rien.
+            verify(netcdfService, never())
+                    .extractTemporalProfile(any(), any(), anyDouble(), anyDouble());
         }
     }
 }

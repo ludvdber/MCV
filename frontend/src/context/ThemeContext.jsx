@@ -273,6 +273,39 @@ const theme = createTheme({
     MuiSlider: {
       styleOverrides: {
         root: ({ theme: t }) => ({
+          // Un curseur deborde de sa piste par les deux bouts, et MUI laisse
+          // cette piste affleurer les bords de son conteneur. Deux pieces en
+          // sortent : le halo tactile du pouce (son ::after, 42 px, donc 21 px
+          // de part et d'autre) et la BULLE DE VALEUR, dont la largeur depend
+          // du texte (mesure : 62 px pour « 0.0 km », 73 px pour « 143.9 km »).
+          // Au milieu de la course rien ne se voit ; a l'extremite, les deux
+          // sortent de la page.
+          //
+          // Mesures a 390 px avant correction. Le halo : 4 px de defilement
+          // horizontal sur /slice, /animation et /timeseries, dans les cinq
+          // langues, et uniquement quand un curseur est a fond (0 px a alt=51,
+          // 1 px a alt=101, 4 px a alt=102) — d'ou le fait qu'aucun ELEMENT ne
+          // depassait la fenetre : un pseudo-element n'a pas de rectangle a
+          // mesurer. La bulle : 2 px hors page a droite au maximum, et 8 px
+          // hors page a GAUCHE au minimum du curseur d'altitude, ou elle
+          // affiche « 143.9 km » — la valeur que l'utilisateur est justement
+          // en train de lire, coupee par le bord de l'ecran.
+          //
+          // 24 px est mesure, pas choisi : c'est la premiere valeur qui rentre
+          // la pire bulle des huit pages a curseur avec 4 px de marge (20 px la
+          // met exactement au bord, 16 px la laisse dehors de 4 px). La largeur
+          // TOTALE occupee ne change pas, puisque calc + les deux marges valent
+          // 100 % : rien ne bouge dans les rangees flex qui portent un curseur,
+          // seule la piste rentre (356 -> 308 px sur un telephone).
+          //
+          // Ne pas remplacer par un padding : la piste et le pouce sont en
+          // position absolue, donc ils se calent sur la boite de rembourrage et
+          // le padding ne les rentre pas (mesure : piste inchangee a 356 px,
+          // debordement toujours a 4 px). Une marge seule ne marche pas non
+          // plus, MUI imposant width: 100 % — la marge s'y AJOUTE et le
+          // debordement passe de 4 px a 4 + marge.
+          width: 'calc(100% - 48px)',
+          marginInline: '24px',
           ...t.applyStyles('dark', {
             color: MARS,
             '& .MuiSlider-thumb': { boxShadow: `0 0 8px ${alpha(MARS, 0.4)}` },

@@ -19,10 +19,10 @@ d'accueil.
 | `./gradlew build` | Build complet : frontend, compilation, tests, JAR dans `build/libs/` |
 | `./gradlew build -x test` | Idem sans la suite de tests |
 | `./gradlew bootJar` | JAR uniquement, sans tests |
-| `./gradlew test` | Suite JUnit 5 (448 tests) + rapport de couverture JaCoCo |
+| `./gradlew test` | Suite JUnit 5 (452 tests) + rapport de couverture JaCoCo |
 | `./gradlew buildFrontend` | Build de production du frontend uniquement |
 
-Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellement 96,2 % des instructions, 87,6 % des branches et 96,1 % des lignes.
+Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellement 96,1 % des instructions, 87,5 % des branches et 95,8 % des lignes.
 
 ### npm (`frontend/`)
 
@@ -32,7 +32,7 @@ Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellemen
 | `npm run build` | Build de production dans `frontend/dist/` |
 | `npm run preview` | Sert le build de production en local |
 | `npm run test` | Suite Vitest (1395 tests, jsdom) |
-| `npm run test:e2e` | Suite de bout en bout (66 tests) dans un vrai Chromium |
+| `npm run test:e2e` | Suite de bout en bout (69 tests) dans un vrai Chromium |
 | `npx vitest run --coverage` | Idem, avec le rapport de couverture dans `frontend/coverage/` |
 | `npm run lint` | Vérification ESLint |
 
