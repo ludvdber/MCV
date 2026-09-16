@@ -1,17 +1,67 @@
 # Mars Climate Viewer
 
+[![CI](https://github.com/ludvdber/MCV/actions/workflows/ci.yml/badge.svg)](https://github.com/ludvdber/MCV/actions/workflows/ci.yml)
+[![Dernière version](https://img.shields.io/github/v/release/ludvdber/MCV?label=release&color=e4572e)](https://github.com/ludvdber/MCV/releases/latest)
+[![Licence : MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+[![Java 21](https://img.shields.io/badge/Java-21-007396.svg)](https://adoptium.net/)
+[![Démo en ligne](https://img.shields.io/badge/d%C3%A9mo-mars.ludovdb.be-1d9bf0.svg)](https://mars.ludovdb.be)
+
 *English version: [README.md](README.md)*
 
-Application web d'exploration des simulations atmosphériques GEM-Mars (modèle climatique martien, IASB-BIRA) stockées au format NetCDF. Onze types de visualisation — cartes, profils verticaux, coupes, animations diurnes, diagrammes de Hovmöller, marées thermiques — accessibles depuis un navigateur, sans installation côté client.
+Mars Climate Viewer ouvre l'atmosphère martienne dans un navigateur. Il donne
+accès au modèle climatique GEM-Mars de l'Institut royal d'Aéronomie Spatiale de
+Belgique (IASB-BIRA) sous forme de cartes, de profils verticaux, de coupes et
+d'animations diurnes, en lisant les fichiers NetCDF de l'institut là où ils sont
+déjà : rien n'est dupliqué, converti ni pré-calculé.
 
-Les fichiers sont **lus partiellement** : à chaque requête, le serveur ne lit sur disque que la tranche, le pas de temps ou le niveau demandé (`variable.read(origin, shape)`), jamais le fichier entier. Les jeux de données de plusieurs téraoctets restent sur le serveur.
+**Essayez-le sur [mars.ludovdb.be](https://mars.ludovdb.be)** : sans compte et
+sans installation.
 
 ![Vue Slice 2D : carte de température à 41 km d'altitude](docs/images/vue2d.png)
+
+Onze types de visualisation, une console qui relie jusqu'à quatre vues entre
+elles, des exports en CSV, PNG, SVG et NetCDF, des permaliens qui reproduisent
+une figure à l'identique, et une interface en cinq langues.
+
+Les fichiers sont **lus partiellement** : chaque requête ne lit que la tranche,
+le pas de temps ou le niveau dont elle a besoin, si bien qu'une archive de
+plusieurs téraoctets reste où elle est et ne coûte que quelques kilooctets de
+lecture disque par vue.
 
 | Composant | Technologies |
 |---|---|
 | Backend | Spring Boot 4.1, Java 21, NetCDF-Java (cdm-core 5.9), Gradle 9 |
 | Frontend | React 19, Vite 8, Plotly.js, Three.js, MUI 9, i18next |
+
+---
+
+## Visualisations
+
+| Vue | Route | Contenu |
+|---|---|---|
+| Slice 2D | `/slice` | carte lat/lon à un pas de temps et un niveau d'altitude |
+| Animation | `/animation` | cycle diurne complet, 48 images |
+| Série temporelle | `/timeseries` | une variable au fil de la journée, en un point |
+| Profil vertical | `/profile` | une variable sur toute la colonne d'air |
+| Coupe verticale | `/crosssection` | altitude × latitude (méridionale) ou × longitude (zonale) |
+| Moyenne zonale | `/zonalmean` | moyenne longitudinale, altitude × latitude |
+| Hovmöller | `/hovmoller` | diagramme espace × temps |
+| Profil temporel | `/temporal-profile` | altitude × heure locale au-dessus d'un point |
+| Rose des vents | `/windrose` | distribution direction/vitesse du vent en un point |
+| Différence | `/difference` | carte d'anomalies entre deux jeux de données |
+| Exploration | `/explore` | console : jusqu'à 4 vues liées, sonde, statistiques de région, sessions |
+
+Toutes les vues offrent permaliens, export CSV, export PNG/SVG, échelle log₁₀ et choix de palette. L'interface est disponible en anglais, français, néerlandais, allemand et espagnol.
+
+La console d'exploration réunit jusqu'à quatre vues côte à côte, reliées par une sonde partagée et une même sélection de région, ce qui permet de lire un même point sur plusieurs diagnostics à la fois :
+
+![Console d'exploration : quatre vues en grille, reliées par une sonde commune ; chaque carte anime son propre champ de vent](docs/images/explorer.png)
+
+Sur n'importe quelle carte, les vents peuvent s'afficher en **particules advectées** le long du champ UU/VV. La couleur et l'épaisseur des traînées suivent la vitesse locale, et la légende donne les bornes de l'échelle ainsi que la moyenne du champ :
+
+![Particules de vent animées au-dessus d'une carte de vapeur d'eau](docs/images/vent-anime.gif)
+
+En grille, chaque vue anime **son propre** champ, à son altitude et à son instant : quatre cartes côte à côte affichent quatre vents différents, chacune annonçant ses bornes sous la carte. Un bouton de la barre d'outils ramène l'animation à la seule vue active, ce qui est le réglage par défaut sur téléphone, où quatre canvas animés coûtent cher pour des cartes de la taille d'une vignette.
 
 ---
 
@@ -128,121 +178,6 @@ Installation serveur, service systemd et reverse proxy : **[DEPLOYMENT.fr.md](DE
 
 ---
 
-## Commandes de build et de test
-
-### Gradle (racine du dépôt)
-
-| Commande | Effet |
-|---|---|
-| `./gradlew bootRun` | Démarre le backend sur :8080 (recompile le frontend au préalable) |
-| `./gradlew build` | Build complet : frontend, compilation, tests, JAR dans `build/libs/` |
-| `./gradlew build -x test` | Idem sans la suite de tests |
-| `./gradlew bootJar` | JAR uniquement, sans tests |
-| `./gradlew test` | Suite JUnit 5 (448 tests) + rapport de couverture JaCoCo |
-| `./gradlew buildFrontend` | Build de production du frontend uniquement |
-
-Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellement 96,2 % des instructions, 87,6 % des branches et 96,1 % des lignes.
-
-### npm (`frontend/`)
-
-| Commande | Effet |
-|---|---|
-| `npm run dev` | Serveur de développement Vite sur :5173 avec rechargement à chaud |
-| `npm run build` | Build de production dans `frontend/dist/` |
-| `npm run preview` | Sert le build de production en local |
-| `npm run test` | Suite Vitest (1395 tests, jsdom) |
-| `npm run test:e2e` | Suite de bout en bout (66 tests) dans un vrai Chromium |
-| `npx vitest run --coverage` | Idem, avec le rapport de couverture dans `frontend/coverage/` |
-| `npm run lint` | Vérification ESLint |
-
-Les deux suites ne prouvent pas la même chose. Celle de Vitest tourne dans
-jsdom, qui n'a pas de moteur de mise en page : aucune boîte n'a de position ni
-de taille, et `clip-path` n'existe pas. Elle prouve la logique, jamais
-l'affichage. La suite de bout en bout ouvre un vrai navigateur sur
-l'application servie et vérifie sept invariants : aucun conteneur de graphe
-vide, aucun élément superposé à un autre de même nature, aucun recouvrement
-entre deux familles comme un titre et une barre d'outils, des statistiques lues
-à l'écran arithmétiquement possibles, aucun débordement horizontal à 390, 820 et
-1600 pixels, aucune cible tactile sous 24 par 24 pixels, et aucun curseur sans
-nom accessible ni valeur lisible. Elle couvre le
-rideau A/B, les onze pages de visualisation, les grilles et les outils de la
-console, l'affichage sur téléphone, et les parcours réels : clavier, permalien,
-export, cinq langues. Trois défauts ont vécu en production sous une suite jsdom
-verte parce qu'ils étaient tous les trois géométriques : un conteneur de graphe
-à pleine taille sans rien de dessiné dedans, deux barres de statistiques aux
-mêmes coordonnées tranchées par le rideau, et deux titres centrés qui se
-recouvraient à 94 %.
-
-```bash
-npm run test:e2e                                          # cible localhost:5173
-MCV_E2E_URL=https://mars.exemple.be npm run test:e2e      # cible un déploiement
-```
-
-`MCV_E2E_API` rebranche `/api` vers un autre serveur, ce qui permet d'éprouver
-une interface locale contre un backend qui, lui, possède les données.
-
-La couverture du frontend est actuellement de 90,5 % des instructions et 93,8 %
-des lignes. La configuration Vitest active `coverage.all` : un fichier qu'aucun
-test n'importe entre quand même au dénominateur. Retirer ce réglage gonflerait
-le chiffre sans qu'une seule ligne de test soit écrite.
-
----
-
-## Intégration continue
-
-`.github/workflows/ci.yml` s'exécute à chaque push et à chaque pull request, en
-deux tâches parallèles :
-
-| Tâche | Fait |
-|---|---|
-| Backend | Java 21, `./gradlew build jacocoTestReport` (construit le frontend, joue la suite JUnit, produit le JAR) |
-| Frontend | `npm ci`, ESLint, Vitest avec couverture |
-
-Les rapports de test, le rapport de couverture et le JAR produit sont conservés
-comme artefacts pendant 14 jours : un échec se lit sans avoir à reproduire le
-build en local.
-
-Le workflow rend `gradlew` exécutable avant de l'appeler. Le dépôt est développé
-sous Windows, qui n'a pas de bit d'exécution : le fichier est enregistré en
-`100644` dans l'index et `./gradlew` échouerait en *Permission denied* sur un
-exécuteur Linux. Pour corriger cela durablement dans le dépôt :
-
-```bash
-git update-index --chmod=+x gradlew
-```
-
----
-
-## Visualisations
-
-| Vue | Route | Contenu |
-|---|---|---|
-| Slice 2D | `/slice` | carte lat/lon à un pas de temps et un niveau d'altitude |
-| Animation | `/animation` | cycle diurne complet, 48 images |
-| Série temporelle | `/timeseries` | une variable au fil de la journée, en un point |
-| Profil vertical | `/profile` | une variable sur toute la colonne d'air |
-| Coupe verticale | `/crosssection` | altitude × latitude (méridionale) ou × longitude (zonale) |
-| Moyenne zonale | `/zonalmean` | moyenne longitudinale, altitude × latitude |
-| Hovmöller | `/hovmoller` | diagramme espace × temps |
-| Profil temporel | `/temporal-profile` | altitude × heure locale au-dessus d'un point |
-| Rose des vents | `/windrose` | distribution direction/vitesse du vent en un point |
-| Différence | `/difference` | carte d'anomalies entre deux jeux de données |
-| Exploration | `/explore` | console : jusqu'à 4 vues liées, sonde, statistiques de région, sessions |
-
-Toutes les vues offrent permaliens, export CSV, export PNG/SVG, échelle log₁₀ et choix de palette. L'interface est disponible en anglais, français, néerlandais, allemand et espagnol.
-
-La console d'exploration réunit jusqu'à quatre vues côte à côte, reliées par une sonde partagée et une même sélection de région, ce qui permet de lire un même point sur plusieurs diagnostics à la fois :
-
-![Console d'exploration : quatre vues en grille, reliées par une sonde commune ; chaque carte anime son propre champ de vent](docs/images/explorer.png)
-
-Sur n'importe quelle carte, les vents peuvent s'afficher en **particules advectées** le long du champ UU/VV. La couleur et l'épaisseur des traînées suivent la vitesse locale, et la légende donne les bornes de l'échelle ainsi que la moyenne du champ :
-
-![Particules de vent animées au-dessus d'une carte de vapeur d'eau](docs/images/vent-anime.gif)
-
-En grille, chaque vue anime **son propre** champ, à son altitude et à son instant : quatre cartes côte à côte affichent quatre vents différents, chacune annonçant ses bornes sous la carte. Un bouton de la barre d'outils ramène l'animation à la seule vue active, ce qui est le réglage par défaut sur téléphone, où quatre canvas animés coûtent cher pour des cartes de la taille d'une vignette.
-
----
-
 ## API REST
 
 Tous les endpoints répondent en JSON et valident leurs paramètres (HTTP 400 avec message localisé sur une valeur invalide, 404 sur un jeu de données inconnu).
@@ -278,17 +213,49 @@ curl "http://localhost:8080/api/data/slice?dataset=<id>&variable=TT&time=24&alti
 
 ---
 
+## Build et tests
+
+| Commande | Effet |
+|---|---|
+| `./gradlew bootRun` | Backend sur :8080 (reconstruit le frontend d'abord) |
+| `./gradlew build` | Frontend, compilation, tests, JAR dans `build/libs/` |
+| `./gradlew bootJar` | JAR seul, sans les tests |
+| `./gradlew test` | Suite JUnit 5 et rapport de couverture |
+| `cd frontend && npm run dev` | Serveur Vite sur :5173, rechargement à chaud |
+| `cd frontend && npm run test` | Suite Vitest (jsdom) |
+| `cd frontend && npm run test:e2e` | Suite de bout en bout dans un vrai Chromium |
+| `cd frontend && npm run lint` | Vérification ESLint |
+
+Ce que prouve chaque suite, ce qu'elle ne peut pas voir, les chiffres de
+couverture et l'intégration continue :
+**[docs/DEVELOPMENT.fr.md](docs/DEVELOPMENT.fr.md)**.
+
+---
+
 ## Documentation
 
 | Fichier | Contenu |
 |---|---|
 | [DEPLOYMENT.fr.md](DEPLOYMENT.fr.md) | Installation serveur, service systemd, reverse proxy |
-| [CHANGELOG.fr.md](CHANGELOG.fr.md) | Ce que contient chaque version publiée, et ce qu'elle corrige |
+| [docs/DEVELOPMENT.fr.md](docs/DEVELOPMENT.fr.md) | Suites de tests, couverture, intégration continue |
+| [CHANGELOG.fr.md](CHANGELOG.fr.md) | Ce que contient chaque version publiée, et ce qu'elle a corrigé |
 | [config/application.properties](config/application.properties) | Modèle de configuration commenté |
 | [deploy/](deploy/) | Unité systemd et bloc Nginx prêts à copier, avec les trois variantes réseau |
 
 ---
 
-## Licence
+## Licence et réutilisation
 
-MIT — © 2026 Ludovic Vanden Berghe. Données GEM-Mars produites par l'Institut royal d'Aéronomie Spatiale de Belgique (IASB-BIRA).
+Publié sous [licence MIT](LICENSE), © 2026 Ludovic Vanden Berghe.
+
+Vous pouvez utiliser, modifier et redistribuer ce code, y compris
+commercialement, à une condition : la mention de copyright et le texte de la
+licence voyagent avec lui. Concrètement, gardez le fichier `LICENSE` dans toute
+copie ou portion substantielle du code source.
+
+Si vous construisez quelque chose dessus, un lien vers
+[github.com/ludvdber/MCV](https://github.com/ludvdber/MCV) n'est pas obligatoire,
+mais il fait toujours plaisir.
+
+Données GEM-Mars produites par l'Institut royal d'Aéronomie Spatiale de Belgique
+(IASB-BIRA).

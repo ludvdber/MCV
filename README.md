@@ -1,17 +1,65 @@
 # Mars Climate Viewer
 
+[![CI](https://github.com/ludvdber/MCV/actions/workflows/ci.yml/badge.svg)](https://github.com/ludvdber/MCV/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/ludvdber/MCV?label=release&color=e4572e)](https://github.com/ludvdber/MCV/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Java 21](https://img.shields.io/badge/Java-21-007396.svg)](https://adoptium.net/)
+[![Live demo](https://img.shields.io/badge/demo-mars.ludovdb.be-1d9bf0.svg)](https://mars.ludovdb.be)
+
 *Version française : [README.fr.md](README.fr.md)*
 
-Web application for exploring GEM-Mars atmospheric simulations (Martian climate model, BIRA-IASB) stored as NetCDF files. Eleven visualization types — maps, vertical profiles, cross-sections, diurnal animations, Hovmöller diagrams, thermal tides — served from a browser, with no client-side install.
+Mars Climate Viewer opens the Martian atmosphere in a browser. It serves the
+GEM-Mars climate model of the Royal Belgian Institute for Space Aeronomy
+(BIRA-IASB) as maps, vertical profiles, cross-sections and diurnal animations,
+reading the institute's NetCDF files where they already sit: nothing is
+duplicated, converted or pre-rendered.
 
-Files are **read partially**: for every request the server reads only the requested slice/timestep/level from disk (`variable.read(origin, shape)`), never the whole file. Multi-terabyte datasets stay on the server.
+**Try it on [mars.ludovdb.be](https://mars.ludovdb.be)** : no account, no install.
 
 ![2D Slice view: temperature map at 41 km altitude](docs/images/vue2d.en.png)
+
+Eleven visualization types, a console that ties up to four views together,
+exports in CSV, PNG, SVG and NetCDF, permalinks that reproduce a figure exactly,
+and an interface in five languages.
+
+Files are **read partially**: every request reads only the slice, timestep or
+level it needs, so a multi-terabyte archive stays where it is and costs a few
+kilobytes of disk I/O per view.
 
 | Component | Stack |
 |---|---|
 | Backend | Spring Boot 4.1, Java 21, NetCDF-Java (cdm-core 5.9), Gradle 9 |
 | Frontend | React 19, Vite 8, Plotly.js, Three.js, MUI 9, i18next |
+
+---
+
+## Visualizations
+
+| View | Route | Shows |
+|---|---|---|
+| Slice 2D | `/slice` | lat/lon map at one time step and altitude level |
+| Animation | `/animation` | full diurnal cycle, 48 frames |
+| Time series | `/timeseries` | one variable over the day at a single point |
+| Vertical profile | `/profile` | one variable over the whole air column |
+| Cross-section | `/crosssection` | altitude × latitude (meridional) or × longitude (zonal) |
+| Zonal mean | `/zonalmean` | longitudinal average, altitude × latitude |
+| Hovmöller | `/hovmoller` | space × time diagram |
+| Temporal profile | `/temporal-profile` | altitude × local time above one point |
+| Wind rose | `/windrose` | wind direction/speed distribution at a point |
+| Difference | `/difference` | anomaly map between two datasets |
+| Explore | `/explore` | console: up to 4 linked views, probe, region statistics, sessions |
+
+All views support permalinks, CSV export, PNG/SVG export, log₁₀ scale and colorscale selection. Interfaces are available in English, French, Dutch, German and Spanish.
+
+The Explore console holds up to four views side by side, tied together by a shared probe and a common region selection, so the same point can be read across several diagnostics at once:
+
+![Explore console: four views in a grid, tied together by a shared probe; each map animates its own wind field](docs/images/explorer.en.png)
+
+On any map, winds can be drawn as **particles advected** along the UU/VV field. Trail colour and thickness follow the local speed, and the legend gives the bounds of the scale along with the field average:
+
+![Animated wind particles over a water vapour map](docs/images/vent-anime.en.gif)
+
+In a grid, every view animates **its own** field, at its own altitude and time step: four maps side by side show four different winds, each stating its bounds under the map. A toolbar button brings the animation back to the active view only, which is the default on a phone, where four animated canvases cost a lot for thumbnail-sized maps.
 
 ---
 
@@ -128,118 +176,6 @@ Server installation, systemd service and reverse-proxy setup: **[DEPLOYMENT.md](
 
 ---
 
-## Build and test commands
-
-### Gradle (repository root)
-
-| Command | Effect |
-|---|---|
-| `./gradlew bootRun` | Starts the backend on :8080 (rebuilds the frontend first) |
-| `./gradlew build` | Full build: frontend, compilation, tests, JAR in `build/libs/` |
-| `./gradlew build -x test` | Same without the test suite |
-| `./gradlew bootJar` | JAR only, no tests |
-| `./gradlew test` | JUnit 5 suite (448 tests) + JaCoCo coverage report |
-| `./gradlew buildFrontend` | Frontend production build only |
-
-Coverage report: `build/reports/jacoco/test/html/index.html`. Currently 96.2% of instructions, 87.6% of branches, 96.1% of lines.
-
-### npm (`frontend/`)
-
-| Command | Effect |
-|---|---|
-| `npm run dev` | Vite dev server on :5173 with hot reload |
-| `npm run build` | Production build into `frontend/dist/` |
-| `npm run preview` | Serves the production build locally |
-| `npm run test` | Vitest suite (1395 tests, jsdom) |
-| `npm run test:e2e` | End-to-end suite (66 tests) in a real Chromium |
-| `npx vitest run --coverage` | Same, with the coverage report in `frontend/coverage/` |
-| `npm run lint` | ESLint check |
-
-The two suites prove different things. The Vitest one runs in jsdom, which has
-no layout engine: no box has a position or a size, and `clip-path` does not
-exist. It proves logic, never appearance. The end-to-end suite opens a real
-browser against the served application and checks seven invariants: no empty plot
-container, no element overlapping another of the same kind, no overlap between
-two different families such as a title and a toolbar, on-screen statistics that
-are arithmetically possible, no horizontal overflow at 390, 820 and 1600 pixels,
-no touch target under 24 by 24 pixels, and no slider without an accessible name
-and a readable value text. It covers the A/B curtain, the eleven
-visualization pages, the console grids and tools, phone rendering, and the real
-journeys: keyboard, permalink, export, five locales. Three defects lived in
-production under a green jsdom suite because all three were geometric: a plot
-container at full size with nothing drawn in it, two statistics bars at the same
-coordinates sliced by the curtain, and two centred titles overlapping by 94%.
-
-```bash
-npm run test:e2e                                          # targets localhost:5173
-MCV_E2E_URL=https://mars.example.be npm run test:e2e      # targets a deployment
-```
-
-`MCV_E2E_API` reroutes `/api` to another server, so a local interface can be
-exercised against a backend that actually holds the data.
-
-Frontend coverage is currently 90.5% of statements and 93.8% of lines. The
-Vitest configuration sets `coverage.all`, so a file no test imports still counts
-towards the denominator: removing that flag would inflate the figure without a
-single new test being written.
-
----
-
-## Continuous integration
-
-`.github/workflows/ci.yml` runs on every push and every pull request, in two
-parallel jobs:
-
-| Job | Does |
-|---|---|
-| Backend | Java 21, `./gradlew build jacocoTestReport` (compiles the frontend, runs the JUnit suite, produces the JAR) |
-| Frontend | `npm ci`, ESLint, Vitest with coverage |
-
-Test reports, the coverage report and the produced JAR are kept as build
-artifacts for 14 days, so a failure can be read without reproducing the build
-locally.
-
-The workflow makes `gradlew` executable before calling it. The repository is
-developed on Windows, which has no execute bit, so the file is stored as `100644`
-in the index and `./gradlew` would fail with *Permission denied* on a Linux
-runner. To fix it permanently in the repository instead:
-
-```bash
-git update-index --chmod=+x gradlew
-```
-
----
-
-## Visualizations
-
-| View | Route | Shows |
-|---|---|---|
-| Slice 2D | `/slice` | lat/lon map at one time step and altitude level |
-| Animation | `/animation` | full diurnal cycle, 48 frames |
-| Time series | `/timeseries` | one variable over the day at a single point |
-| Vertical profile | `/profile` | one variable over the whole air column |
-| Cross-section | `/crosssection` | altitude × latitude (meridional) or × longitude (zonal) |
-| Zonal mean | `/zonalmean` | longitudinal average, altitude × latitude |
-| Hovmöller | `/hovmoller` | space × time diagram |
-| Temporal profile | `/temporal-profile` | altitude × local time above one point |
-| Wind rose | `/windrose` | wind direction/speed distribution at a point |
-| Difference | `/difference` | anomaly map between two datasets |
-| Explore | `/explore` | console: up to 4 linked views, probe, region statistics, sessions |
-
-All views support permalinks, CSV export, PNG/SVG export, log₁₀ scale and colorscale selection. Interfaces are available in English, French, Dutch, German and Spanish.
-
-The Explore console holds up to four views side by side, tied together by a shared probe and a common region selection, so the same point can be read across several diagnostics at once:
-
-![Explore console: four views in a grid, tied together by a shared probe; each map animates its own wind field](docs/images/explorer.en.png)
-
-On any map, winds can be drawn as **particles advected** along the UU/VV field. Trail colour and thickness follow the local speed, and the legend gives the bounds of the scale along with the field average:
-
-![Animated wind particles over a water vapour map](docs/images/vent-anime.en.gif)
-
-In a grid, every view animates **its own** field, at its own altitude and time step: four maps side by side show four different winds, each stating its bounds under the map. A toolbar button brings the animation back to the active view only, which is the default on a phone, where four animated canvases cost a lot for thumbnail-sized maps.
-
----
-
 ## REST API
 
 All endpoints answer JSON and validate their parameters (HTTP 400 with a localized message on an invalid value, 404 on an unknown dataset).
@@ -275,17 +211,48 @@ curl "http://localhost:8080/api/data/slice?dataset=<id>&variable=TT&time=24&alti
 
 ---
 
+## Build and test
+
+| Command | Effect |
+|---|---|
+| `./gradlew bootRun` | Backend on :8080 (rebuilds the frontend first) |
+| `./gradlew build` | Frontend, compilation, tests, JAR in `build/libs/` |
+| `./gradlew bootJar` | JAR only, no tests |
+| `./gradlew test` | JUnit 5 suite and coverage report |
+| `cd frontend && npm run dev` | Vite dev server on :5173, hot reload |
+| `cd frontend && npm run test` | Vitest suite (jsdom) |
+| `cd frontend && npm run test:e2e` | End-to-end suite in a real Chromium |
+| `cd frontend && npm run lint` | ESLint check |
+
+What each suite proves, what it cannot see, the coverage figures and the
+continuous integration setup: **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**.
+
+---
+
 ## Documentation
 
 | File | Content |
 |---|---|
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Server installation, systemd service, reverse proxy |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Test suites, coverage, continuous integration |
 | [CHANGELOG.md](CHANGELOG.md) | What each released version contains, and what it fixed |
 | [config/application.properties](config/application.properties) | Commented configuration template |
 | [deploy/](deploy/) | Ready-to-copy systemd unit and Nginx block, with the three network variants |
 
 ---
 
-## License
+## License and reuse
 
-MIT — © 2026 Ludovic Vanden Berghe. GEM-Mars data produced by the Royal Belgian Institute for Space Aeronomy (BIRA-IASB).
+Released under the [MIT license](LICENSE), © 2026 Ludovic Vanden Berghe.
+
+You may use, modify and redistribute this code, including commercially, on one
+condition: the copyright notice and the licence text travel with it. In
+practice, keep the `LICENSE` file in any copy or substantial portion of the
+source.
+
+If you build something on top of it, a link back to
+[github.com/ludvdber/MCV](https://github.com/ludvdber/MCV) is not required, but
+it is always appreciated.
+
+GEM-Mars data produced by the Royal Belgian Institute for Space Aeronomy
+(BIRA-IASB).
