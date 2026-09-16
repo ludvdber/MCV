@@ -345,7 +345,7 @@ function TimeSeriesPage() {
                 <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
                 <ExportMenu
                   plotRef={exportPlotRef}
-                  filename={`mars_timeseries_${selectedVariable || 'plot'}`}
+                  filename={`timeseries_${datasetFileToken(selectedDataset)}_${selectedVariable || 'plot'}`}
                   onCSV={handleExportCSV}
                 />
                 <TableButton />

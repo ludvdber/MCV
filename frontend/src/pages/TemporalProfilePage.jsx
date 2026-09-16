@@ -158,7 +158,7 @@ function TemporalProfilePage() {
               <Box sx={{ mb: 1, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
                 <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
                 <ExportMenu plotRef={exportPlotRef}
-                  filename={`mars_temporal_profile_${selectedVariable || 'plot'}`}
+                  filename={`temporal_profile_${datasetFileToken(selectedDataset)}_${selectedVariable || 'plot'}`}
                   onCSV={handleExportCSV} />
                 <TableButton />
                 <FullscreenButton containerRef={viewerContainerRef} />

@@ -152,7 +152,7 @@ function WindRosePage() {
             {windRoseData && (
               <Box sx={{ mb: 1, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
                 <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
-                <ExportMenu plotRef={exportPlotRef} filename="mars_windrose" onCSV={handleExportCSV} />
+                <ExportMenu plotRef={exportPlotRef} filename={`windrose_${datasetFileToken(selectedDataset)}_lat${selectedLatitude}_lon${selectedLongitude}_alt${selectedAltitude}`} onCSV={handleExportCSV} />
                 <TableButton />
                 <FullscreenButton containerRef={viewerContainerRef} />
               </Box>

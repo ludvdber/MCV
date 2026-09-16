@@ -199,7 +199,7 @@ function CrossSectionPage() {
                 <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
                 <ExportMenu
                   plotRef={exportPlotRef}
-                  filename={`mars_crosssection_${selectedVariable || 'plot'}`}
+                  filename={`crosssection_${datasetFileToken(selectedDataset)}_${selectedVariable || 'plot'}_${csType}`}
                   onCSV={handleExportCSV}
                 />
                 <TableButton />

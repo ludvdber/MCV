@@ -49,6 +49,7 @@ import SessionChips from './SessionChips.jsx';
 import { useSyncZoom } from './useSyncZoom.js';
 import MiniColorbar from './MiniColorbar.jsx';
 import { computeRegionStats, resultLabel, datasetContext, nextResultId, visibleResultIds } from './exploreUtils.js';
+import { datasetFileToken } from '../../utils/datasetLabel';
 import { windFieldFor } from './useWindFields.js';
 import { triggerDownload } from '../../utils/exportUtils';
 import { exportGridMontage, FIGURE_CREDIT } from '../../utils/plotExport';
@@ -612,7 +613,12 @@ export default function ExploreResultsPanel({ onRemoveResult, onExportCSV, onExp
           <Box sx={{ ml: 1, flexShrink: 0 }}>
             <ExportMenu
               plotRef={sharedPlotRef}
-              filename={`mars_${activeResultObj.type}_${activeResultObj.params.variable}`}
+              /* Le jeu de donnees DANS le nom, comme pour les exports de
+                 donnees : une figure de la meme variable prise sur deux
+                 saisons opposees donnait sinon deux fois le meme fichier, et
+                 le navigateur nommait la seconde « (1) ». */
+              filename={`${activeResultObj.type}_${datasetFileToken(activeResultObj.params.dataset)}`
+                + `_${activeResultObj.params.variable || 'plot'}`}
               onCSV={onExportCSV}
               onNetCDF={activeResultObj.type === 'slice' && !activeResultObj.derived ? onExportNetCDF : null}
               publication={publicationCtx}

@@ -161,7 +161,7 @@ function HovmollerPage() {
                 <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
                 <ExportMenu
                   plotRef={exportPlotRef}
-                  filename={`mars_hovmoller_${selectedVariable || 'plot'}`}
+                  filename={`hovmoller_${datasetFileToken(selectedDataset)}_${selectedVariable || 'plot'}`}
                   onCSV={handleExportCSV}
                 />
                 <TableButton />

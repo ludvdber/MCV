@@ -350,7 +350,7 @@ function ProfilePage() {
                 <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
                 <ExportMenu
                   plotRef={exportPlotRef}
-                  filename={`mars_profile_${selectedVariable || 'plot'}`}
+                  filename={`profile_${datasetFileToken(selectedDataset)}_${selectedVariable || 'plot'}`}
                   onCSV={handleExportCSV}
                 />
                 <TableButton />

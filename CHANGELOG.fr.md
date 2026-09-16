@@ -78,6 +78,15 @@ temporelles, sans dupliquer un seul octet de l'archive.
   fois plus vite là que sur un écran 60 Hz. Tout ce qui bouge est désormais
   rapporté au temps écoulé, et une carte sortie de l'écran cesse de s'animer au
   lieu de tourner pour personne.
+- **Chaque image exportée nomme désormais son jeu de données.** Le correctif
+  qui avait donné aux exports CSV et NetCDF leur jeu, leur heure et leur
+  altitude n'avait jamais atteint les exports PNG et SVG : une carte 2D se
+  téléchargeait `mars_slice_TT.png` quels que soient le jeu, l'heure locale
+  et l'altitude, et la rose des vents sous la constante `mars_windrose`. Deux
+  figures de saisons martiennes opposées entraient donc en collision, le
+  navigateur nommant la seconde « (1) ». Une figure exportée finit dans un
+  article ou un exposé : elle porte maintenant le même nom de base que
+  l'export de données de la même vue.
 - **Le rideau A/B laisse enfin choisir ce qu'il compare.** Le volet B était
   toujours la première autre coupe comparable : l'action qui aurait pu en changer
   existait dans la machine à états et n'était émise de nulle part. Son nom
@@ -93,7 +102,7 @@ Mesuré contre les données réelles de l'institut, pas contre des fixtures :
 | Couche | Résultat |
 |---|---|
 | Backend | 448 tests, 0 échec, 96,0 % de couverture d'instructions, 87,4 % de branches |
-| Frontend (jsdom) | 1391 tests, 0 échec, 90,6 % d'instructions, 93,9 % de lignes |
+| Frontend (jsdom) | 1395 tests, 0 échec, 90,6 % d'instructions, 93,9 % de lignes |
 | Bout en bout (Chromium) | 66 tests, 0 échec contre ce JAR |
 | Audit des exports | 560 contrôles sur 23 cas CSV et 10 cas NetCDF |
 

@@ -152,7 +152,7 @@ function ZonalMeanPage() {
                 <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
                 <ExportMenu
                   plotRef={exportPlotRef}
-                  filename={`mars_zonalmean_${selectedVariable || 'plot'}`}
+                  filename={`zonalmean_${datasetFileToken(selectedDataset)}_${selectedVariable || 'plot'}`}
                   onCSV={handleExportCSV}
                 />
                 <TableButton />

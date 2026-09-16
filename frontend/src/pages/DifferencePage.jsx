@@ -210,7 +210,7 @@ function DifferencePage() {
                 <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
                 <ExportMenu
                   plotRef={exportPlotRef}
-                  filename={`mars_diff_${selectedVariable || 'plot'}`}
+                  filename={`difference_${datasetFileToken(selectedDataset)}_vs_${datasetFileToken(datasetB)}_${selectedVariable || 'plot'}`}
                   onCSV={handleExportCSV}
                 />
                 <TableButton />

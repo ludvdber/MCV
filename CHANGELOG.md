@@ -72,6 +72,14 @@ duplicating a single byte of the archive.
   times faster there than on a 60 Hz screen. Everything that moves is now
   scaled by elapsed time, and a map that has scrolled off-screen stops
   animating instead of running for nobody.
+- **Every exported image now names its dataset too.** The fix that gave CSV
+  and NetCDF downloads their dataset, time and altitude never reached the
+  PNG and SVG exports: a 2D map downloaded as `mars_slice_TT.png` whatever
+  the dataset, local hour and altitude, and the wind rose as a constant
+  `mars_windrose`. Two figures from opposite Martian seasons therefore
+  collided, the browser naming the second one "(1)". An image export is what
+  ends up in a paper or a talk, so it now takes the same base name as the
+  data export of the same view.
 - **The A/B curtain now lets you choose what it compares.** Pane B was always
   the first other comparable slice: the action that would have changed it
   existed in the state machine and was emitted from nowhere. Its name appeared
@@ -86,7 +94,7 @@ Measured against the institute's real data, not fixtures:
 | Layer | Result |
 |---|---|
 | Backend | 448 tests, 0 failures, 96.0% instruction coverage, 87.4% branches |
-| Frontend (jsdom) | 1391 tests, 0 failures, 90.6% statements, 93.9% lines |
+| Frontend (jsdom) | 1395 tests, 0 failures, 90.6% statements, 93.9% lines |
 | End-to-end (Chromium) | 66 tests, 0 failures against this JAR |
 | Export audit | 560 checks across 23 CSV cases and 10 NetCDF cases |
 

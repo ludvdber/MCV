@@ -196,7 +196,7 @@ function SlicePage() {
             {sliceData && (
               <Box sx={{ mb: 1, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
                 <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
-                <ExportMenu plotRef={exportPlotRef} filename={`mars_slice_${selectedVariable || 'plot'}`} onCSV={handleExportCSV} onNetCDF={handleExportNetCDF} />
+                <ExportMenu plotRef={exportPlotRef} filename={`slice_${datasetFileToken(selectedDataset)}_${selectedVariable}_t${selectedTime}_a${selectedAltitude}`} onCSV={handleExportCSV} onNetCDF={handleExportNetCDF} />
                 <TableButton />
                 <FullscreenButton containerRef={viewerContainerRef} />
               </Box>

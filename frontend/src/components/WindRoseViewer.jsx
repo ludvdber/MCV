@@ -3,6 +3,7 @@ import Plotly, { renderPlot } from '../plotlyBundle';
 import { Paper, Typography, Box } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import ExportMenu from './ExportMenu';
+import { datasetFileToken } from '../utils/datasetLabel';
 import StatsBar from './StatsBar';
 import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
 
@@ -127,7 +128,16 @@ function WindRoseViewer({ windRoseData, datasetLabel, noExportMenu = false, comp
     <Box>
       {!noExportMenu && (
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
-          <ExportMenu plotRef={plotRef} filename="mars_windrose" onCSV={onCSV} />
+          {/* Le nom etait la constante « mars_windrose », quels que soient le
+              jeu, le point et l'altitude : deux roses differentes arrivaient
+              sous le meme fichier. Tout vient de la reponse elle-meme. */}
+          <ExportMenu
+            plotRef={plotRef}
+            filename={`windrose_${datasetFileToken(windRoseData?.dataset)}`
+              + `_lat${windRoseData?.actualLat}_lon${windRoseData?.actualLon}`
+              + `_alt${windRoseData?.altitudeIndex}`}
+            onCSV={onCSV}
+          />
         </Box>
       )}
       <Paper elevation={compact ? 0 : 2} sx={{ borderRadius: 2, overflow: 'hidden', ...(compact ? { bgcolor: 'transparent', backgroundImage: 'none' } : {}) }}>

@@ -29,6 +29,7 @@ import { isSurfaceVariable } from '../utils/variableUtils';
 import ChartOrTable from '../components/ChartOrTable';
 import ViewExplainer from '../components/ViewExplainer';
 import { animationToTable } from '../utils/dataToTable';
+import { datasetFileToken } from '../utils/datasetLabel';
 
 /**
  * Page d'animation (UC4).
@@ -173,7 +174,7 @@ function AnimationPage() {
                 <PermalienButton onClick={handleCopyLink} copied={linkCopied} />
                 <ExportMenu
                   plotRef={exportPlotRef}
-                  filename={`mars_animation_${selectedVariable || 'plot'}`}
+                  filename={`animation_${datasetFileToken(selectedDataset)}_${selectedVariable || 'plot'}_a${selectedAltitude}`}
                   onCSV={handleExportCSV}
                 />
                 <TableButton />
