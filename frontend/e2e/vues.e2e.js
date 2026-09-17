@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
   ouvrir, aller, attendreUnGraphe,
   conteneursVides, superpositions, lectureVisibleIncoherente,
-  debordementHorizontal, erreursReelles,
+  debordementHorizontal, erreursReelles, vueEnErreur, choisirAutreOption,
 } from './harnais.js';
 
 /**
@@ -110,7 +110,20 @@ describe('pages de visualisation, rendu reel', () => {
 
       // 5. et tout cela sans une erreur
       expect(erreursReelles(erreurs), `${chemin} : erreurs de console`).toEqual([]);
-    }, 150000);
+
+      // 6. toucher un reglage APRES l affichage ne doit pas emporter la page.
+      //    Tous les tests reglaient puis affichaient ; aucun ne faisait
+      //    l inverse, et c est dans cet ordre-la que la moyenne zonale tombait.
+      erreurs.length = 0;
+      const autre = await choisirAutreOption(page, 0);
+      if (autre) {
+        expect(await vueEnErreur(page),
+          `${chemin} : changer de jeu apres l affichage ne doit pas faire tomber`
+          + ' la route dans son filet de securite').toBe('');
+        expect(erreursReelles(erreurs),
+          `${chemin} : erreurs apres changement de jeu`).toEqual([]);
+      }
+    }, 180000);
   }
 
   /**

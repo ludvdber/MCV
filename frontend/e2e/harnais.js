@@ -379,6 +379,54 @@ export async function curseursSansNom(page) {
 }
 
 /** Les erreurs de console qui ne viennent pas du reseau de test. */
+/**
+ * INVARIANT 8 — un reglage change APRES l'affichage ne doit pas emporter la
+ * page.
+ *
+ * Le defaut qui l'a motive : sur la moyenne zonale, choisir un autre jeu ou
+ * une autre variable dans le selecteur ne change que le TITRE de la figure
+ * tant qu'on n'a pas relance. Plotly redessinait alors sans recalculer, une
+ * trace `contour` aux niveaux automatiques perdait ses niveaux, et toute la
+ * route tombait dans RouteErrorBoundary.
+ *
+ * Il etait invisible a deux titres. « Reessayer » semblait reparer, parce que
+ * le composant etait remonte a neuf et repassait donc par newPlot sur un etat
+ * vide. Et aucun test ne touchait un reglage APRES un rendu reussi : tous
+ * reglaient puis affichaient, jamais l'inverse.
+ *
+ * @returns {string} le texte du filet de securite, ou '' si la vue tient
+ */
+export async function vueEnErreur(page) {
+  const filet = page.locator(
+    'text=/Cette vue n.a pas pu s.afficher|This view could not be displayed/i');
+  if (!(await filet.count())) return '';
+  return (await filet.first().innerText()).trim();
+}
+
+/**
+ * Choisit dans un selecteur une option DIFFERENTE de celle affichee, et rend
+ * la valeur retenue (ou '' si le selecteur n'offrait pas d'alternative).
+ */
+export async function choisirAutreOption(page, index = 0) {
+  const champ = page.locator('input[role="combobox"]').nth(index);
+  if (!(await champ.count())) return '';
+  const avant = (await champ.inputValue()).trim();
+  await champ.click();
+  const options = page.locator('[role="option"]');
+  await options.first().waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+  const n = await options.count();
+  for (let i = 0; i < n; i++) {
+    const titre = (await options.nth(i).innerText()).split(String.fromCharCode(10))[0].trim();
+    if (titre && titre !== avant) {
+      await options.nth(i).click();
+      await page.waitForTimeout(1500);
+      return titre;
+    }
+  }
+  await page.keyboard.press('Escape');
+  return '';
+}
+
 export function erreursReelles(erreurs) {
   return erreurs.filter((e) => !/favicon|net::ERR_|Failed to load resource/i.test(e));
 }

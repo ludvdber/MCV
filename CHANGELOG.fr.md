@@ -125,6 +125,21 @@ temporelles, sans dupliquer un seul octet de l'archive.
   jamais et qui devient « Quitter » dès l'ouverture du rideau. Les deux volets
   sont maintenant nommés en clair avant d'ouvrir : A est la vue active, B se
   choisit dans une liste.
+- **La moyenne zonale ne s'effondre plus quand on change un réglage après
+  l'avoir affichée.** Choisir un autre jeu ou une autre variable une fois la
+  vue à l'écran emportait toute la route dans son filet de sécurité, et
+  « Réessayer » semblait réparer seulement parce que le composant était remonté
+  à neuf. La cause est une trace contour de Plotly dont les niveaux sont
+  calculés automatiquement : un redessin qui saute le recalcul les perd, et le
+  code des contours lit alors une liste de niveaux vide. Les niveaux sont
+  désormais donnés explicitement, selon la règle même de Plotly, si bien que les
+  figures sont inchangées, vérifié niveau par niveau.
+- **L'historique nomme enfin les jeux comme le sélecteur.** Chaque entrée
+  affichait le nom de fichier brut de la pipeline,
+  `hl-b274_032094p_ls000_0000_MY35_sol668to739_71days_mean_crossdir`, au lieu de
+  « MY35 - Ls 0° à 30° ». Le motif censé le rendre lisible exigeait que `MY`
+  précède `Ls`, alors que la pipeline écrit l'inverse : il ne mordait donc sur
+  aucun jeu réel et le repli sur l'identifiant brut se déclenchait à chaque fois.
 
 ### Vérifié
 
@@ -133,7 +148,7 @@ Mesuré contre les données réelles de l'institut, pas contre des fixtures :
 | Couche | Résultat |
 |---|---|
 | Backend | 452 tests, 0 échec, 96,1 % de couverture d'instructions, 87,5 % de branches |
-| Frontend (jsdom) | 1395 tests, 0 échec, 90,6 % d'instructions, 93,9 % de lignes |
+| Frontend (jsdom) | 1407 tests, 0 échec, 90,6 % d'instructions, 93,9 % de lignes |
 | Bout en bout (Chromium) | 69 tests, 0 échec contre ce JAR |
 | Audit des exports | 560 contrôles sur 23 cas CSV et 10 cas NetCDF |
 

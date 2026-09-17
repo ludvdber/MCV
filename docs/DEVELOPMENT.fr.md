@@ -31,7 +31,7 @@ Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellemen
 | `npm run dev` | Serveur de développement Vite sur :5173 avec rechargement à chaud |
 | `npm run build` | Build de production dans `frontend/dist/` |
 | `npm run preview` | Sert le build de production en local |
-| `npm run test` | Suite Vitest (1395 tests, jsdom) |
+| `npm run test` | Suite Vitest (1407 tests, jsdom) |
 | `npm run test:e2e` | Suite de bout en bout (69 tests) dans un vrai Chromium |
 | `npx vitest run --coverage` | Idem, avec le rapport de couverture dans `frontend/coverage/` |
 | `npm run lint` | Vérification ESLint |

@@ -7,6 +7,7 @@ import { VARIABLES_MAP } from './VariableSelector';
 import { buildLocationTrace } from '../data/marsLocations';
 import { computeHeatmapCustomData } from '../utils/heatmapAnalysis';
 import { autoColorscaleFor } from '../utils/colorscales';
+import { niveauxContour } from '../utils/contourLevels';
 import { altitudeLabel } from '../utils/variableUtils';
 import { upsampleLatLonGrid, nativeStep } from '../utils/gridInterpolation';
 import { compactLayout } from '../utils/compactPlot';
@@ -160,14 +161,19 @@ function SliceViewer({ sliceData, variableCode, datasetLabel, showLocations = fa
     if (topoData?.data) {
       const SCALE_HEIGHT_KM = 10.8;
       const P_REF = 610; // Pa
+      const zTopo = topoData.data.map(row => row.map(v => (v != null && v > 0
+        ? -SCALE_HEIGHT_KM * Math.log(v / P_REF)
+        : null)));
       traces.push({
         type: 'contour',
         x: topoData.longitudes,
         y: topoData.latitudes,
-        z: topoData.data.map(row => row.map(v => (v != null && v > 0
-          ? -SCALE_HEIGHT_KM * Math.log(v / P_REF)
-          : null))),
-        contours: { coloring: 'none', showlabels: false },
+        z: zTopo,
+        // Niveaux explicites, meme raison que pour la moyenne zonale : une
+        // trace contour aux niveaux automatiques les perd des que Plotly
+        // redessine sans recalculer, et makeCrossings plante alors sur un
+        // tableau de niveaux vide. Voir utils/contourLevels.js.
+        contours: { coloring: 'none', showlabels: false, ...niveauxContour(zTopo, 10) },
         line: { color: 'rgba(160, 160, 160, 0.55)', width: 1 },
         ncontours: 10,
         showscale: false,

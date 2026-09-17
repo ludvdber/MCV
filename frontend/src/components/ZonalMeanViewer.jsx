@@ -4,6 +4,7 @@ import { Paper, Typography, Box } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { VARIABLES_MAP } from './VariableSelector';
 import { autoColorscaleFor } from '../utils/colorscales';
+import { niveauxPourBornes, etendueGrille } from '../utils/contourLevels';
 import ExportMenu from './ExportMenu';
 import StatsBar from './StatsBar';
 import { usePlotlyTheme } from '../hooks/usePlotlyTheme';
@@ -66,6 +67,17 @@ function ZonalMeanViewer({ zonalMeanData, variableCode, datasetLabel, colorscale
       hoverTemplate = `${t('viz.hover_lat')}: %{x}°<br>${t('viz.hover_alt')}: %{y:.1f} km<br>log\u2081\u2080: %{z:.3f}<br>${t('viz.hover_value')}: %{customdata:.6g} ${unit}<extra></extra>`;
     }
 
+    // Bornes REELLEMENT vues par Plotly : celles imposees a la trace s'il y en
+    // a, sinon celles de la grille affichee.
+    const bornes = logScale
+      ? (logZMin != null ? { zmin: logZMin, zmax: logZMax } : {})
+      : { ...(customZMin != null ? { zmin: customZMin } : {}), ...(customZMax != null ? { zmax: customZMax } : {}) };
+    const etendue = etendueGrille(displayData);
+    // Niveaux EXPLICITES : sans eux, un simple changement de titre (donc de
+    // jeu ou de variable dans le selecteur) passe par un redessin sans
+    // recalcul et Plotly plante dans makeCrossings. Voir utils/contourLevels.js.
+    const niveaux = niveauxPourBornes(bornes.zmin ?? etendue?.min, bornes.zmax ?? etendue?.max);
+
     renderPlot(el, [{
       type: 'contour',
       x: latitudes,
@@ -73,15 +85,14 @@ function ZonalMeanViewer({ zonalMeanData, variableCode, datasetLabel, colorscale
       z: displayData,
       colorscale: finalColorscale,
       reversescale: finalReverse,
-      ...(logScale
-        ? (logZMin != null ? { zmin: logZMin, zmax: logZMax } : {})
-        : { ...(customZMin != null ? { zmin: customZMin } : {}), ...(customZMax != null ? { zmax: customZMax } : {}) }),
+      ...bornes,
       ...(logScale ? { customdata: data } : {}),
       contours: {
         coloring: 'heatmap',
         showlines: true,
         showlabels: true,
         labelfont: { size: 10, color: fontColor },
+        ...niveaux,
       },
       connectgaps: true,
       showscale: !compact,

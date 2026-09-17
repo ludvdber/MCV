@@ -4,14 +4,37 @@
  * dont le dataset n'est plus au catalogue).
  *
  * L'id d'un dataset MEAN est le nom de fichier sans extension, tel qu'il sort de
- * la pipeline (« mean_MY35_Ls60_90 ») : illisible. On en extrait MY et la plage
- * Ls pour afficher « MY35 — Ls 60° à 90° » (format i18n partagé avec le
- * sélecteur). Un dataset INDIVIDUAL (IND_MY34_LS5.00) donne « MY34 · Ls 5.00° ».
+ * la pipeline : « hl-b274_032094p_ls000_0000_MY35_sol668to739_71days_mean_crossdir »,
+ * soit 65 caractères illisibles. On en extrait MY et le Ls de départ pour
+ * afficher « MY35 — Ls 0° à 30° » (format i18n partagé avec le sélecteur).
+ * Un dataset INDIVIDUAL (IND_MY34_LS5.00) donne « MY34 · Ls 5.00° ».
  * Repli : l'id brut si rien n'est reconnu (jamais de perte d'information).
  */
 
-const IND_RE  = /^IND_MY(\d+)_LS([\d.]+)/i;
-const MEAN_RE = /MY[_ ]?(\d+).*?Ls[_ ]?(\d+)[_\-.](\d+)/i;
+const IND_RE = /^IND_MY(\d+)_LS([\d.]+)/i;
+
+/* Les deux motifs MEAN sont lus SEPAREMENT, et c'est tout l'objet de la
+ * correction. L'ancien motif unique exigeait « MY » AVANT « Ls » :
+ *
+ *   /MY[_ ]?(\d+).*?Ls[_ ]?(\d+)[_\-.](\d+)/i
+ *
+ * Or la pipeline GEM-Mars ecrit l'inverse, et le vrai identifiant est
+ * « hl-b274_032094p_ls000_0000_MY35_sol668to739_71days_mean_crossdir » :
+ * le Ls precede l'annee martienne. Le motif ne mordait donc sur AUCUN jeu
+ * reel, et formatDatasetId se repliait silencieusement sur l'id brut, c'est
+ * a dire sur les 65 caracteres du nom de fichier, dans l'historique.
+ * Il n'etait teste que sur des identifiants inventes (« mean_MY35_Ls60_90 »)
+ * qui, eux, respectaient l'ordre suppose. */
+const MEAN_MY_RE = /MY[_ ]?(\d+)/i;
+const MEAN_LS_RE = /Ls[_ ]?(\d+)[_\-.](\d+)/i;
+
+/* La borne haute n'est PAS lue dans le nom de fichier : elle est calculee,
+ * exactement comme le fait CatalogService cote serveur (buildMetadata). Le
+ * second groupe du motif Ls vaut « 0000 » dans les vrais noms, ce qui aurait
+ * affiche « Ls 0 a 0 ». Les jeux MEAN couvrent une periode fixe de 30 degres,
+ * la derniere allant jusqu'a 360. */
+const LS_PERIOD = 30;
+const LS_MAX = 360;
 
 /**
  * @param {string} id  identifiant du dataset (MEAN ou INDIVIDUAL)
@@ -25,10 +48,14 @@ export function formatDatasetId(id, t) {
     const ls = parseFloat(ind[2]);
     return `MY${ind[1]} · Ls ${Number.isFinite(ls) ? ls.toFixed(2) : ind[2]}°`;
   }
-  const m = id.match(MEAN_RE);
-  if (m) {
+  const my = id.match(MEAN_MY_RE);
+  const ls = id.match(MEAN_LS_RE);
+  if (my && ls) {
+    const lsStart = Number(ls[1]);
     return t('selector.dataset.format', {
-      my: Number(m[1]), lsStart: Number(m[2]), lsEnd: Number(m[3]),
+      my: Number(my[1]),
+      lsStart,
+      lsEnd: lsStart === LS_MAX - LS_PERIOD ? LS_MAX : lsStart + LS_PERIOD,
     });
   }
   return id;

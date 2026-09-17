@@ -114,6 +114,20 @@ duplicating a single byte of the archive.
   only in the button tooltip, which a touch screen never shows and which is
   replaced by "Exit" the moment the curtain opens. Both panes are now named in
   plain text before opening: A is the active view, B is a list you pick from.
+- **The zonal mean no longer collapses when you change a setting after drawing
+  it.** Picking another dataset or another variable once a view was on screen
+  took the whole route down to its error boundary, and "Retry" appeared to fix
+  it only because the component was remounted from scratch. The cause is a
+  Plotly contour trace whose levels are computed automatically: a redraw that
+  skips the recalculation loses them, and the contour code then reads an empty
+  level list. The levels are now stated explicitly, computed by the same rule
+  Plotly applies, so the figures are unchanged, measured level by level.
+- **The history now names datasets the way the selector does.** Each entry
+  showed the raw pipeline filename,
+  `hl-b274_032094p_ls000_0000_MY35_sol668to739_71days_mean_crossdir`, instead of
+  "MY35 - Ls 0° to 30°". The pattern that was meant to make it readable required
+  `MY` to come before `Ls`, and the pipeline writes the opposite, so it matched
+  no real dataset at all and the fallback to the raw identifier fired every time.
 
 ### Verified
 
@@ -122,7 +136,7 @@ Measured against the institute's real data, not fixtures:
 | Layer | Result |
 |---|---|
 | Backend | 452 tests, 0 failures, 96.1% instruction coverage, 87.5% branches |
-| Frontend (jsdom) | 1395 tests, 0 failures, 90.6% statements, 93.9% lines |
+| Frontend (jsdom) | 1407 tests, 0 failures, 90.6% statements, 93.9% lines |
 | End-to-end (Chromium) | 69 tests, 0 failures against this JAR |
 | Export audit | 560 checks across 23 CSV cases and 10 NetCDF cases |
 

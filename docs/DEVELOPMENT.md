@@ -31,7 +31,7 @@ Coverage report: `build/reports/jacoco/test/html/index.html`. Currently 96.1% of
 | `npm run dev` | Vite dev server on :5173 with hot reload |
 | `npm run build` | Production build into `frontend/dist/` |
 | `npm run preview` | Serves the production build locally |
-| `npm run test` | Vitest suite (1395 tests, jsdom) |
+| `npm run test` | Vitest suite (1407 tests, jsdom) |
 | `npm run test:e2e` | End-to-end suite (69 tests) in a real Chromium |
 | `npx vitest run --coverage` | Same, with the coverage report in `frontend/coverage/` |
 | `npm run lint` | ESLint check |
