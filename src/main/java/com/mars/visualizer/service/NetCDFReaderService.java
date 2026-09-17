@@ -177,10 +177,21 @@ public class NetCDFReaderService {
 			throw new ResourceNotFoundException("error.dataset.not.found", filePath.getFileName().toString());
 		}
 
-		log.debug("Ouverture fichier NetCDF : {}", filePath);
 		NetcdfFile ncfile = NetcdfFiles.open(filePath.toString());
-		log.info("Fichier NetCDF ouvert : {} (taille: {} octets)",
-				filePath.getFileName(), Files.size(filePath));
+		// Une seule ligne, au niveau DEBUG. Les deux precedentes disaient la
+		// meme chose a deux niveaux, et celle en INFO partait a CHAQUE lecture :
+		// mesure sur une visite ordinaire (accueil puis une coupe tracee),
+		// 3 lignes sur 10 etaient celle-ci, avec un nom de fichier de 65
+		// caracteres et une taille en octets qui ne change jamais. Rien la
+		// dedans n'est actionnable par un exploitant.
+		//
+		// Le test isDebugEnabled n'est pas de la coquetterie : Files.size est
+		// un acces disque, paye jusqu'ici a chaque ouverture pour le seul
+		// besoin du journal.
+		if (log.isDebugEnabled()) {
+			log.debug("Fichier NetCDF ouvert : {} (taille: {} octets)",
+					filePath.getFileName(), Files.size(filePath));
+		}
 		return ncfile;
 	}
 

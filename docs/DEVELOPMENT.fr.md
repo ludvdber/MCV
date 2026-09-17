@@ -19,7 +19,7 @@ d'accueil.
 | `./gradlew build` | Build complet : frontend, compilation, tests, JAR dans `build/libs/` |
 | `./gradlew build -x test` | Idem sans la suite de tests |
 | `./gradlew bootJar` | JAR uniquement, sans tests |
-| `./gradlew test` | Suite JUnit 5 (452 tests) + rapport de couverture JaCoCo |
+| `./gradlew test` | Suite JUnit 5 (460 tests) + rapport de couverture JaCoCo |
 | `./gradlew buildFrontend` | Build de production du frontend uniquement |
 
 Rapport de couverture : `build/reports/jacoco/test/html/index.html`. Actuellement 96,1 % des instructions, 87,5 % des branches et 95,8 % des lignes.

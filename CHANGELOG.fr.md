@@ -141,13 +141,40 @@ temporelles, sans dupliquer un seul octet de l'archive.
   précède `Ls`, alors que la pipeline écrit l'inverse : il ne mordait donc sur
   aucun jeu réel et le repli sur l'identifiant brut se déclenchait à chaque fois.
 
+- **Un visiteur qui part avant la fin du chargement n'est plus journalisé comme
+  une panne du serveur.** Fermer un onglet, changer de page ou annuler une
+  requête coupe la connexion pendant que la réponse s'écrit. Chacun de ces
+  gestes produisait une trace ERROR de 77 lignes affirmant que le serveur avait
+  échoué, et sur les routes de la SPA un second WARN par-dessus, parce que le
+  gestionnaire d'erreur tentait ensuite d'écrire un corps JSON dans une réponse
+  déjà partie. Les déconnexions sont désormais reconnues à la chaîne des causes
+  plutôt qu'au type levé, ce qu'imposaient les deux emballages mesurés ici, et
+  plus rien n'est écrit une fois la réponse partie. Mesuré sur le JAR livré en
+  forçant la panne : trois entrées ERROR avant, aucune après, les vraies pannes
+  du serveur restant rapportées en entier.
+
+- **Le journal du serveur rapporte désormais ce que le serveur a fait, pas ce
+  que les visiteurs ont mal fait.** Un en-tête `Accept` mal formé faisait
+  répondre **500** et annoncer une panne, tandis qu'un `Accept` que l'API ne sert
+  pas produisait une ERROR puis un second avertissement affirmant que le
+  gestionnaire d'erreur lui-même avait échoué : c'est la même exception de Spring
+  empruntée par deux chemins, et les deux répondent maintenant 406, sans corps et
+  sans bruit. Le détail des lectures NetCDF passe en DEBUG, ce qui supprime au
+  passage un accès disque fait à chaque lecture dans le seul but de le
+  journaliser. Mesuré sur le JAR livré : une visite ordinaire écrit 7 lignes au
+  lieu de 10, et une passe complète de trafic hostile (téléchargements coupés,
+  balayages de robots, méthodes interdites, paramètres hors bornes ou mal
+  formés) n'écrit **aucune ERROR**, seulement des refus d'une ligne. Les deux
+  niveaux se rétablissent par une ligne commentée du `application.properties`
+  livré.
+
 ### Vérifié
 
 Mesuré contre les données réelles de l'institut, pas contre des fixtures :
 
 | Couche | Résultat |
 |---|---|
-| Backend | 452 tests, 0 échec, 96,1 % de couverture d'instructions, 87,5 % de branches |
+| Backend | 460 tests, 0 échec, 96,3 % de couverture d'instructions, 87,4 % de branches |
 | Frontend (jsdom) | 1407 tests, 0 échec, 90,6 % d'instructions, 93,9 % de lignes |
 | Bout en bout (Chromium) | 69 tests, 0 échec contre ce JAR |
 | Audit des exports | 560 contrôles sur 23 cas CSV et 10 cas NetCDF |

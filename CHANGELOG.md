@@ -129,13 +129,37 @@ duplicating a single byte of the archive.
   `MY` to come before `Ls`, and the pipeline writes the opposite, so it matched
   no real dataset at all and the fallback to the raw identifier fired every time.
 
+- **A visitor who leaves mid-load is no longer logged as a server crash.** Closing
+  a tab, navigating away or cancelling a request breaks the connection while the
+  response is still being written. Each one produced a 77-line ERROR stack
+  claiming the server had failed, and on the SPA routes a second WARN on top,
+  because the error handler then tried to write a JSON body onto a response that
+  had already left. Disconnects are now recognised through the chain of causes
+  rather than the type that happens to be thrown, which is what the two wrappers
+  measured here required, and nothing is written once a response is committed.
+  Measured on the delivered JAR by forcing the failure: three ERROR entries
+  before, none after, with genuine server faults still reported in full.
+
+- **The server log now reports what the server did, not what visitors did wrong.**
+  A malformed `Accept` header made the API answer **500** and announce a crash,
+  while an `Accept` the API cannot serve produced an ERROR plus a second warning
+  claiming the error handler itself had failed — both are the same Spring
+  exception taking two different routes, and both are now answered 406 with no
+  body and no noise. Per-read NetCDF details moved to DEBUG, which also removes
+  a filesystem call made on every read purely to log it. Measured on the
+  delivered JAR: an ordinary visit writes 7 lines instead of 10, and a full pass
+  of hostile traffic — aborted downloads, bot scans, unsupported methods,
+  out-of-range and malformed parameters — writes **no ERROR at all**, only
+  one-line client-error reports. Both levels are restored by a commented line in
+  the shipped `application.properties`.
+
 ### Verified
 
 Measured against the institute's real data, not fixtures:
 
 | Layer | Result |
 |---|---|
-| Backend | 452 tests, 0 failures, 96.1% instruction coverage, 87.5% branches |
+| Backend | 460 tests, 0 failures, 96.3% instruction coverage, 87.4% branches |
 | Frontend (jsdom) | 1407 tests, 0 failures, 90.6% statements, 93.9% lines |
 | End-to-end (Chromium) | 69 tests, 0 failures against this JAR |
 | Export audit | 560 checks across 23 CSV cases and 10 NetCDF cases |
