@@ -31,7 +31,7 @@ kilobytes of disk I/O per view.
 
 | Component | Stack |
 |---|---|
-| Backend | Spring Boot 4.1, Java 21, NetCDF-Java (cdm-core 5.9), Gradle 9 |
+| Backend | Spring Boot 4.1, Java 21, NetCDF-Java (cdm-core 5.10), Gradle 9 |
 | Frontend | React 19, Vite 8, Plotly.js, Three.js, MUI 9, i18next |
 
 ---

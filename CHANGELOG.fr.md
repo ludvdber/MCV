@@ -43,6 +43,30 @@ changent pas.
   Plotly embarque les styles de maplibre 6 (+1,2 Ko compressé, inutilisés), et
   `bidi-js`, partagé avec les étiquettes 3D de l'accueil, passe de 1.0.3 à
   1.1.0.
+- **commons-lang3 3.20.0 dans l'outillage de build** (alerte modérée
+  CVE-2025-48924). Elle arrivait par le plugin Gradle de Spring Boot, dans la
+  partie qui construit les images de conteneur, et n'atteignait pas le JAR ;
+  elle est contrainte quand même, parce que le graphe de dépendances que
+  surveille GitHub inclut le classpath du build, et que Dependabot ne sait pas
+  mettre à jour la dépendance d'un plugin. Après cette version, OSV ne signale
+  aucune vulnérabilité connue sur les 105 dépendances Java (exécution, build et
+  tests).
+
+### Dépendances
+
+- **NetCDF-Java (cdm-core) 5.10.0**, la bibliothèque qui lit les fichiers
+  GEM-Mars. Vérifié sur les vraies données plutôt que supposé : 37 requêtes
+  couvrant chaque endpoint de données, sur deux jeux, renvoient les mêmes
+  537 993 valeurs que la version 1.0.0 en production, et l'export NetCDF est
+  identique octet pour octet.
+- **Gradle 9.7.1** (empreinte du wrapper vérifiée contre celle que publie
+  Gradle) et Guava 33.7.1.
+- **24 mises à jour mineures et correctives du frontend**, dont React 19.3,
+  MUI 9.4, three.js 0.186, Vite 8.3 et axios 1.20. `@react-three/fiber` passe
+  en 9.8, la première version qui accepte React 19.3 ; sans elle, la mise à
+  jour groupée ne s'installait même pas.
+- Les versions majeures (Plotly 4, Vitest 5, ESLint 10) restent des migrations
+  à décider, et `eslint-plugin-react-hooks` reste en 7.0.1.
 
 ### Chaîne d'approvisionnement
 
@@ -54,6 +78,11 @@ changent pas.
   par commit.
 - Une politique de sécurité (`SECURITY.md`) explique comment signaler une
   vulnérabilité en privé.
+- **Tests par propriétés** (fast-check) sur les fonctions qui reçoivent des
+  entrées que personne ne contrôle : paramètres de permalien, identifiants de
+  jeu, niveaux de contour. Au lieu de vérifier les cas auxquels on a pensé, ils
+  énoncent une règle et laissent l'outil chercher l'entrée qui la viole. Ils ont
+  trouvé les deux défauts ci-dessous dès leur première exécution.
 
 ### Corrigé
 
@@ -65,14 +94,26 @@ changent pas.
   un objet JSON nu, qu'un analyseur JavaScript lit comme un bloc suivi d'une
   étiquette ; c'est maintenant un tableau d'un élément, valide en JSON-LD
   comme en JavaScript. Les moteurs de recherche lisent les mêmes données.
+- Les niveaux de contour pouvaient demander à Plotly des dizaines de milliers
+  de lignes quand une plage était plus étroite qu'environ 1e-15 (50 000 pour 32
+  visées), de quoi geler l'onglet, et pouvaient sortir infinis près des limites
+  des nombres à virgule flottante. Les vrais champs GEM-Mars sont stockés en
+  flottants 32 bits et ne descendent jamais aussi bas, mais des bornes de
+  couleur saisies à la main le pouvaient. Les figures tirées des vraies données
+  ne changent pas : les 27 plages mesurées contre Plotly lui-même concordent
+  toujours.
+- La partie « jeu de données » d'un nom de fichier d'export fait désormais au
+  plus 40 caractères. Un permalien retouché à la main avec un identifiant
+  démesuré produisait un nom de n'importe quelle longueur.
 
 ### Vérifié
 
 | Couche | Résultat |
 |---|---|
 | Backend | 460 tests, 0 échec |
-| Frontend (jsdom) | 1407 tests, 0 échec, ESLint 0 erreur |
+| Frontend (jsdom) | 1418 tests (dont 11 par propriétés), 0 échec, ESLint 0 erreur |
 | Bout en bout, vrai Chromium contre le JAR construit | 69 tests, 0 échec, aucune ERROR ni WARN serveur |
+| Mêmes données que la 1.0.0, vrais fichiers, comparées à la production | 37 requêtes, 537 993 valeurs, 0 différence ; export NetCDF identique octet pour octet |
 | Vulnérabilités connues (OSV côté Java, `npm audit` côté frontend) | 0 |
 
 ## v1.0.0 — 2026-09-15

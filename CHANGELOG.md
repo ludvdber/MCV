@@ -41,6 +41,29 @@ Viewer is and how to install it: see the [README](https://github.com/ludvdber/MC
   The update does change two shipped files: Plotly's stylesheet now carries
   maplibre 6's styles (+1.2 KB compressed, unused), and `bidi-js`, shared with
   the 3D labels of the home page, moves from 1.0.3 to 1.1.0.
+- **commons-lang3 3.20.0 in the build tooling** (moderate advisory
+  CVE-2025-48924). It came in through the Spring Boot Gradle plugin, in the
+  part that builds container images, and never reached the JAR; it is
+  constrained anyway because the dependency graph GitHub watches includes the
+  build classpath, and Dependabot cannot update a plugin's own dependency.
+  After this release, OSV reports 0 known vulnerabilities across all 105 Java
+  dependencies (runtime, build and tests).
+
+### Dependencies
+
+- **NetCDF-Java (cdm-core) 5.10.0**, the library that reads the GEM-Mars
+  files. Checked against the real data rather than assumed: 37 requests
+  covering every data endpoint, on two datasets, return the same 537,993
+  values as version 1.0.0 in production, and the NetCDF export is identical
+  byte for byte.
+- **Gradle 9.7.1** (wrapper checksum verified against the one Gradle
+  publishes) and Guava 33.7.1.
+- **24 frontend minor and patch updates**, among them React 19.3, MUI 9.4,
+  three.js 0.186, Vite 8.3 and axios 1.20. `@react-three/fiber` moves to 9.8,
+  the first version that accepts React 19.3; without it the grouped update
+  could not install at all.
+- Major versions (Plotly 4, Vitest 5, ESLint 10) are left for deliberate
+  migrations, and `eslint-plugin-react-hooks` stays on 7.0.1.
 
 ### Supply chain
 
@@ -51,6 +74,11 @@ Viewer is and how to install it: see the [README](https://github.com/ludvdber/MC
   Actions as well as npm, and every action is pinned by commit.
 - A security policy (`SECURITY.md`) explains how to report a vulnerability
   privately.
+- **Property-based tests** (fast-check) on the functions that take input
+  nobody controls: permalink parameters, dataset identifiers, contour levels.
+  Instead of checking the cases someone thought of, they state a rule and let
+  the tool search for an input that breaks it. They found the two defects
+  below on their first run.
 
 ### Fixed
 
@@ -61,14 +89,24 @@ Viewer is and how to install it: see the [README](https://github.com/ludvdber/MC
   JSON object, which a JavaScript parser reads as a block and a label; it is
   now a one-element array, valid as JSON-LD and as JavaScript. Search engines
   read the same data.
+- Contour levels could ask Plotly for tens of thousands of lines when a range
+  was narrower than about 1e-15 (50,000 for 32 intended), enough to freeze the
+  tab, and could come out infinite near the limits of floating-point numbers.
+  Real GEM-Mars fields are stored in 32-bit floats and never get that narrow,
+  but hand-set colour bounds could. The figures drawn from real data are
+  unchanged: the 27 ranges measured against Plotly itself still agree.
+- The dataset part of an export filename is now always at most 40
+  characters. A hand-edited permalink carrying an absurdly long identifier
+  produced a name of any length.
 
 ### Verified
 
 | Layer | Result |
 |---|---|
 | Backend | 460 tests, 0 failures |
-| Frontend (jsdom) | 1407 tests, 0 failures, ESLint 0 errors |
+| Frontend (jsdom) | 1418 tests (11 of them property-based), 0 failures, ESLint 0 errors |
 | End to end, real Chromium against the built JAR | 69 tests, 0 failures, no server ERROR or WARN |
+| Same data as 1.0.0, real files, compared with production | 37 requests, 537,993 values, 0 differences; NetCDF export byte-identical |
 | Known vulnerabilities (OSV for Java, `npm audit` for the frontend) | 0 |
 
 ## v1.0.0 — 2026-09-15

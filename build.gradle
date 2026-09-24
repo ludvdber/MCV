@@ -66,10 +66,12 @@ repositories {
 dependencies {
 	// Spring Boot starters
 	implementation 'org.springframework.boot:spring-boot-starter-web'
-	// NetCDF library (UCAR) - 5.9.1 = dernière stable et fonctionnelle
+	// NetCDF library (UCAR). Passage 5.9.1 -> 5.10.0 verifie sur les vrais
+	// fichiers GEM-Mars : 37 requetes, 537 993 valeurs et l'export NetCDF
+	// identiques, octet pour octet, a ceux de la version precedente.
 	implementation 'edu.ucar:cdm-core:5.10.0'
 
-	// Guava - requis par cdm-core 5.9.1
+	// Guava - requis par cdm-core
 	implementation 'com.google.guava:guava:33.7.1-jre'
 
 	// Lombok
