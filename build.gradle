@@ -1,6 +1,6 @@
 plugins {
 	id 'java'
-	id 'org.springframework.boot' version '4.1.0'
+	id 'org.springframework.boot' version '4.1.1'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'jacoco'
 }
@@ -9,8 +9,22 @@ group = 'com.mars'
 // Un SNAPSHOT est par definition « pas encore publie » : une release ne peut
 // pas en etre un. Meme numero que frontend/package.json, sinon deux versions
 // coexistent dans un seul livrable.
-version = '1.0.0'
+version = '1.0.1'
 description = 'Mars Climate Viewer'
+
+// Tomcat force au-dessus de ce que fixe Spring Boot 4.1.1 (11.0.24). Le serveur
+// est le composant expose a internet, et 11.0.22 a 11.0.24 portent trois
+// failles CRITIQUES (GHSA-9xv2-5v5q-p794, GHSA-gcx9-497g-6cp6,
+// GHSA-h3x4-894j-xpx5), corrigees en 11.0.25. Elles visent les mecanismes
+// d'authentification DIGEST et FORM, que MCV n'utilise pas : le risque reel est
+// faible, mais un serveur public ne tourne pas sur une version connue pour etre
+// vulnerable. Retirer cette ligne des que Spring Boot fixe 11.0.25 ou plus.
+//
+// Dependabot ne les avait jamais signalees : le graphe de dependances de GitHub
+// ne voyait AUCUNE dependance Java (936 paquets npm, 0 Maven) avant l'ajout de
+// .github/workflows/dependency-submission.yml. Trouvees en interrogeant la base
+// OSV avec le classpath resolu (58 dependances d'execution).
+ext['tomcat.version'] = '11.0.25'
 
 java {
 	toolchain {
@@ -100,6 +114,13 @@ tasks.register('buildFrontend', Exec) {
 	inputs.dir('frontend/public')
 	inputs.file('frontend/index.html')
 	inputs.file('frontend/vite.config.js')
+	// Les dependances sont une entree du bundle au meme titre que le code :
+	// fflate est embarque dans le fragment three.js. Sans ces deux lignes, une
+	// mise a jour qui ne touche QUE les dependances (une correction de securite
+	// Dependabot, typiquement) laissait cette tache « a jour » et le JAR
+	// reembarquait l'ancien bundle, faille comprise.
+	inputs.file('frontend/package.json')
+	inputs.file('frontend/package-lock.json')
 	outputs.dir('frontend/dist')
 }
 

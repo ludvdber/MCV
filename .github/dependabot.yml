@@ -1,0 +1,45 @@
+# Dependabot : une pull request par semaine au plus et par ecosysteme pour les
+# mises a jour mineures et correctives, regroupees. Une version MAJEURE arrive
+# seule, dans sa propre PR : elle se decide (Plotly 3 -> 4 a des changements
+# incompatibles, et la CI jsdom ne voit pas le rendu). Rien n'est fusionne tout
+# seul ; les alertes de securite, elles, n'attendent pas le lundi.
+version: 2
+updates:
+  # Les actions sont epinglees par empreinte de commit dans les workflows :
+  # Dependabot met a jour l'empreinte ET le commentaire de version.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci"
+
+  # Backend. Les versions gerees par Spring Boot suivent le plugin Spring Boot ;
+  # le forcage de Tomcat dans build.gradle se retire a la main.
+  - package-ecosystem: gradle
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      backend:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "deps"
+
+  - package-ecosystem: npm
+    directory: "/frontend"
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      frontend:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "deps"

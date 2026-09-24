@@ -40,32 +40,39 @@
     <meta name="twitter:image" content="__SITE_URL__/logo.webp" />
 
     <!-- Structured Data (JSON-LD) -->
+    <!-- Tableau d'un seul objet, et non objet nu : les deux sont du JSON-LD
+         valide (un tableau racine est explicitement admis), mais seul le
+         tableau est AUSSI une expression JavaScript valide. Un objet nu en
+         tete de script se lit comme un bloc suivi d'une etiquette, et
+         l'analyseur de CodeQL abandonnait ce fichier sur « Unexpected token ».
+         Ce que lisent les moteurs de recherche ne change pas. -->
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebApplication",
-      "name": "Mars Climate Viewer",
-      "alternateName": "MCV",
-      "url": "__SITE_URL__/",
-      "inLanguage": ["fr", "en", "nl", "de", "es"],
-      "description": "Open-source interactive visualization platform for Mars atmospheric data from the GEM-Mars climate model.",
-      "applicationCategory": "ScienceApplication",
-      "operatingSystem": "Web",
-      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
-      "author": {
-        "@type": "Person",
-        "name": "Ludovic Vanden Berghe",
-        "url": "https://github.com/ludvdber"
-
-      },
-      "sourceOrganization": {
-        "@type": "ResearchOrganization",
-        "name": "IASB-BIRA",
-        "description": "Royal Belgian Institute for Space Aeronomy"
-      },
-      "license": "https://opensource.org/licenses/MIT",
-      "keywords": ["Mars", "atmosphere", "climate model", "GEM-Mars", "NetCDF", "scientific visualization"]
-    }
+    [{
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Mars Climate Viewer",
+        "alternateName": "MCV",
+        "url": "__SITE_URL__/",
+        "inLanguage": ["fr", "en", "nl", "de", "es"],
+        "description": "Open-source interactive visualization platform for Mars atmospheric data from the GEM-Mars climate model.",
+        "applicationCategory": "ScienceApplication",
+        "operatingSystem": "Web",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+        "author": {
+          "@type": "Person",
+          "name": "Ludovic Vanden Berghe",
+          "url": "https://github.com/ludvdber"
+  
+        },
+        "sourceOrganization": {
+          "@type": "ResearchOrganization",
+          "name": "IASB-BIRA",
+          "description": "Royal Belgian Institute for Space Aeronomy"
+        },
+        "license": "https://opensource.org/licenses/MIT",
+        "keywords": ["Mars", "atmosphere", "climate model", "GEM-Mars", "NetCDF", "scientific visualization"]
+      }
+    ]
     </script>
 
     <!-- Theme -->

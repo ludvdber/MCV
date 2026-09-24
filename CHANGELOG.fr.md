@@ -3,6 +3,78 @@
 Toutes les évolutions notables de Mars Climate Viewer. Les dates sont au format
 ISO (AAAA-MM-JJ). English version: [CHANGELOG.md](CHANGELOG.md)
 
+## v1.0.1 — 2026-09-24
+
+Version de sécurité et de chaîne d'approvisionnement. Rien ne change dans ce que
+l'application affiche ou calcule. Depuis la 1.0.0 : remplacer le JAR et
+redémarrer ; le fichier de configuration et les fichiers de déploiement ne
+changent pas.
+
+### Sécurité
+
+- **Tomcat 11.0.25.** Le serveur web embarqué, c'est-à-dire la partie de MCV
+  exposée à internet, était en 11.0.22, qui porte trois alertes critiques
+  (GHSA-9xv2-5v5q-p794, GHSA-gcx9-497g-6cp6, GHSA-h3x4-894j-xpx5). Elles
+  visent les mécanismes d'authentification DIGEST et FORM, que MCV n'utilise
+  pas : l'exposition réelle était faible, mais un serveur public ne doit pas
+  tourner sur une version connue pour être vulnérable. Spring Boot 4.1.1 seul
+  fournit la 11.0.24, d'où une version forcée en attendant.
+- **Spring Boot 4.1.1**, qui apporte Jackson 3.1.5 et Log4j API 2.25.5, chacun
+  corrigeant une alerte modérée (GHSA-5gvw-p9qm-jgwh, GHSA-qv9r-c865-cp47).
+  Aucune n'atteignait le code de MCV : pas de `@JsonView`, et la journalisation
+  passe par Logback.
+- **Les dépendances Java sont désormais surveillées.** Le graphe de
+  dépendances de GitHub listait 936 paquets npm et pas un seul paquet Java :
+  Dependabot n'avait jamais regardé le serveur. Les alertes ci-dessus ont été
+  trouvées en interrogeant la base OSV avec le classpath d'exécution résolu
+  (58 dépendances, aucune vulnérable après cette version). Un workflow soumet
+  désormais ce classpath à GitHub à chaque poussée.
+- **maplibre-gl 6.11** (alerte XSS critique) et **fflate 0.6.11** (modérée).
+  Aucune des deux n'était atteignable, et c'est mesuré plutôt que supposé :
+  reconstruit avec les anciennes et les nouvelles versions, chaque fichier
+  JavaScript du bundle est identique, sauf les parties notées plus bas. Plotly
+  dépend de maplibre-gl, mais MCV ne charge aucune trace cartographique de
+  Plotly, donc aucun code maplibre n'est livré ; fflate est livré en partie,
+  dans la vue 3D, mais pas la fonction que vise l'alerte. Les deux sont mis à
+  jour quand même, pour qu'aucune version vulnérable connue ne reste dans le
+  lockfile. L'alternative proposée par Dependabot, Plotly 4, est une version
+  majeure et reste une migration à décider.
+  La mise à jour change bien deux fichiers livrés : la feuille de style de
+  Plotly embarque les styles de maplibre 6 (+1,2 Ko compressé, inutilisés), et
+  `bidi-js`, partagé avec les étiquettes 3D de l'accueil, passe de 1.0.3 à
+  1.1.0.
+
+### Chaîne d'approvisionnement
+
+- **Cette version est construite par GitHub**, et non sur un poste, et porte
+  une attestation de provenance signée qui couvre le JAR et les fichiers de
+  déploiement. Comment vérifier un téléchargement : `SECURITY.md`.
+- OpenSSF Scorecard tourne chaque semaine. Dependabot surveille désormais
+  Gradle et les GitHub Actions en plus de npm, et chaque action est épinglée
+  par commit.
+- Une politique de sécurité (`SECURITY.md`) explique comment signaler une
+  vulnérabilité en privé.
+
+### Corrigé
+
+- Un `./gradlew build` local après une mise à jour ne touchant que les
+  dépendances pouvait embarquer l'ancien bundle frontend : le build du
+  frontend ne comptait ni `package.json` ni le lockfile parmi ses entrées, et
+  Gradle le jugeait à jour.
+- CodeQL ne pouvait pas lire `index.html`. Son bloc JSON-LD schema.org était
+  un objet JSON nu, qu'un analyseur JavaScript lit comme un bloc suivi d'une
+  étiquette ; c'est maintenant un tableau d'un élément, valide en JSON-LD
+  comme en JavaScript. Les moteurs de recherche lisent les mêmes données.
+
+### Vérifié
+
+| Couche | Résultat |
+|---|---|
+| Backend | 460 tests, 0 échec |
+| Frontend (jsdom) | 1407 tests, 0 échec, ESLint 0 erreur |
+| Bout en bout, vrai Chromium contre le JAR construit | 69 tests, 0 échec, aucune ERROR ni WARN serveur |
+| Vulnérabilités connues (OSV côté Java, `npm audit` côté frontend) | 0 |
+
 ## v1.0.0 — 2026-09-15
 
 Première version publique. Mars Climate Viewer est une interface web pour le

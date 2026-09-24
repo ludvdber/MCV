@@ -1,0 +1,41 @@
+# Donne a GitHub la liste des dependances JAVA, que son graphe ne voyait pas.
+#
+# Le graphe de dependances de GitHub lit tout seul package-lock.json, mais pas
+# build.gradle : mesure le 2026-09-24, il listait 936 paquets npm et AUCUN
+# paquet Maven. Dependabot n'avait donc jamais examine le serveur, qui est
+# justement la partie exposee a internet : Tomcat 11.0.22 y portait trois
+# failles critiques que rien ne signalait. Ce workflow resout le classpath avec
+# Gradle et le soumet a GitHub a chaque poussee sur master ; les alertes
+# Dependabot couvrent ensuite le backend comme le frontend.
+name: dependency-submission
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write  # exige par l'API de soumission de dependances
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # gradlew est enregistre sans bit d'execution (voir ci.yml).
+      - name: Rendre le wrapper Gradle executable
+        run: chmod +x ./gradlew
+
+      # Resout les configurations SANS lancer le build : ni tests, ni npm.
+      - uses: gradle/actions/dependency-submission@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0

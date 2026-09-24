@@ -3,6 +3,74 @@
 All notable changes to Mars Climate Viewer. Dates are ISO (YYYY-MM-DD).
 French version: [CHANGELOG.fr.md](CHANGELOG.fr.md)
 
+## v1.0.1 — 2026-09-24
+
+Security and supply-chain release. Nothing changes in what the application
+shows or computes. Upgrading from 1.0.0: replace the JAR and restart; the
+configuration file and the deployment files are unchanged. What Mars Climate
+Viewer is and how to install it: see the [README](https://github.com/ludvdber/MCV#readme).
+
+### Security
+
+- **Tomcat 11.0.25.** The embedded web server, which is the part of MCV exposed
+  to the internet, was on 11.0.22, which carries three critical advisories
+  (GHSA-9xv2-5v5q-p794, GHSA-gcx9-497g-6cp6, GHSA-h3x4-894j-xpx5). They concern
+  the DIGEST and FORM authentication mechanisms, which MCV does not use, so the
+  real exposure was low; a public server still should not run a version known
+  to be vulnerable. Spring Boot 4.1.1 alone ships 11.0.24, so the version is
+  pinned until Spring Boot catches up.
+- **Spring Boot 4.1.1**, bringing Jackson 3.1.5 and Log4j API 2.25.5, each
+  fixing a moderate advisory (GHSA-5gvw-p9qm-jgwh, GHSA-qv9r-c865-cp47).
+  Neither reached MCV's code paths: it uses no `@JsonView`, and logging goes
+  through Logback.
+- **The Java dependencies are now watched.** GitHub's dependency graph listed
+  936 npm packages and not a single Java one, so Dependabot had never looked
+  at the server side. The advisories above were found by querying the OSV
+  database with the resolved runtime classpath (58 dependencies, none
+  vulnerable after this release). A workflow now submits that classpath to
+  GitHub on every push.
+- **maplibre-gl 6.11** (critical XSS advisory) and **fflate 0.6.11**
+  (moderate). Neither was reachable, and this was measured rather than
+  assumed: rebuilt with the old and the new versions, every JavaScript file of
+  the bundle is identical except for the parts noted below. Plotly depends on
+  maplibre-gl, but MCV loads none of Plotly's map traces, so no maplibre code
+  ships; fflate ships partly, inside the 3D view, but not the function the
+  advisory concerns. Both are updated anyway, so that no known-vulnerable
+  version sits in the lockfile. The alternative Dependabot proposed, Plotly 4,
+  is a major version and is left for a deliberate migration.
+  The update does change two shipped files: Plotly's stylesheet now carries
+  maplibre 6's styles (+1.2 KB compressed, unused), and `bidi-js`, shared with
+  the 3D labels of the home page, moves from 1.0.3 to 1.1.0.
+
+### Supply chain
+
+- **This release is built by GitHub**, not on a workstation, and carries a
+  signed build provenance attestation covering the JAR and the deployment
+  files. How to verify a download: `SECURITY.md`.
+- OpenSSF Scorecard runs weekly. Dependabot now watches Gradle and the GitHub
+  Actions as well as npm, and every action is pinned by commit.
+- A security policy (`SECURITY.md`) explains how to report a vulnerability
+  privately.
+
+### Fixed
+
+- A local `./gradlew build` after a dependency-only update could embed the
+  previous frontend bundle: the frontend build did not list `package.json` and
+  the lockfile among its inputs, so Gradle considered it up to date.
+- CodeQL could not read `index.html`. Its schema.org JSON-LD block was a bare
+  JSON object, which a JavaScript parser reads as a block and a label; it is
+  now a one-element array, valid as JSON-LD and as JavaScript. Search engines
+  read the same data.
+
+### Verified
+
+| Layer | Result |
+|---|---|
+| Backend | 460 tests, 0 failures |
+| Frontend (jsdom) | 1407 tests, 0 failures, ESLint 0 errors |
+| End to end, real Chromium against the built JAR | 69 tests, 0 failures, no server ERROR or WARN |
+| Known vulnerabilities (OSV for Java, `npm audit` for the frontend) | 0 |
+
 ## v1.0.0 — 2026-09-15
 
 First public release. Mars Climate Viewer is a web interface for the GEM-Mars

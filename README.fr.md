@@ -1,8 +1,10 @@
 # Mars Climate Viewer
 
 [![CI](https://github.com/ludvdber/MCV/actions/workflows/ci.yml/badge.svg)](https://github.com/ludvdber/MCV/actions/workflows/ci.yml)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/ludvdber/MCV?label=openssf%20scorecard)](https://scorecard.dev/viewer/?uri=github.com/ludvdber/MCV)
 [![Dernière version](https://img.shields.io/github/v/release/ludvdber/MCV?label=release&color=e4572e)](https://github.com/ludvdber/MCV/releases/latest)
 [![Licence : MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+[![Open source](https://img.shields.io/badge/open%20source-%E2%9C%93-3da639?logo=opensourceinitiative&logoColor=white)](https://github.com/ludvdber/MCV)
 [![Java 21](https://img.shields.io/badge/Java-21-007396.svg)](https://adoptium.net/)
 [![Démo en ligne](https://img.shields.io/badge/d%C3%A9mo-mars.ludovdb.be-1d9bf0.svg)](https://mars.ludovdb.be)
 

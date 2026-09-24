@@ -88,3 +88,34 @@ runner. To fix it permanently in the repository instead:
 ```bash
 git update-index --chmod=+x gradlew
 ```
+
+## Security workflows
+
+| Workflow | Runs | Does |
+|---|---|---|
+| `dependency-submission.yml` | every push to `master` | Submits the resolved Gradle dependency graph to GitHub. Without it the dependency graph only sees npm, and Dependabot never examines the Java side |
+| `scorecard.yml` | weekly and on push to `master` | OpenSSF Scorecard; results in Security → Code scanning, score in the README badge |
+| CodeQL (default setup, repository settings) | push and pull request | Static analysis of Java, JavaScript and the workflows |
+
+`.github/dependabot.yml` watches npm, Gradle and the GitHub Actions weekly.
+Minor and patch updates arrive grouped; a major version arrives alone, because
+it is a decision (Plotly 3 to 4 changes behaviour that the jsdom suite cannot
+see). Every action is pinned by commit SHA, with its version as a comment.
+
+## Publishing a release
+
+Releases are built by GitHub Actions, not on a workstation, so that each one
+carries a signed provenance attestation. Everything happens on the GitHub site:
+
+1. Raise `version` in `build.gradle` and `frontend/package.json` (they must
+   match) and add a `## vX.Y.Z` section to `CHANGELOG.md`: that section becomes
+   the release notes. `python .github/scripts/version.py` checks all three
+   locally.
+2. Commit and push to `master`.
+3. **Actions → release → Run workflow**, box unticked: a trial build. The five
+   files are attached to the run for seven days.
+4. Same again, box **ticked**: build, attestation, and a **draft** release.
+5. Review the draft, then **Publish release**. The tag is created at that
+   moment, on the commit that was built.
+
+To verify a downloaded file: `gh attestation verify mars-visualizer.jar --repo ludvdber/MCV`.

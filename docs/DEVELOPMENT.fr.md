@@ -91,3 +91,36 @@ exécuteur Linux. Pour corriger cela durablement dans le dépôt :
 ```bash
 git update-index --chmod=+x gradlew
 ```
+
+## Workflows de sécurité
+
+| Workflow | Quand | Fait |
+|---|---|---|
+| `dependency-submission.yml` | chaque poussée sur `master` | Soumet à GitHub le graphe des dépendances Gradle résolues. Sans lui, le graphe ne voit que npm et Dependabot n'examine jamais la partie Java |
+| `scorecard.yml` | chaque semaine et à chaque poussée sur `master` | OpenSSF Scorecard ; résultats dans Security → Code scanning, note dans le badge du README |
+| CodeQL (configuration par défaut, réglages du dépôt) | poussée et pull request | Analyse statique du Java, du JavaScript et des workflows |
+
+`.github/dependabot.yml` surveille npm, Gradle et les GitHub Actions chaque
+semaine. Les mises à jour mineures et correctives arrivent groupées ; une
+version majeure arrive seule, parce qu'elle se décide (Plotly 3 vers 4 change
+un comportement que la suite jsdom ne voit pas). Chaque action est épinglée par
+l'empreinte de son commit, la version en commentaire.
+
+## Publier une release
+
+Les releases sont construites par GitHub Actions, pas sur un poste, pour que
+chacune porte une attestation de provenance signée. Tout se fait sur le site :
+
+1. Monter `version` dans `build.gradle` et `frontend/package.json` (les deux
+   doivent concorder) et ajouter une section `## vX.Y.Z` au `CHANGELOG.md` :
+   c'est elle qui devient le texte de la release.
+   `python .github/scripts/version.py` vérifie les trois en local.
+2. Commiter et pousser sur `master`.
+3. **Actions → release → Run workflow**, case décochée : build d'essai. Les
+   cinq fichiers sont joints au run pendant sept jours.
+4. Même chose, case **cochée** : build, attestation, et release en
+   **brouillon**.
+5. Relire le brouillon, puis **Publish release**. Le tag est créé à ce
+   moment-là, sur le commit construit.
+
+Pour vérifier un fichier téléchargé : `gh attestation verify mars-visualizer.jar --repo ludvdber/MCV`.
