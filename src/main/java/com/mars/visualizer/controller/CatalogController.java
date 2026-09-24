@@ -2,7 +2,8 @@ package com.mars.visualizer.controller;
 
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.info.BuildProperties;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,6 +34,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class CatalogController extends AbstractDataController {
 
+    /** Version annoncee quand aucun build-info n'est present. */
+    static final String VERSION_INCONNUE = "dev";
+
     private final NetCDFReaderService      netcdfService;
     private final CatalogService           catalogService;
     private final IndividualCatalogService individualCatalogService;
@@ -43,12 +47,17 @@ public class CatalogController extends AbstractDataController {
                              ValidationService validationService,
                              IndividualCatalogService individualCatalogService,
                              DatasetResolver datasetResolver,
-                             @Value("${app.version:3.0}") String appVersion) {
+                             ObjectProvider<BuildProperties> buildProperties) {
         super(validationService, datasetResolver);
         this.netcdfService            = netcdfService;
         this.catalogService           = catalogService;
         this.individualCatalogService = individualCatalogService;
-        this.appVersion               = appVersion;
+        // Version du build (build.gradle), lue dans META-INF/build-info.properties.
+        // Absente quand l'application tourne sans passer par Gradle (depuis un IDE
+        // sans build prealable, ou dans une tranche de test) : on le dit plutot
+        // que d'inventer un numero, ce que faisait l'ancien « 3.0 » ecrit en dur.
+        BuildProperties build = buildProperties.getIfAvailable();
+        this.appVersion               = build != null ? build.getVersion() : VERSION_INCONNUE;
         log.info("CatalogController initialise (v{})", appVersion);
     }
 

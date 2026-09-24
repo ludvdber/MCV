@@ -17,12 +17,6 @@
       "defaultValue": 34
     },
     {
-      "name": "app.version",
-      "type": "java.lang.String",
-      "description": "Version applicative exposée par le endpoint /api/health.",
-      "defaultValue": "3.0"
-    },
-    {
       "name": "ratelimit.requests-per-minute",
       "type": "java.lang.Integer",
       "description": "Nombre maximum de requêtes API autorisées par minute par adresse IP.",

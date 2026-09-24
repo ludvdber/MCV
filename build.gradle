@@ -112,6 +112,18 @@ tasks.named('jar') {
 	enabled = false
 }
 
+// META-INF/build-info.properties : c'est de la que /api/health tire la version
+// annoncee. Elle etait ecrite en dur (app.version=3.0) et n'avait jamais suivi :
+// la prod en 1.0.0 repondait « 3.0 », une version qui n'a jamais existe, a tout
+// outil de supervision qui l'interroge. La version n'a plus qu'une source, la
+// ligne `version` ci-dessus. L'heure de build est exclue : avec elle, deux
+// builds du meme commit different, et la comparaison des JAR devient impossible.
+springBoot {
+	buildInfo {
+		excludes = ['time']
+	}
+}
+
 // ── Frontend build ──────────────────────────────────────────────────────
 def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
 def npmCmd = isWindows ? 'npm.cmd' : 'npm'

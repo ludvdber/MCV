@@ -198,6 +198,26 @@ class ApiEndpointsRestantsIntegrationTest {
 					.andExpect(status().isOk())
 					.andExpect(jsonPath("$.status").exists());
 		}
+
+		/**
+		 * La version annoncee est celle du build, lue dans build.gradle ici meme.
+		 * Elle etait ecrite en dur (« 3.0 ») et la prod en 1.0.0 l'annoncait a tout
+		 * superviseur : une version qui n'a jamais existe. Le test lit la ligne
+		 * `version` du build plutot qu'un litteral, sinon il faudrait le mettre a
+		 * jour a chaque release et il finirait par deriver exactement pareil.
+		 */
+		@Test
+		@DisplayName("annonce la version du build, pas un numero ecrit en dur")
+		void versionDuBuild() throws Exception {
+			String attendue = Files.readAllLines(Path.of("build.gradle")).stream()
+					.map(String::strip)
+					.filter(l -> l.startsWith("version = '"))
+					.map(l -> l.substring("version = '".length(), l.lastIndexOf('\'')))
+					.findFirst()
+					.orElseThrow(() -> new AssertionError("ligne version introuvable dans build.gradle"));
+			mvc().perform(get("/api/health"))
+					.andExpect(jsonPath("$.version").value(attendue));
+		}
 	}
 
 	@Nested

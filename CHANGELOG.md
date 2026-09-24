@@ -98,12 +98,16 @@ Viewer is and how to install it: see the [README](https://github.com/ludvdber/MC
 - The dataset part of an export filename is now always at most 40
   characters. A hand-edited permalink carrying an absurdly long identifier
   produced a name of any length.
+- `/api/health` announced version `3.0`, a number written by hand in the
+  configuration that had never existed: version 1.0.0 in production told any
+  monitoring tool it was 3.0. The version now comes from the build itself, and
+  a test ties the answer to `build.gradle`.
 
 ### Verified
 
 | Layer | Result |
 |---|---|
-| Backend | 460 tests, 0 failures |
+| Backend | 461 tests, 0 failures |
 | Frontend (jsdom) | 1418 tests (11 of them property-based), 0 failures, ESLint 0 errors |
 | End to end, real Chromium against the built JAR | 69 tests, 0 failures, no server ERROR or WARN |
 | Same data as 1.0.0, real files, compared with production | 37 requests, 537,993 values, 0 differences; NetCDF export byte-identical |

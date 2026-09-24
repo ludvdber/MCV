@@ -105,12 +105,16 @@ changent pas.
 - La partie « jeu de données » d'un nom de fichier d'export fait désormais au
   plus 40 caractères. Un permalien retouché à la main avec un identifiant
   démesuré produisait un nom de n'importe quelle longueur.
+- `/api/health` annonçait la version `3.0`, un numéro écrit à la main dans la
+  configuration et qui n'a jamais existé : la 1.0.0 en production se disait
+  3.0 à tout outil de supervision. La version vient maintenant du build
+  lui-même, et un test relie la réponse à `build.gradle`.
 
 ### Vérifié
 
 | Couche | Résultat |
 |---|---|
-| Backend | 460 tests, 0 échec |
+| Backend | 461 tests, 0 échec |
 | Frontend (jsdom) | 1418 tests (dont 11 par propriétés), 0 échec, ESLint 0 erreur |
 | Bout en bout, vrai Chromium contre le JAR construit | 69 tests, 0 échec, aucune ERROR ni WARN serveur |
 | Mêmes données que la 1.0.0, vrais fichiers, comparées à la production | 37 requêtes, 537 993 valeurs, 0 différence ; export NetCDF identique octet pour octet |
