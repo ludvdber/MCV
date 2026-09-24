@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/ludvdber/MCV/actions/workflows/ci.yml/badge.svg)](https://github.com/ludvdber/MCV/actions/workflows/ci.yml)
 [![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/ludvdber/MCV?label=openssf%20scorecard)](https://scorecard.dev/viewer/?uri=github.com/ludvdber/MCV)
+[![CodeQL](https://github.com/ludvdber/MCV/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/ludvdber/MCV/actions/workflows/github-code-scanning/codeql)
 [![Dernière version](https://img.shields.io/github/v/release/ludvdber/MCV?label=release&color=e4572e)](https://github.com/ludvdber/MCV/releases/latest)
 [![Licence : MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 [![Open source](https://img.shields.io/badge/open%20source-%E2%9C%93-3da639?logo=opensourceinitiative&logoColor=white)](https://github.com/ludvdber/MCV)

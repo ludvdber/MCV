@@ -2,29 +2,30 @@
 
 ## Supported Versions
 
-Only the latest release of Mars Climate Viewer receives security updates.
+Only the latest release of Mars Climate Viewer, which is the version running in
+production, receives security updates.
 
 | Version | Supported |
 | ------- | --------- |
-| Latest  | ✅ |
+| Latest release | ✅ |
 | Older versions | ❌ |
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in Mars Climate Viewer, please do not
-publish it in a public GitHub issue.
+Please do not disclose security vulnerabilities through public GitHub issues.
 
-Report it privately through GitHub Security Advisories:
+Report them privately through GitHub's private vulnerability reporting:
 [report a vulnerability](https://github.com/ludvdber/MCV/security/advisories/new).
 
-Include, if possible:
+Please include, if possible:
 
-- A description of the vulnerability
-- Steps to reproduce the issue
-- The affected version
-- Any potential security impact
+- the affected version
+- a description of the vulnerability
+- steps to reproduce
+- the potential security impact
+- relevant logs or screenshots
 
-I will investigate security reports as soon as possible.
+Security reports will be investigated before any public disclosure.
 
 ## Verifying a Release
 
