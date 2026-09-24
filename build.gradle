@@ -52,10 +52,10 @@ dependencies {
 	// Spring Boot starters
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	// NetCDF library (UCAR) - 5.9.1 = dernière stable et fonctionnelle
-	implementation 'edu.ucar:cdm-core:5.9.1'
+	implementation 'edu.ucar:cdm-core:5.10.0'
 
 	// Guava - requis par cdm-core 5.9.1
-	implementation 'com.google.guava:guava:33.6.0-jre'
+	implementation 'com.google.guava:guava:33.7.1-jre'
 
 	// Lombok
 	compileOnly 'org.projectlombok:lombok'
