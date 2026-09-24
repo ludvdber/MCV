@@ -3,6 +3,36 @@
 Toutes les évolutions notables de Mars Climate Viewer. Les dates sont au format
 ISO (AAAA-MM-JJ). English version: [CHANGELOG.md](CHANGELOG.md)
 
+## v1.0.2 — 2026-09-24
+
+Une version d'une seule correction, trouvée en auditant le site en ligne. Rien
+ne change dans ce que l'application affiche ou calcule. Depuis la 1.0.1 :
+remplacer le JAR et redémarrer ; le fichier de configuration et les fichiers de
+déploiement ne changent pas.
+
+### Corrigé
+
+- **Une adresse inconnue répond maintenant 404, et non 200.** Toute adresse
+  hors `/api` est confiée à l'application web pour qu'elle affiche ses propres
+  pages, et elle affichait bien son écran « page introuvable », mais sous un
+  statut `200 OK`. Mesuré sur le site en ligne : `/actuator/env`, `/wp-admin` et
+  n'importe quelle faute de frappe répondaient 200. Un scanner de sécurité y lit
+  un actuator Spring ou une page d'administration exposés, un outil de
+  supervision une page qui existe, un moteur de recherche un doublon de
+  l'accueil. La page que voit le visiteur ne change pas ; seul le statut dit
+  désormais la vérité. Les routes connues sont celles que liste déjà le
+  sitemap, qu'un test garde en phase avec le routeur de l'application : une
+  nouvelle page ne peut donc pas se retrouver derrière un 404 en silence.
+
+### Vérifié
+
+| Couche | Résultat |
+|---|---|
+| Backend | 463 tests, 0 échec |
+| Frontend (jsdom) | 1418 tests, 0 échec, ESLint 0 erreur |
+| Bout en bout, vrai Chromium contre le JAR construit | 69 tests, 0 échec, aucune ERROR ni WARN serveur ; la vérification du 404 échoue contre la 1.0.1, comme il se doit |
+| Audit du site en ligne (1.0.1) | signature de la release vérifiée avec Sigstore, 82/82 fichiers statiques identiques au JAR signé, 537 993 valeurs identiques, 69/69 de bout en bout, TLS 1.3 uniquement, en-têtes de sécurité présents |
+
 ## v1.0.1 — 2026-09-24
 
 Version de sécurité et de chaîne d'approvisionnement. Rien ne change dans ce que

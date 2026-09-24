@@ -198,6 +198,51 @@ class SecuriteChaineFiltresTest {
 	}
 
 	/**
+	 * Une adresse que l'application ne connait pas doit repondre 404, pas 200.
+	 *
+	 * <p>Toute route sans point hors {@code /api} est redirigee vers index.html
+	 * pour que React puisse la rendre, et React affiche bien sa page 404. Mais le
+	 * STATUT restait 200 : mesure en production, {@code /actuator/env},
+	 * {@code /wp-admin} et n'importe quelle faute de frappe repondaient
+	 * « 200 OK ». Un scanner de securite y lit un actuator Spring expose, un
+	 * superviseur une page qui existe, un moteur de recherche un doublon de
+	 * l'accueil (le « soft 404 »). Le corps reste le meme, pour que le visiteur
+	 * humain voie la page 404 de l'application et non une page blanche.
+	 */
+	@Test
+	@DisplayName("une adresse inconnue repond 404 avec la page de l'application")
+	void adresseInconnue() {
+		for (String chemin : new String[] { "/actuator/env", "/wp-admin", "/cette-page-nexiste-pas",
+				"/slice/inconnu", "/admin" }) {
+			HttpResponse<String> r = appeler(chemin);
+			assertThat(r.statusCode()).as("GET %s", chemin).isEqualTo(404);
+			assertThat(r.body()).as("GET %s doit rendre l'application, qui affiche sa page 404", chemin)
+					.contains("<div id=\"root\">");
+			porteLesEnTetes(r, "404 SPA " + chemin);
+		}
+	}
+
+	/**
+	 * Le pendant : chaque route du routeur React (la liste de
+	 * {@code SeoController.ROUTES}, gardee en phase avec App.jsx par
+	 * {@code SeoTest}) repond 200, y compris dans la casse que React Router
+	 * accepte, et avec les parametres d'un permalien. (La barre finale,
+	 * {@code /slice/}, repondait deja 404 avant ce test : Spring ne la fait plus
+	 * correspondre, et aucun lien de l'application ne la produit.)
+	 */
+	@Test
+	@DisplayName("chaque route de l'application repond 200, permaliens compris")
+	void routesConnues() {
+		for (String route : com.mars.visualizer.controller.SeoController.ROUTES.keySet()) {
+			assertThat(appeler(route).statusCode()).as("GET %s", route).isEqualTo(200);
+		}
+		for (String chemin : new String[] { "/Slice", "/index.html",
+				"/slice?dataset=x&t=12&alt=3", "/explore?v=1" }) {
+			assertThat(appeler(chemin).statusCode()).as("GET %s", chemin).isEqualTo(200);
+		}
+	}
+
+	/**
 	 * Le jeton d'adresse publique de index.html est substitue par le
 	 * controleur. S'il survit, la page s'affiche normalement et seules les
 	 * balises invisibles sont abimees : personne ne le remarque avant que

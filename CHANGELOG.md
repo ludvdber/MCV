@@ -3,6 +3,34 @@
 All notable changes to Mars Climate Viewer. Dates are ISO (YYYY-MM-DD).
 French version: [CHANGELOG.fr.md](CHANGELOG.fr.md)
 
+## v1.0.2 — 2026-09-24
+
+A one-fix release found by auditing the live site. Nothing changes in what the
+application shows or computes. Upgrading from 1.0.1: replace the JAR and
+restart; the configuration file and the deployment files are unchanged.
+
+### Fixed
+
+- **An unknown address now answers 404, not 200.** Every path outside `/api`
+  is handed to the web application so that it can render its own pages, and
+  it did show its "page not found" screen, but under a `200 OK` status.
+  Measured on the live site: `/actuator/env`, `/wp-admin` and any typo all
+  answered 200. A security scanner reads that as an exposed Spring actuator or
+  admin page, a monitoring tool as a page that exists, and a search engine as
+  a duplicate of the home page. The page a visitor sees is unchanged; only the
+  status now tells the truth. The known routes are the ones already listed in
+  the sitemap, which a test keeps in step with the application's router, so a
+  new page cannot silently end up behind a 404.
+
+### Verified
+
+| Layer | Result |
+|---|---|
+| Backend | 463 tests, 0 failures |
+| Frontend (jsdom) | 1418 tests, 0 failures, ESLint 0 errors |
+| End to end, real Chromium against the built JAR | 69 tests, 0 failures, no server ERROR or WARN; the 404 check fails against 1.0.1, as it should |
+| Live site audit (1.0.1) | release signature verified with Sigstore, 82/82 static files identical to the signed JAR, 537,993 values identical to it, 69/69 end to end, TLS 1.3 only, security headers present |
+
 ## v1.0.1 — 2026-09-24
 
 Security and supply-chain release. Nothing changes in what the application

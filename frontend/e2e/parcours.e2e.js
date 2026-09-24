@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
-  ouvrir, aller, attendreUnGraphe,
+  BASE, ouvrir, aller, attendreUnGraphe,
   conteneursVides, debordementHorizontal, erreursReelles,
 } from './harnais.js';
 
@@ -209,5 +209,18 @@ describe('pages annexes', () => {
     expect((await page.locator('body').innerText()).length,
       'une page blanche laisse le visiteur sans issue').toBeGreaterThan(50);
     expect(erreursReelles(erreurs)).toEqual([]);
+
+    // Le statut aussi : il repondait 200, et un scanner lisait alors
+    // /actuator/env ou /wp-admin comme exposes. Exige seulement quand c'est le
+    // serveur de l'application qui repond (il pose une CSP) : le serveur de
+    // developpement Vite renvoie 200 a toute adresse, par construction.
+    for (const chemin of ['/cette-page-nexiste-pas', '/actuator/env']) {
+      const reponse = await page.request.get(BASE + chemin);
+      if (reponse.headers()['content-security-policy']) {
+        expect(reponse.status(), `GET ${chemin}`).toBe(404);
+      }
+    }
+    const route = await page.request.get(BASE + '/slice');
+    expect(route.status(), 'une vraie route reste en 200').toBe(200);
   }, 120000);
 });

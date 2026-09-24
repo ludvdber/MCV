@@ -19,7 +19,7 @@ rewriting the front page.
 | `./gradlew build` | Full build: frontend, compilation, tests, JAR in `build/libs/` |
 | `./gradlew build -x test` | Same without the test suite |
 | `./gradlew bootJar` | JAR only, no tests |
-| `./gradlew test` | JUnit 5 suite (461 tests) + JaCoCo coverage report |
+| `./gradlew test` | JUnit 5 suite (463 tests) + JaCoCo coverage report |
 | `./gradlew buildFrontend` | Frontend production build only |
 
 Coverage report: `build/reports/jacoco/test/html/index.html`. Currently 96.1% of instructions, 87.5% of branches, 95.8% of lines.

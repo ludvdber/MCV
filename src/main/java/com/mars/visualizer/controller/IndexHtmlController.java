@@ -3,10 +3,12 @@ package com.mars.visualizer.controller;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.mars.visualizer.service.SiteUrlService;
 
+import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
 
 /**
@@ -81,9 +84,39 @@ public class IndexHtmlController {
 				cache.put(base, rendu);
 			}
 		}
-		return ResponseEntity.ok()
+		return ResponseEntity.status(statut(requete))
 				.contentType(MediaType.valueOf("text/html;charset=UTF-8"))
 				.body(rendu);
+	}
+
+	/**
+	 * 200 pour une route que l'application connait, 404 pour toute autre.
+	 *
+	 * <p>Toute adresse sans point hors {@code /api} arrive ici par le forward
+	 * de {@code SpaForwardingConfig}, et le corps doit rester l'application :
+	 * c'est elle qui affiche la page 404 au visiteur. Mais le statut etait
+	 * toujours 200, mesure en production sur {@code /actuator/env} et
+	 * {@code /wp-admin} : un scanner de securite y voit un actuator expose, un
+	 * superviseur une page qui existe, un moteur de recherche un doublon de
+	 * l'accueil. Le statut dit maintenant la verite, le corps ne change pas.
+	 *
+	 * <p>La liste des routes est celle du sitemap ({@link SeoController#ROUTES}),
+	 * que {@code SeoTest} garde en phase avec le routeur React : une page
+	 * ajoutee a App.jsx et oubliee la-bas fait deja echouer un test, elle ne
+	 * peut donc pas se retrouver en 404 en silence. La casse est ignoree comme
+	 * le fait React Router.
+	 */
+	static HttpStatus statut(HttpServletRequest requete) {
+		Object origine = requete.getAttribute(RequestDispatcher.FORWARD_REQUEST_URI);
+		if (origine == null) {
+			// Appel direct de « / » ou « /index.html » : le precache du service
+			// worker passe par la, il doit toujours obtenir 200.
+			return HttpStatus.OK;
+		}
+		String chemin = origine.toString().substring(requete.getContextPath().length());
+		return SeoController.ROUTES.containsKey(chemin.toLowerCase(Locale.ROOT))
+				? HttpStatus.OK
+				: HttpStatus.NOT_FOUND;
 	}
 
 	/**

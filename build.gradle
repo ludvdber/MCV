@@ -24,7 +24,7 @@ group = 'com.mars'
 // Un SNAPSHOT est par definition « pas encore publie » : une release ne peut
 // pas en etre un. Meme numero que frontend/package.json, sinon deux versions
 // coexistent dans un seul livrable.
-version = '1.0.1'
+version = '1.0.2'
 description = 'Mars Climate Viewer'
 
 // Tomcat force au-dessus de ce que fixe Spring Boot 4.1.1 (11.0.24). Le serveur
