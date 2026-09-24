@@ -1,3 +1,18 @@
+// Classpath de CONSTRUCTION, pas celui du JAR : le plugin Spring Boot tire
+// commons-lang3 3.16.0 (via spring-boot-buildpack-platform -> commons-compress),
+// qui porte une alerte moderee (CVE-2025-48924, recursion non bornee dans
+// ClassUtils.getClass, corrigee en 3.18.0). Rien de cela n'est livre ni execute
+// a l'execution ; la contrainte existe parce que le graphe soumis a GitHub
+// inclut le classpath du build, et que Dependabot ne sait pas mettre a jour la
+// dependance d'un plugin (sa PR echoue). Retirer quand le plugin tire >= 3.18.0.
+buildscript {
+	dependencies {
+		constraints {
+			classpath('org.apache.commons:commons-lang3:3.20.0')
+		}
+	}
+}
+
 plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.1.1'
@@ -52,10 +67,10 @@ dependencies {
 	// Spring Boot starters
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	// NetCDF library (UCAR) - 5.9.1 = dernière stable et fonctionnelle
-	implementation 'edu.ucar:cdm-core:5.9.1'
+	implementation 'edu.ucar:cdm-core:5.10.0'
 
 	// Guava - requis par cdm-core 5.9.1
-	implementation 'com.google.guava:guava:33.6.0-jre'
+	implementation 'com.google.guava:guava:33.7.1-jre'
 
 	// Lombok
 	compileOnly 'org.projectlombok:lombok'

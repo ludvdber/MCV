@@ -41,5 +41,13 @@ updates:
       frontend:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+    # eslint-plugin-react-hooks est epingle a 7.0.1 dans package.json, et
+    # volontairement : 7.1 ajoute des regles qui refusent le code des
+    # permaliens, et va de pair avec ESLint 10, lui aussi retenu. Sans cette
+    # exclusion, le passage en 7.1 revient chaque lundi DANS la PR groupee, et
+    # la fait echouer tout entiere. A retirer le jour ou la migration se fait.
+    ignore:
+      - dependency-name: "eslint-plugin-react-hooks"
+        versions: [">=7.1.0"]
     commit-message:
       prefix: "deps"

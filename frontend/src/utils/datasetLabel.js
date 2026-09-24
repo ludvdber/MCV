@@ -88,10 +88,21 @@ const LS_RE = /ls[_ ]?(\d{3})/i;
  */
 export function datasetFileToken(id) {
   if (!id) return 'dataset';
+  return jetonBrut(id).slice(0, JETON_MAX);
+}
+
+/* La longueur est bornee sur TOUTES les branches, pas seulement sur le repli.
+ * Les motifs MY(\d+) et LS([\d.]+) n'ont pas de limite, et l'identifiant peut
+ * venir d'un permalien retouche a la main : « …_MY » suivi de cent chiffres
+ * donnait un jeton de 108 caracteres (trouve par les tests de proprietes,
+ * entreesLibres.test.js). Un vrai identifiant n'en produit jamais plus de 13. */
+const JETON_MAX = 40;
+
+function jetonBrut(id) {
   const ind = id.match(IND_RE);
   if (ind) return `MY${ind[1]}_Ls${ind[2].replace('.', 'p')}`;
   const my = id.match(MY_RE);
   const ls = id.match(LS_RE);
   if (my && ls) return `MY${my[1]}_Ls${ls[1]}`;
-  return id.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 40);
+  return id.replace(/[^A-Za-z0-9._-]/g, '_');
 }

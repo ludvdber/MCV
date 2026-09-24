@@ -86,9 +86,23 @@ export function niveauxContour(grille, ncontours = 15) {
  * @returns {{start:number,end:number,size:number}} toujours une bande non vide
  */
 export function niveauxPourBornes(min, max, ncontours = 15) {
+  const bande = calculerBande(min, max, ncontours);
+  // Garde finale, sur le RESULTAT et pas sur les entrees : pres des extremes
+  // des doubles (bornes vers ±1,6e308), encadrer la valeur ou arrondir au pas
+  // deborde en ±Infinity alors que chaque entree etait finie. Trouve par les
+  // tests de proprietes (entreesLibres.test.js), aucun champ physique n'est
+  // concerne, mais le contrat est « toujours une bande valide », sans reserve.
+  const finie = Number.isFinite(bande.start) && Number.isFinite(bande.end) && Number.isFinite(bande.size);
+  return finie ? bande : bandeParDefaut();
+}
+
+/** Bande de repli quand aucune bande representable n'existe (objet neuf : Plotly peut le modifier). */
+const bandeParDefaut = () => ({ start: -1, end: 1, size: 1 });
+
+function calculerBande(min, max, ncontours) {
   // Aucune maille exploitable (grille entierement masquee, reponse vide) :
   // il n'y a rien a tracer, mais il faut quand meme une bande valide.
-  if (!Number.isFinite(min) || !Number.isFinite(max)) return { start: -1, end: 1, size: 1 };
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return bandeParDefaut();
 
   // Champ uniforme : aucune ligne de niveau n'a de sens, mais il faut quand
   // meme une bande NON VIDE, sinon on reproduit exactement la panne que ce
@@ -129,7 +143,13 @@ export function niveauxPourBornes(min, max, ncontours = 15) {
 
   // Etendue plus etroite que deux pas : on garde un niveau unique au milieu
   // plutot qu'une bande vide, qui est precisement la panne evitee ici.
-  if (start > end) {
+  //
+  // Meme sortie quand le pas est plus fin que la resolution des doubles a
+  // cette hauteur (start + size === start) : les niveaux seraient
+  // indiscernables et leur nombre, fixe par l'arrondi et non par le pas,
+  // atteignait deux fois celui vise. Hors d'atteinte avec des donnees float32,
+  // dont l'ecart minimal est bien plus grossier.
+  if (start > end || start + size === start || end - size === end) {
     const milieu = (start + end) / 2;
     return { start: milieu, end: milieu, size };
   }
@@ -147,8 +167,23 @@ function bandeUnique(valeur) {
   return { start: arrondir(valeur - pas, pas), end: arrondir(valeur + pas, pas), size: pas };
 }
 
-/** Arrondit au chiffre significatif du pas (12 decimales sous le pas). */
+/**
+ * Arrondit a six chiffres sous celui du pas, pour effacer les miettes binaires.
+ *
+ * En chiffres SIGNIFICATIFS, pas en decimales. La premiere version faisait
+ * `toFixed(decimales)` avec un plafond de 15 decimales ; sous un pas de 1e-9
+ * le plafond mordait, et sous 1e-15 il recollait les niveaux sur une grille
+ * plus grossiere que le pas lui-meme : autour de 4,7e-4 avec un pas de 2e-20,
+ * start et end tombaient sur deux multiples de 1e-15 et la bande demandait
+ * 50 000 niveaux pour 32 vises, de quoi geler l'onglet (trouve par les tests
+ * de proprietes). `toPrecision` n'a pas de plafond de ce genre. Sur toute
+ * etendue ou l'ancien plafond ne mordait pas, le resultat est identique : les
+ * 27 mesures relevees contre Plotly (contourLevels.test.js) le verifient.
+ */
 function arrondir(valeur, pas) {
-  const decimales = Math.min(15, Math.max(0, -Math.floor(Math.log10(Math.abs(pas))) + 6));
-  return Number(valeur.toFixed(decimales));
+  if (valeur === 0) return 0;
+  const chiffres = Math.floor(Math.log10(Math.abs(valeur))) - Math.floor(Math.log10(Math.abs(pas))) + 7;
+  // Valeur a moins d'un millionieme de pas de zero : c'est zero sur cette grille.
+  if (chiffres < 1) return 0;
+  return Number(valeur.toPrecision(Math.min(17, chiffres)));
 }
