@@ -242,6 +242,8 @@ couverture et l'intégration continue :
 | [DEPLOYMENT.fr.md](DEPLOYMENT.fr.md) | Installation serveur, service systemd, reverse proxy |
 | [docs/DEVELOPMENT.fr.md](docs/DEVELOPMENT.fr.md) | Suites de tests, couverture, intégration continue |
 | [CHANGELOG.fr.md](CHANGELOG.fr.md) | Ce que contient chaque version publiée, et ce qu'elle a corrigé |
+| [CONTRIBUTING.fr.md](CONTRIBUTING.fr.md) | Signaler un bug, proposer une modification, la politique de tests |
+| [SECURITY.md](SECURITY.md) | Signaler une vulnérabilité en privé, vérifier une release |
 | [config/application.properties](config/application.properties) | Modèle de configuration commenté |
 | [deploy/](deploy/) | Unité systemd et bloc Nginx prêts à copier, avec les trois variantes réseau |
 

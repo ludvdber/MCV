@@ -239,6 +239,8 @@ continuous integration setup: **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**.
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Server installation, systemd service, reverse proxy |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Test suites, coverage, continuous integration |
 | [CHANGELOG.md](CHANGELOG.md) | What each released version contains, and what it fixed |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Reporting a bug, proposing a change, the test policy |
+| [SECURITY.md](SECURITY.md) | Reporting a vulnerability privately, verifying a release |
 | [config/application.properties](config/application.properties) | Commented configuration template |
 | [deploy/](deploy/) | Ready-to-copy systemd unit and Nginx block, with the three network variants |
 
