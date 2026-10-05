@@ -51,7 +51,7 @@ jobs:
 
       # Le wrapper est un binaire du depot qu'on s'apprete a EXECUTER : on
       # verifie son empreinte contre celles publiees par Gradle avant tout.
-      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
       # La version se LIT dans build.gradle, elle ne se saisit pas : un tag
       # tape a la main pourrait annoncer une autre version que le JAR. Les
@@ -96,7 +96,7 @@ jobs:
         with:
           node-version: "24"
 
-      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         with:
           cache-disabled: true
 
